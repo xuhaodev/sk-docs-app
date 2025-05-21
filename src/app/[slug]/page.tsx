@@ -1,24 +1,30 @@
 import { getDocData, getAllDocIds } from '@/lib/docs';
 import { notFound } from 'next/navigation';
-import { type Metadata } from 'next';
+import type { Metadata } from 'next';
+
+type Props = {
+  params: Promise<{ slug: string }> | { slug: string };
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const resolvedParams = await Promise.resolve(params);
+  const docData = await getDocData(resolvedParams.slug);
+  if (!docData) {
+    return {};
+  }
+  return {
+    title: docData.title,
+  };
+}
 
 export async function generateStaticParams() {
   const paths = getAllDocIds();
   return paths.map(path => ({ slug: path.params.slug }));
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }) {
-  const docData = await getDocData(params.slug);
-  if (!docData) {
-    return {};
-  }
-  return {
-    title: docData.title,
-  } satisfies Metadata;
-}
-
-export default async function DocPage({ params }: { params: { slug: string } }) {
-  const docData = await getDocData(params.slug);
+export default async function DocPage({ params }: Props) {
+  const resolvedParams = await Promise.resolve(params);
+  const docData = await getDocData(resolvedParams.slug);
 
   if (!docData) {
     notFound();
