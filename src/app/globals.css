@@ -1,26 +1,63 @@
-@import "tailwindcss";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --foreground: #1a1a1a;
+  --sidebar-bg: #ffffff;
+  --sidebar-border: #e5e7eb;
+  --link-color: #3b82f6;
+  --link-hover: #2563eb;
+  --hover-bg: #f3f4f6;
+  --code-bg: #f8f9fa;
+  --sidebar-width: 256px;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #0f172a;      /* 深蓝黑色背景 */
+    --foreground: #e2e8f0;      /* 柔和的浅灰色文字 */
+    --sidebar-bg: #1e293b;      /* 稍浅的深蓝黑色侧边栏 */
+    --sidebar-border: #334155;   /* 深色但可见的边框 */
+    --link-color: #38bdf8;      /* 明亮的天蓝色链接 */
+    --link-hover: #7dd3fc;      /* 更亮的悬停效果 */
+    --hover-bg: #1e293b;        /* 与侧边栏相同的悬停背景 */
+    --code-bg: #1e293b;         /* 代码块背景 */
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+}
+
+/* 拖拽相关样式 */
+.resize-x {
+  cursor: col-resize !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
+}
+
+.resize-handler {
+  position: relative;
+}
+
+.resize-handler:hover::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -2px;
+  right: -2px;
+  bottom: 0;
+  background: var(--link-color);
+  opacity: 0.1;
+  transition: opacity 0.15s;
+}
+
+/* 平滑过渡效果 */
+aside, main {
+  transition: width 0.05s ease-out, margin-left 0.05s ease-out;
 }
