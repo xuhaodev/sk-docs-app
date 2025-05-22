@@ -1,24 +1,23 @@
+# Text Search Abstraction
 
-# 文本搜索抽象
+## Context and Problem Statement
 
-## 上下文和问题陈述
+Semantic Kernel supports search with popular Vector databases (such as Azure AI Search, Chroma, Milvus) as well as Web search engines (such as Bing, Google).
+There are two sets of abstractions and plugins depending on whether the developer wants to perform search against a Vector database or a Web search engine.
+The current abstractions are experimental, and the purpose of this ADR is to advance the design of the abstractions so that they can be promoted to non-experimental status.
 
-Semantic Kernel 支持使用流行的 Vector 数据库（如 Azure AI Search、Chroma、Milvus）以及 Web 搜索引擎（如 Bing、Google）进行搜索。
-有两组抽象和插件，具体取决于开发人员是要对 Vector 数据库还是 Web 搜索引擎执行搜索。
-当前的抽象是实验性的，此 ADR 的目的是推进抽象的设计，以便它们可以升级到非实验状态。
+We need to support two main use cases:
 
-我们需要支持两个主要用例：
+1. Enable Prompt Engineers to easily insert grounding information in prompts, i.e., support Retrieval-Augmented Generation scenarios.
+2. Enable developers to register search plugins that can be invoked by LLMs to retrieve additional data needed to respond to user requests, i.e., support function calling scenarios.
 
-1. 使 Prompt Engineers 能够轻松地在提示中插入接地信息，即支持 Retrieval-Augmented Generation 场景。
-2. 使开发人员能够注册搜索插件，LLM 可以调用这些插件来检索响应用户请求所需的其他数据，即支持函数调用场景。
+What these two scenarios have in common is that we need to generate a `KernelPlugin` from a search service and register it for use with the `Kernel`.
 
-这两种方案的共同点是，我们需要 `KernelPlugin` 从搜索服务生成一个，并将其注册以用于 `Kernel`.
+### Retrieval-Augmented Generation Scenarios
 
-### 检索增强生成场景
+Retrieval-Augmented Generation (RAG) is the process of optimizing LLM output so that, when generating a response, it references authoritative data that may not have been part of its training data. This reduces the likelihood of hallucinations and also allows citations to be provided that the end user can use to independently verify the LLM's response. RAG works by retrieving additional data relevant to the user's query and then augmenting the prompt with this data before sending to the LLM.
 
-检索增强生成 （RAG） 是优化 LLM 输出的过程，因此在生成响应时，它会引用可能不是其训练数据一部分的权威数据。这降低了幻觉的可能性，并且还允许提供最终用户可以用来独立验证 LLM 的响应的引文。RAG 的工作原理是检索与 use 查询相关的其他数据，然后在发送到 LLM 之前使用此数据扩充提示。
-
-请考虑以下示例，其中排名靠前的 Bing 搜索结果作为附加数据包含在提示中。
+Consider the following example where top-ranked Bing search results are included in the prompt as additional data.
 
 ```csharp
 // Create a kernel with OpenAI chat completion
@@ -42,18 +41,18 @@ KernelArguments arguments = new() { { "query", query } };
 Console.WriteLine(await kernel.InvokePromptAsync("{{SearchPlugin.Search $query}}. {{$query}}", arguments));
 ```
 
-此示例的工作原理如下：
+This example works as follows:
 
-1. 创建 `BingTextSearch` 可执行 Bing 搜索查询的 Bing。
-2. 将 `BingTextSearch` 包装为 可在渲染提示时调用的插件。
-3. 插入对插件的调用，该插件使用 user 查询执行搜索。
-4. 提示将使用顶部搜索结果中的摘要进行扩充。
+1. Create a `BingTextSearch` that can execute Bing search queries.
+2. Wrap the `BingTextSearch` as a plugin that can be invoked when rendering the prompt.
+3. Insert a call to the plugin which executes a search using the user's query.
+4. The prompt will be augmented with summaries from the top search results.
 
-**注：** 在这种情况下，搜索结果中的摘要是提示中唯一包含的数据。
-如果 LLM 认为相关，则应使用此数据，但没有向用户提供允许的反馈机制
-它们来验证数据的来源。
+**Note:** In this case, summaries from the search results are the only data included in the prompt.
+If the LLM finds it relevant, it should use this data, but there is no feedback mechanism provided to users
+that allows them to verify the source of the data.
 
-以下示例显示了此问题的解决方案。
+The following example shows a solution to this problem.
 
 ```csharp
 // Create a kernel with OpenAI chat completion
@@ -65,9 +64,7 @@ kernelBuilder.AddOpenAIChatCompletion(
 Kernel kernel = kernelBuilder.Build();
 
 // Create a text search using the Bing search service
-var textSearch = new BingTextSearch(new(TestConfiguration.Bing.ApiKey));
-
-// Build a text search plugin with Bing search service and add to the kernel
+var textSearch = new BingTextSearch(new(TestConfiguration.Bing.ApiKey));// Build a text search plugin with Bing search service and add to the kernel
 var searchPlugin = textSearch.CreateKernelPluginWithGetSearchResults("SearchPlugin");
 kernel.Plugins.Add(searchPlugin);
 
@@ -98,16 +95,16 @@ Console.WriteLine(await kernel.InvokePromptAsync(
 ));
 ```
 
-此示例的工作原理如下：
+This example works as follows:
 
-1. 创建一个 `BingTextSearch` 可以执行必应搜索查询并将响应转换为规范化格式的响应。
-2. 规范化格式是一个 Semantic Kernel 抽象，它 `TextSearchResult` 包括每个搜索结果的名称、值和链接。
-3. 将 `BingTextSearch` 包装为 可在渲染提示时调用的插件。
-4. 插入对插件的调用，该插件使用 user 查询执行搜索。
-5. 提示将增加顶部搜索结果中的名称、值和链接。
-6. 该提示还指示 LLM 在响应中包含对相关信息的引用。
+1. Create a `BingTextSearch` that can execute Bing search queries and convert the response to a normalized format.
+2. The normalized format is a Semantic Kernel abstraction `TextSearchResult` that includes name, value, and link for each search result.
+3. Wrap the `BingTextSearch` as a plugin that can be invoked when rendering the prompt.
+4. Insert a call to the plugin which executes a search using the user's query.
+5. The prompt will be augmented with name, value, and link from the top search results.
+6. The prompt also instructs the LLM to include references to relevant information in the response.
 
-示例响应如下所示：
+An example response looks like this:
 
 ```
 The Semantic Kernel (SK) is a lightweight and powerful SDK developed by Microsoft that integrates Large Language Models (LLMs) such as OpenAI, Azure OpenAI, and Hugging Face with traditional programming languages like C#, Python, and Java ([GitHub](https://github.com/microsoft/semantic-kernel)). It facilitates the combination of natural language processing capabilities with pre-existing APIs and code, enabling developers to add large language capabilities to their applications swiftly ([What It Is and Why It Matters](https://techcommunity.microsoft.com/t5/microsoft-developer-community/semantic-kernel-what-it-is-and-why-it-matters/ba-p/3877022)).
@@ -117,13 +114,12 @@ The Semantic Kernel serves as a middleware that translates the AI model's reques
 In addition to its core capabilities, Semantic Kernel supports advanced functionalities like prompt templating, chaining, and planning, which allow developers to create intricate workflows tailored to specific use cases ([Architecting AI Apps](https://devblogs.microsoft.com/semantic-kernel/architecting-ai-apps-with-semantic-kernel/)).
 
 By describing your existing code to the AI models, Semantic Kernel effectively marshals the request to the appropriate function, returns results back to the LLM, and enables the AI agent to generate a final response ([Quickly Start](https://learn.microsoft.com/en-us/semantic-kernel/get-started/quick-start-guide)). This process brings unparalleled productivity and new experiences to application users ([Hello, Semantic Kernel!](https://devblogs.microsoft.com/semantic-kernel/hello-world/)).
-
 The Semantic Kernel is an indispensable tool for developers aiming to build advanced AI applications by seamlessly integrating large language models with traditional programming frameworks ([Comprehensive Guide](https://gregdziedzic.com/understanding-semantic-kernel-a-comprehensive-guide/)).
 ```
 
-**注意：** 在这种情况下，有一个指向相关信息的链接，以便最终用户可以点击这些链接来验证响应。
+**Note:** In this case, there are links to relevant information so that end users can click on these links to verify the response.
 
-下一个示例显示了使用 Bing 文本搜索和内置结果类型的替代解决方案。
+The next example shows an alternative solution using Bing text search and built-in result types.
 
 ```csharp
 // Create a kernel with OpenAI chat completion
@@ -168,16 +164,16 @@ Console.WriteLine(await kernel.InvokePromptAsync(
 ));
 ```
 
-此示例的工作原理如下：
+This example works as follows:
 
-1. 创建 `BingTextSearch` 可执行 Bing 搜索查询的 Bing。
-2. 默认格式是 Bing 特定类，该类包括 `BingWebPage` 名称、代码段、显示 URL 和上次为每个搜索结果爬网的日期。
-3. 将 `BingTextSearch` 包装为 可在渲染提示时调用的插件。
-4. 插入对插件的调用，该插件使用 user 查询执行搜索。
-5. 提示将添加名称、代码段、显示 URL 和上次从顶部搜索结果中抓取的日期。
-6. 该提示还指示 LLM 在回复中包含相关信息的引文和日期。
+1. Create a `BingTextSearch` that can execute Bing search queries.
+2. The default format is a Bing-specific class `BingWebPage` that includes name, snippet, display URL, and date last crawled for each search result.
+3. Wrap the `BingTextSearch` as a plugin that can be invoked when rendering the prompt.
+4. Insert a call to the plugin which executes a search using the user's query.
+5. The prompt will be augmented with name, snippet, display URL, and date last crawled from the top search results.
+6. The prompt also instructs the LLM to include citations and dates of relevant information in the response.
 
-示例响应如下所示：
+An example response looks like this:
 
 ```
 Semantic Kernel is an open-source development kit designed to facilitate the integration of advanced AI models into existing C#, Python, or Java codebases. It serves as an efficient middleware that enables rapid delivery of enterprise-grade AI solutions (Microsoft Learn, 2024-08-14).
@@ -206,7 +202,7 @@ References:
 - GitHub. "microsoft/semantic-kernel." Last crawled: 2024-08-14.
 ```
 
-在前面的示例中，网页中的一段文本用作相关信息。完整页面内容的 URL 也可用，因此可以下载和使用完整页面。可能还有其他搜索实现不包含任何相关信息，只包含一个链接，下一个示例将介绍如何处理这种情况。
+In the previous examples, a snippet of text from web pages is used as relevant information. The URL for the full page content is also available, so it's possible to download and use the full page. There may be other search implementations that don't include any relevant information but only a link, and the next example will show how to handle this situation.
 
 ```csharp
 // Build a text search plugin with Bing search service and add to the kernel
@@ -239,9 +235,9 @@ Console.WriteLine(await kernel.InvokePromptAsync(
 ));
 ```
 
-在此示例中，我们调用 `BingSearchExample.CreateGetFullWebPagesOptions(textSearch)` 以创建定义搜索插件的选项。
+In this example, we call `BingSearchExample.CreateGetFullWebPagesOptions(textSearch)` to create options that define the search plugin.
 
-此方法的代码如下所示：
+The code for this method looks like this:
 
 ```csharp
 private static KernelFunction CreateGetFullWebPages(ITextSearch<BingWebPage> textSearch, BasicFilterOptions? basicFilter = null)
@@ -307,16 +303,17 @@ private static KernelFunction CreateGetFullWebPages(ITextSearch<BingWebPage> tex
 }
 ```
 
-自定义 `CreateGetFullWebPages` 将产生一个搜索插件，其中包含一个名为 的函数 `GetFullWebPages`，此方法的工作原理如下：
+The custom `CreateGetFullWebPages` will generate a search plugin containing a function named `GetFullWebPages`, which works as follows:
 
-1. 它使用 `BingTextSearch` 实例来检索指定查询的首页。
-2. 对于每个网页，使用 url 读取完整的 HTML 内容，然后转换为纯文本表示形式。
+1. It uses the `BingTextSearch` instance to retrieve the top pages for the specified query.
+2. For each web page, it reads the full HTML content using the url, then converts it to a plain text representation.
 
-下面是响应的示例：
+Here is an example of the response:
 
 ```
     The Semantic Kernel (SK) is an open-source development kit from Microsoft designed to facilitate the integration of large language models (LLMs) into AI applications. It acts as middleware, enabling the rapid development of enterprise-grade solutions by providing a flexible, modular, and extensible programming model that supports multiple languages like C#, Python, and Java [^1^][^4^].
 
+### Key Features:
 ### Key Features:
 
 1. **AI Service Integration**:
@@ -332,7 +329,7 @@ private static KernelFunction CreateGetFullWebPages(ITextSearch<BingWebPage> tex
    - It employs various types of memory such as local storage, key-value pairs, and vector (or semantic) search to maintain the context of interactions. This helps in preserving coherence and relevance in the outputs generated by the AI models [^8^].
 
 5. **Responsible AI and Observability**:
-   - The toolkit includes built-in logging, telemetry, and filtering support to enhance security and enable responsible AI deployment at scale. This ensures adherence to ethical guidelines and helps monitor the AI agents’ performance [^1^][^4^].
+   - The toolkit includes built-in logging, telemetry, and filtering support to enhance security and enable responsible AI deployment at scale. This ensures adherence to ethical guidelines and helps monitor the AI agents' performance [^1^][^4^].
 
 6. **Flexible Integration with Traditional Code**:
    - Developers can create native functions and semantic functions using SQL and other data manipulation techniques to extend the capabilities of the Semantic Kernel. This hybrid integration of AI and conventional code supports complex, real-world applications [^6^].
@@ -364,27 +361,26 @@ For more detailed information, visit the official [Microsoft Learn page](https:/
 [^8^]: [Semantic Kernel: A bridge between large language models and your code | InfoWorld](https://www.infoworld.com/article/2338321/semantic-kernel-a-bridge-between-large-language-models-and-your-code.html)
 ```
 
-**注意：** 如果使用完整的网页，则令牌使用量会显著增加。
-在上面的示例中，将令牌总数 `26836` 与 `1081` 使用网页代码段时进行比较。
+**Note:** If using the full web page, the token usage increases significantly.
+In the example above, compare the total tokens `26836` versus `1081` when using web page snippets.
 
+### Function Calling Scenarios
 
-### 函数调用场景
+Function calling allows you to connect LLMs to external tools and systems.
+This capability can be used to enable LLMs to retrieve relevant information needed to return a response to a user's query.
+In the context of this discussion, we want to allow LLMs to perform searches to return relevant information.
+We also want to enable developers to easily customize search actions to improve the LLM's ability to retrieve the most relevant information.
 
-函数调用允许您将 LLM 连接到外部工具和系统。
-此功能可用于使 LLM 能够检索所需的相关信息，以便返回对用户查询的响应。
-在本次讨论的上下文中，我们希望允许 LLM 执行搜索以返回相关信息。
-我们还希望使开发人员能够轻松自定义搜索作，以提高 LLM 检索最相关信息的能力。
+We need to support the following use cases:
 
-我们需要支持以下使用案例：
+1. Enable developers to adapt any arbitrary text search implementation into a search plugin that LLMs can invoke to perform searches.
+   - Search results can be returned as text or in a normalized format, or they can be in a proprietary format associated with the text search implementation.
+1. Enable developers to easily customize the search plugin, with typical customizations including:
+   - Changing the search function metadata, i.e., name, description, parameter details
+   - Changing the search functions included in the plugin
+   - Changing the behavior of the search functions
 
-1. 使开发人员能够将任意文本搜索实现改编为搜索插件，LLM 可以调用该插件来执行搜索。
-   - 搜索结果可以作为文本或规范化格式返回，也可以是与文本搜索实现关联的专有格式。
-1. 使开发人员能够轻松自定义搜索插件，典型的自定义将包括：
-   - 更改搜索函数元数据，即名称、描述、参数详细信息
-   - 更改插件中包含的搜索功能
-   - 更改搜索函数的行为
-
-请考虑以下示例，其中 LLM 可以调用 Bing 搜索来帮助它响应用户请求。
+Consider the following example where an LLM can invoke Bing search to help it respond to a user request.
 
 ```csharp
 // Create a kernel with OpenAI chat completion
@@ -408,16 +404,16 @@ KernelArguments arguments = new(settings);
 Console.WriteLine(await kernel.InvokePromptAsync("What is the Semantic Kernel?", arguments));
 ```
 
-此示例的工作原理如下：
+This example works as follows:
 
-1. 创建可执行必应搜索查询的 BingTextSearch。
-1. 将 BingTextSearch 包装为可通告给 LLM 的插件。
-1. 启用自动函数调用，这允许 LLM 调用 Bing 搜索来检索相关信息。
+1. Create a BingTextSearch that can execute Bing search queries.
+1. Wrap the BingTextSearch as a plugin that can be advertised to the LLM.
+1. Enable automatic function calling, which allows the LLM to invoke Bing search to retrieve relevant information.
 
-**注意：** `TextSearchKernelPluginFactory.CreateFromTextSearch` 使用工厂方法创建搜索插件。
-此方法将创建一个插件，该插件的 `Search` 函数将搜索结果作为实例集合返回 `string` 。
+**Note:** `TextSearchKernelPluginFactory.CreateFromTextSearch` uses a factory method to create the search plugin.
+This method will create a plugin with a `Search` function that returns search results as a collection of `string` instances.
 
-示例响应如下所示：
+An example response looks like this:
 
 ```
 The Semantic Kernel is an open-source development kit aimed at integrating the latest AI models into various programming languages, such as C#, Python, or Java. It serves as a middleware enabling rapid delivery of enterprise-grade AI solutions. Key features and capabilities of the Semantic Kernel include:
@@ -427,7 +423,6 @@ The Semantic Kernel is an open-source development kit aimed at integrating the l
 2. **Semantic Function Design**: The Semantic Kernel extension for Visual Studio Code simplifies the design and testing of semantic functions, providing an interface for creating and evaluating these functions with existing models and data.
 
 3. **Programming Model**: It introduces a programming model that combines conventional programming languages with AI "prompts" through prompt templating, chaining, and planning capabilities.
-
 4. **Multi-Language Support**: Compatible with programming in languages like C#, Python, and Java, ensuring broad accessibility and flexibility.
 
 5. **AI Agent Creation**: Facilitates building AI agents that can call existing code, thus automating business processes using models from OpenAI, Azure OpenAI, Hugging Face, and more.
@@ -435,9 +430,9 @@ The Semantic Kernel is an open-source development kit aimed at integrating the l
 The Semantic Kernel helps developers quickly add large language capabilities to their applications, allowing the creation of smart, adaptable systems that can naturally interact with human users.
 ```
 
-**注：** 在这种情况下，搜索结果中的摘要是提示中唯一包含的数据。如果 LLM 认为相关，则应使用此数据，但没有向用户提供反馈机制，允许他们验证数据的来源。
+**Note:** In this case, summaries from the search results are the only data included in the prompt. If the LLM finds it relevant, it should use this data, but there is no feedback mechanism provided to users that allows them to verify the source of the data.
 
-以下示例显示了此问题的解决方案。
+The following example shows a solution to this problem.
 
 ```csharp
 // Create a kernel with OpenAI chat completion
@@ -461,10 +456,10 @@ KernelArguments arguments = new(settings);
 Console.WriteLine(await kernel.InvokePromptAsync("What is the Semantic Kernel? Include citations to the relevant information where it is referenced in the response.", arguments));
 ```
 
-示例中只有一个更改，插件是使用 `TextSearchKernelPluginFactory.CreateFromTextSearchResults` 工厂方法创建的。
-此方法将创建一个带有函数的插件 `Search` ，该函数返回一个实例集合 `TextSearchResult` ，而该实例又将包含一个可用于提供引用的链接。
+There is only one change in the example: the plugin is created using the `TextSearchKernelPluginFactory.CreateFromTextSearchResults` factory method.
+This method will create a plugin with a `Search` function that returns a collection of `TextSearchResult` instances, which in turn will include a link that can be used to provide references.
 
-示例响应如下所示：
+An example response looks like this:
 
 ```
     The Semantic Kernel is an open-source software development kit (SDK) that facilitates the integration of advanced AI models into applications. It allows developers to harness the power of large language models (LLMs) for building innovative AI solutions. Semantic Kernel supports C#, Python, and Java, and it emphasizes security, modularity, and flexibility, making it suitable for enterprise-grade applications.
@@ -477,7 +472,6 @@ Key Features:
 3. **Comprehensive Documentation and Guides**: Detailed guides and documentation are available to help developers get started quickly. They cover everything from installing the SDK to building AI agents and creating robust AI solutions ([Introduction to Semantic Kernel | Microsoft Learn](https://learn.microsoft.com/en-us/semantic-kernel/overview/), [How to quickly start with Semantic Kernel | Microsoft Learn](https://learn.microsoft.com/en-us/semantic-kernel/get-started/quick-start-guide)).
 
 4. **Support for Enterprise Applications**: The kernel is designed to provide enterprise-grade services and plugins, ensuring scalability and robustness for large and complex applications ([Architecting AI Apps with Semantic Kernel | Semantic Kernel](https://devblogs.microsoft.com/semantic-kernel/architecting-ai-apps-with-semantic-kernel/)).
-
 5. **Integration with Popular Tools**: Semantic Kernel can be seamlessly integrated with conventional programming languages and popular development environments, providing tools to extend functionalities with minimal effort ([GitHub - microsoft/semantic-kernel](https://github.com/microsoft/semantic-kernel)).
 
 For more detailed information, the following sources can be referenced:
@@ -488,7 +482,7 @@ For more detailed information, the following sources can be referenced:
 These resources offer comprehensive insights into using the Semantic Kernel to leverage AI technology effectively in software development.
 ```
 
-下一个示例显示了开发人员如何自定义搜索插件的配置。
+The next example shows how developers can customize the configuration of the search plugin.
 
 ```csharp
 // Create a kernel with OpenAI chat completion
@@ -513,9 +507,9 @@ KernelArguments arguments = new(settings);
 Console.WriteLine(await kernel.InvokePromptAsync("What is the Semantic Kernel? Include citations to the relevant information where it is referenced in the response.", arguments));
 ```
 
-此示例提供了搜索插件的描述，即，在本例中，我们只想搜索 Microsoft Developer Blogs 站点以及创建插件的选项。这些选项允许指定搜索插件函数定义，即，在本例中，我们希望使用默认搜索函数，该函数包含一个基本过滤器，该过滤器指定要包含的唯一站点是 `devblogs.microsoft.com`。
+This example provides a description of the search plugin, i.e., in this case, we only want to search the Microsoft Developer Blogs site, as well as options for creating the plugin. These options allow specifying search plugin function definitions, i.e., in this case, we want to use the default search function that contains a basic filter which specifies that the only site to be included is `devblogs.microsoft.com`.
 
-示例响应如下所示，您将注意到所有引用都来自 `devblogs.microsoft.com`：
+An example response looks like this, and you'll notice that all references come from `devblogs.microsoft.com`:
 
 ```
 The Semantic Kernel (SK) is a lightweight Software Development Kit (SDK) that facilitates the integration of conventional programming languages like C# and Python with the latest advancements in Large Language Models (LLM) AI, such as prompt templating, chaining, and planning capabilities. It enables the building of AI solutions that can leverage models from platforms like OpenAI, Azure OpenAI, and Hugging Face ([Hello, Semantic Kernel!](https://devblogs.microsoft.com/semantic-kernel/hello-world/)).
@@ -525,7 +519,7 @@ Semantic Kernel is incredibly versatile, allowing developers to create advanced 
 For more information and the latest updates from the Semantic Kernel team, you can visit their [official blog](https://devblogs.microsoft.com/semantic-kernel/).
 ```
 
-在前面的示例中，站点已进行硬编码。还可以允许 LLM 从用户查询中提取站点。在下面的示例中，创建了一个自定义搜索函数，该函数包含一个附加参数，以允许 LLM 设置站点。
+In the previous example, the site was hardcoded. It is also possible to allow the LLM to extract the site from the user query. In the example below, a custom search function is created that contains an additional parameter to allow the LLM to set the site.
 
 ```csharp
 // Create a kernel with OpenAI chat completion
@@ -549,11 +543,11 @@ KernelArguments arguments = new(settings);
 Console.WriteLine(await kernel.InvokePromptAsync("What is the Semantic Kernel? Only include results from devblogs.microsoft.com. Include citations to the relevant information where it is referenced in the response.", arguments));
 ```
 
-下面的代码显示了如何创建自定义搜索函数。
+The code below shows how to create a custom search function.
 
-- 其中包括 `KernelFunction` 一个名为 `site`
-- 如果 `site` 提供了该参数`BasicFilterOptions`，则会创建一个实例，这将导致必应仅返回来自该站点的响应
-- 提供了自定义函数描述和参数描述，以帮助 LLM 使用该方法。
+- It includes a `KernelFunction` parameter named `site`
+- If the `site` parameter is provided, a `BasicFilterOptions` instance is created, which will cause Bing to return only responses from that site
+- Custom function descriptions and parameter descriptions are provided to help the LLM use the method.
 
 ```csharp
 private static KernelFunction CreateSearchBySite(ITextSearch<BingWebPage> textSearch, BasicFilterOptions? basicFilter = null, MapSearchResultToString? mapToString = null)
@@ -605,66 +599,66 @@ private static KernelFunction CreateSearchBySite(ITextSearch<BingWebPage> textSe
 }
 ```
 
-## 决策驱动因素
+## Decision Drivers
 
-- AI 必须能够使用搜索插件执行搜索并返回以下类型的结果：
-   1. 简单字符串值。
-   2. 标准化值，包括 name、content 和 link。
-   3. 底层搜索实现支持的数据模型。
-- 应用程序开发人员应该能够使用搜索连接器轻松添加搜索插件，只需最少的代码行（最好是一行）。
-- 应用程序开发人员必须能够提供特定于连接器的设置。
-- 应用程序开发人员必须能够设置所需的信息，例如搜索 `IndexName` 提供程序的信息。
-- 应用程序开发人员必须能够支持搜索连接器的自定义架构。不应填写任何字段。
-- 社区开发人员必须能够轻松创建新的搜索连接器。
-- 社区开发人员必须能够轻松创建继承自 `KernelSearchResults` （alternate suggestion） `SearchResultContent` 的新搜索连接器返回类型。
-- 设计必须灵活，以支持未来的需求和不同的搜索模式。
-- 应用程序开发人员必须能够覆盖通过设置/输入注册的每个实例的搜索函数的语义描述。
-- 搜索服务开发人员必须能够定义搜索方法的属性（例如，名称、描述、输入名称、输入描述、返回描述）。
+- AI must be able to use search plugins to perform searches and return results of the following types:
+   1. Simple string values.
+   2. Normalized values that include name, content, and link.
+   3. Data models supported by the underlying search implementation.
+- Application developers should be able to easily add search plugins using a search connector with minimal lines of code (ideally one line).
+- Application developers must be able to provide connector-specific settings.
+- Application developers must be able to set required information such as `IndexName` for the search provider.
+- Application developers must be able to support custom schemas for search connectors. No fields should be populated.
+- Community developers must be able to easily create new search connectors.
+- Community developers must be able to easily create new search connector return types that inherit from `KernelSearchResults` (alternate suggestion) `SearchResultContent`.
+- The design must be flexible to support future requirements and different search patterns.
+- Application developers must be able to override the semantic description of search functions for each instance registered through settings/inputs.
+- Search service developers must be able to define properties of search methods (e.g., name, description, input name, input description, return description).
 
-预计这些将由 Vector 搜索处理
+Expected to be handled by Vector search
 
-- 应用程序开发人员必须能够选择性地定义嵌入服务的执行设置，其中默认值由 Kernel 提供。
-- 应用程序开发人员必须能够使用 ML 索引文件导入矢量数据库搜索连接。
+- Application developers must be able to optionally define execution settings for embedding services where defaults are provided by the Kernel.
+- Application developers must be able to import vector database search connections using ML index files.
 
-### 未来要求
+### Future Requirements
 
-- AI 可以使用搜索插件通过过滤器执行搜索。这将需要连接器开发人员实现接受 Filter 对象的搜索接口。
-- 连接器开发人员可以决定 “default” 为 AI 提供哪些搜索过滤器。
-- 应用程序开发人员可以通过搜索设置覆盖 AI 可以使用的过滤器。
-- 应用程序开发人员可以在创建连接时设置筛选器。
+- AI can use search plugins to perform searches with filters. This will require connector developers to implement search interfaces that accept Filter objects.
+- Connector developers can decide which search filters to provide to AI as "default".
+- Application developers can override which filters AI can use through search settings.
+- Application developers can set filters when creating the connection.
 
-### 搜索抽象
+### Search Abstractions
 
-下图显示了建议设计中的分层。从下往上，这些是：
+The following diagram shows the layering in the proposed design. From the bottom up, these are:
 
-- 我们的目标是支持任意搜索服务，可以是 Web 搜索、Vector DB 搜索或专有实现。
-- 将有一个客户端 API 层。请注意，我们 **并不是** 要提供搜索抽象来规范化这个层。
-- 我们正在定义一个 `IVectorSearch` 抽象，它允许我们对多个 Vector 数据库执行搜索。这将在单独的 ADR 中涵盖。
-- 此 ADR 的重点是 `ITextSearch` 抽象，旨在支持本文档前面描述的使用案例。
-- 我们将提供许多抽象的实现 `ITextSearch` ，例如 Bing、Google、Vector DB。最终名单待定。
+- We aim to support arbitrary search services, which can be Web search, Vector DB search, or proprietary implementations.
+- There will be a client API layer. Note that we are **not** providing search abstractions to normalize this layer.
+- We are defining an `IVectorSearch` abstraction that allows us to perform searches against multiple Vector databases. This will be covered in a separate ADR.
+- The focus of this ADR is the `ITextSearch` abstraction, which is designed to support the use cases described earlier in this document.
+- We will provide many implementations of the `ITextSearch` abstraction, such as Bing, Google, Vector DB. The final list is to be determined.
 
 <img src="./diagrams/search-abstractions.png" alt="Search Abstractions" width="80%"/>
 
-## 考虑的选项
+## Considered Options
 
-1.  使用单个 `ITextSearch<T>` 方法和实现检查类型`Search`定义抽象
-2.  使用单个`ITextSearch<T>`方法定义`Search`抽象，并实现实现它们支持的内容
-3.  使用多种搜索方法`ITextSearch<T>`定义抽象
-4.  在实现中使用多种搜索方法和其他方法`ITextSearch`定义抽象
-5. 定义 `ITextSearch` 和 `ITextSearch<T>` 抽象
+1.  Define the abstraction `ITextSearch<T>` with a single method `Search` and implementations check type
+2.  Define the abstraction `ITextSearch<T>` with a single method `Search` and implementations implement what they support
+3.  Define the abstraction `ITextSearch<T>` with multiple search methods
+4.  Define the abstraction `ITextSearch` with multiple search methods and other methods in implementations
+5. Define `ITextSearch` and `ITextSearch<T>` abstractions
 
-## 决策结果
+## Decision Outcome
 
-已选择选项：“在 `ITextSearch` 实现上使用多种搜索方法和其他方法定义抽象”，因为
-它满足要求，允许类型安全的方法，可以支持任意对象响应，并简化了开发人员实现抽象的实现负担。
+Chosen option: "Define the abstraction `ITextSearch` with multiple search methods and other methods in implementations", because
+it meets the requirements, allows type-safe methods, can support arbitrary object responses, and simplifies the implementation burden for developers implementing the abstraction.
 
 <!-- This is an optional element. Feel free to remove. -->
 
-## 选项的优缺点
+## Pros and Cons of the Options
 
-### 1. `ITextSearch<T>` 使用单个 `Search` 方法和实现检查类型定义抽象
+### 1. Define the abstraction `ITextSearch<T>` with a single method `Search` and implementations check type
 
-抽象将如下所示：
+The abstraction would look like:
 
 ```csharp
 public interface ITextSearch<T> where T : class
@@ -673,7 +667,7 @@ public interface ITextSearch<T> where T : class
 }
 ```
 
-实现将如下所示：
+The implementation would look like:
 
 ```csharp
 public class BingTextSearch<T> : ITextSearch<T> where T : class
@@ -698,74 +692,9 @@ public class BingTextSearch<T> : ITextSearch<T> where T : class
 }
 ```
 
-**注：** 创建自定义映射器是在 `BingTextSearch` 创建实例时指定的
+**Note:** Creating custom mappers is specified when creating an instance of `BingTextSearch`
 
-对于 Vector Store，实现如下所示：
-
-```csharp
-public sealed class VectorTextSearch<T> : ITextSearch<T> where T : class
-{
-  public async Task<KernelSearchResults<T>> SearchAsync(string query, SearchOptions? searchOptions = null, CancellationToken cancellationToken = default)
-  {
-    // Retrieve Vector Store search results
-
-    if (typeof(T) == typeof(string))
-    {
-       // Convert to string (custom mapper is supported)
-    }
-    else if (typeof(T) == typeof(TextSearchResult))
-    {
-       // Convert to TextSearchResult (custom mapper is required)
-    }
-    else
-    {
-      // Return search results
-    }
-  }
-}
-```
-
-- 很好，因为可以支持 `VectorTextSearch`
-- Neitral 的 Lar 调用，因为每次调用都需要进行类型检查
-- 不好，因为不清楚实现支持哪些返回类型
-
-### 2. `ITextSearch<T>` 使用单个`Search`方法定义抽象，并实现它们支持的内容
-
-抽象将如下所示：
-
-```csharp
-public interface ITextSearch<T> where T : class
-{
-  public Task<KernelSearchResults<T>> SearchAsync(string query, SearchOptions? searchOptions = null, CancellationToken cancellationToken = default);
-}
-```
-
-实现将如下所示：
-
-```csharp
-public sealed class BingTextSearch : ITextSearch<string>, ITextSearch<TextSearchResult>, ITextSearch<BingWebPage>
-{
-  /// <inheritdoc/>
-  async Task<KernelSearchResults<TextSearchResult>> ITextSearch<TextSearchResult>.SearchAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Bing search results and convert to TextSearchResult
-  }
-
-  /// <inheritdoc/>
-  async Task<KernelSearchResults<BingWebPage>> ITextSearch<BingWebPage>.SearchAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Bing search results
-  }
-
-  /// <inheritdoc/>
-  async Task<KernelSearchResults<string>> ITextSearch<string>.SearchAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Bing search results and convert to string
-  }
-}
-```
-
-对于 Vector Store，实现仍如下所示：
+For Vector Store, the implementation would look like:
 
 ```csharp
 public sealed class VectorTextSearch<T> : ITextSearch<T> where T : class
@@ -790,182 +719,6 @@ public sealed class VectorTextSearch<T> : ITextSearch<T> where T : class
 }
 ```
 
-- 很好，因为尽可能地将每个返回类型的实现分开
-- 很好，因为可以清楚地说明实现支持哪些类型
-- 糟糕，因为你需要低调
-
-### 3. 使用 `ITextSearch<T>` 多种搜索方法定义抽象
-
-抽象将如下所示：
-
-```csharp
-public interface ITextSearch<T> where T : class
-{
-  public Task<KernelSearchResults<string>> SearchAsync(string query, SearchOptions? searchOptions = null, CancellationToken cancellationToken = default);
-
-  public Task<KernelSearchResults<TextSearchResult>> GetTextSearchResultsAsync(string query, SearchOptions? searchOptions = null, CancellationToken cancellationToken = default);
-
-  public Task<KernelSearchResults<T>> GetSearchResultsAsync(string query, SearchOptions? searchOptions = null, CancellationToken cancellationToken = default);
-}
-```
-
-实现可能如下所示：
-
-```csharp
-public sealed class BingTextSearch : ITextSearch<BingWebPage>
-{
-  public async Task<KernelSearchResults<BingWebPage>> GetSearchResultsAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Bing search results
-  }
-
-  public async Task<KernelSearchResults<TextSearchResult>> GetTextSearchResultsAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Bing search results and convert to TextSearchResult
-  }
-
-  public async Task<KernelSearchResults<string>> SearchAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Bing search results and convert to string
-  }
-}
-```
-
-**注意：** 此选项是不可扩展的，即，要添加对 Bing News 搜索结果的支持，我们必须添加新的 `BingNewTextSearch` 实现。
-
-对于 Vector Store，实现如下所示：
-
-```csharp
-public sealed class VectorTextSearch<T> : ITextSearch<T> where T : class
-{
-  public Task<KernelSearchResults<T>> GetSearchResultsAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Vector Store search results
-  }
-
-  public Task<KernelSearchResults<TextSearchResult>> GetTextSearchResultsAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Vector Store search results and convert to TextSearchResult
-  }
-
-  public Task<KernelSearchResults<string>> SearchAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Vector Store search results and convert to string
-  }
-}
-```
-
-**注意：** 此选项是可扩展的，即我们可以在底层 Vector Store 实现中支持自定义记录类型，但如果他们指定的记录类型不受支持，开发人员将不得不处理运行时异常。
-
-- 很好，因为每种类型都有单独的方法
-- 不好，因为在上面的 BingTextSearch 示例中，无法添加其他类型
-- 不好，因为不清楚支持哪些类型
-
-### 4. `ITextSearch` 使用多种搜索方法和实现的其他方法定义抽象
-
-抽象将如下所示：
-
-```csharp
-public interface ITextSearch
-{
-  public Task<KernelSearchResults<string>> SearchAsync(string query, SearchOptions? searchOptions = null, CancellationToken cancellationToken = default);
-
-  public Task<KernelSearchResults<TextSearchResult>> GetTextSearchResultsAsync(string query, SearchOptions? searchOptions = null, CancellationToken cancellationToken = default);
-}
-```
-
-实现可能如下所示：
-
-```csharp
-public sealed class BingTextSearch : ITextSearch
-{
-  public async Task<KernelSearchResults<TextSearchResult>> GetTextSearchResultsAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Bing search results and convert to TextSearchResult
-  }
-
-  public async Task<KernelSearchResults<string>> SearchAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Bing search results and convert to string
-  }
-
-  public async Task<KernelSearchResults<BingWebPage>> GetWebPagesAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Bing search results
-  }
-}
-```
-
-**注意：**此选项是可扩展的，即，要添加对 Bing News 搜索结果的支持，我们只需向 . `BingTextSearch`
-
-对于 Vector Store，实现如下所示：
-
-```csharp
-public sealed class VectorTextSearch<T> : ITextSearch where T : class
-{
-  public Task<KernelSearchResults<T>> GetSearchResultsAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Vector Store search results
-  }
-
-  public Task<KernelSearchResults<TextSearchResult>> GetTextSearchResultsAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Vector Store search results and convert to TextSearchResult
-  }
-
-  public Task<KernelSearchResults<string>> SearchAsync(string query, SearchOptions? searchOptions, CancellationToken cancellationToken)
-  {
-    // Retrieve Vector Store search results and convert to string
-  }
-}
-```
-
-**注意：** 此选项是可扩展的，即我们可以在底层 Vector Store 实现中支持自定义记录类型，但如果他们指定的记录类型不受支持，开发人员将不得不处理运行时异常。
-
-- 很好，因为每种类型都有单独的方法
-- 很好，因为可以添加对其他类型的支持
-- 很好，因为这在 Python 中更容易实现
-- 糟糕的是，抽象仅限于包括对 `string` 和 `TextSearchResult`
-
-### 5. 定义 `ITextSearch` 和 `ITextSearch<T>` 抽象
-
-从抽象开始， `ITextSearch` 然后根据需要`ITextSearch<T>`扩展到 include。
-
-- 每种类型的良好、独立的方法
-- 很好，可以添加对其他类型的支持
-- 如果需要，可以添加使用泛型的良好、额外的抽象
-
-## 更多信息
-
-### 当前设计
-
-当前的 search 设计分为两种实现：
-
-1. 使用 Memory Store 进行搜索，即 Vector Database
-1. 使用 Web 搜索引擎进行搜索
-
-在每种情况下，都提供了一个插件实现，它允许将搜索集成到提示中，例如，提供额外的上下文或从规划器调用，或者使用 LLM 的 auto 函数调用。
-
-#### 内存存储搜索
-
-下图显示了 Memory Store 搜索功能的当前设计中的层。
-
-<img src="./diagrams/text-search-imemorystore.png" alt="Current Memory Design" width="40%"/>
-
-#### Web 搜索引擎集成
-
-下图显示了 Web Search Engine 集成的当前设计中的层。
-
-<img src="./diagrams/text-search-iwebsearchengineconnector.png" alt="Current Web Search Design" width="40%"/>
-
-语义内核目前包括对 a 的实验性支持 `WebSearchEnginePlugin` ，可以通过 进行配置 `IWebSearchEngineConnector` ，以便与 Web 搜索服务（如 Bing 或 Google）集成。搜索结果可以作为字符串值的集合或实例集合返回 `WebPage` 。
-
--  `string` 从插件返回的值以纯文本形式表示搜索结果的片段。
--  `WebPage` 从插件返回的实例是完整搜索结果的规范化子集。每个 `WebPage` 包括：
-  - `name` 搜索结果网页的名称
-  - `url` 搜索结果网页的 URL
-  - `snippet` 纯文本形式的搜索结果片段
-
-当前设计不支持破窗方案或对响应值使用自定义类型。
-
-此 ADR 的一个目标是实现一种设计，其中文本搜索统一为单个抽象，并且可以配置单个插件来执行基于 Web 的搜索或搜索矢量存储。
+- Good, because it can support a `VectorTextSearch`
+- Neutral for the caller, because type checking is required for each call
+- Bad, because it's not clear which return types the implementation supports
