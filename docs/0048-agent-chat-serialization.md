@@ -1,94 +1,100 @@
+---
+status: proposed
+contact: crickman
+date: 2024-06-24
+deciders: bentho, matthewbolanos
+---
 
-# `AgentChat` 序列化 / 反序列化
+# `AgentChat` Serialization / Deserialization
 
-## 上下文和问题陈述
-代理框架_的用户 _ 在使用 来协调交互时，无法存储和稍后检索对话状态 `AgentChat` `Agent` 。 这会限制代理对话的单次使用能力，因为必须使用启动对话的进程的内存来维护它。
+## Context and Problem Statement
+Users of the _Agent Framework_ are unable to store and later retrieve conversation state when using an `AgentChat` to coordinate `Agent` interactions.  This limits the ability for an agent conversation to single use as it must be maintained with memory of the process that initiated the conversation.
 
-正式化支持任何类的序列化和反序列化的机制 `AgentChat` ，提供了一种跨多个会话以及计算边界捕获和还原状态的途径。
+Formalizing a mechanism that supports serialization and deserialization of any `AgentChat` class provides an avenue to capture and restore state across multiple sessions as well as compute boundaries.
 
-#### 目标
-- **捕获和恢复主要聊天历史**： `AgentChat` 必须捕获并恢复主要历史以获得完全的保真度。
-- **捕获和恢复频道状态**：除了主要的聊天历史外， `AgentChannel` `AgentChat` 还必须捕获并恢复每个频道的状态。
-- **捕获代理元数据**：在序列化时捕获代理标识符、名称和类型提供了有关如何 `AgentChat` 在反序列化期间恢复 的指导。
-
-
-#### 非目标
-- **管理代理定义：** `Agent` 不应将定义捕获为对话状态的一部分。  `Agent` 在反序列化类的 state 时，不会生成实例 `AgentChat` 。
-- **管理 Secrets 或 api-keys：** 生成实例时需要 Secrets/api-keys `Agent` 。 出于安全考虑，管理此类敏感数据超出了范围。
+#### Goals
+- **Capture & Restore Primary Chat History**: The primary `AgentChat` history must be captured and restored for full fidelity.
+- **Capture & Restore Channel State**: In addition to the primary chat history, the state for each `AgentChannel` within the `AgentChat` must be captured and restored.
+- **Capture Agent Metadata**: Capturing the agent Identifier, Name, and Type upon serialization provides a guidance on how to restore the the `AgentChat` during deserialization.
 
 
-## 问题
+#### Non-Goals
+- **Manage agent definition:** An `Agent` definition shall not be captured as part of the conversation state.  `Agent` instances will not be produced when deserializing the state of an `AgentChat` class.
+- **Manage secrets or api-keys:** Secrets / api-keys are required when producing an `Agent` instance.  Managing this type of sensitive data is out-of-scope due to security considerations.
 
-- 序列化 （Serialized`ChatHistory`）  必须在各个平台/语言之间等效，以实现互作性
 
-## 例
-还原 时 `AgentChat`，应用程序还必须重新创建 `Agent` 参与聊天的实例（不受反序列化过程的控制）。 这为以下情况创造了机会：
+## Issues
 
-#### 1. **等效：** 恢复的聊天中可用的所有原始代理类型（频道）。
-这将导致原始聊天的完全保真恢复。
+- Serialized `ChatHistory` must be equivalent across platforms / languages for interoperability
 
-|源聊天|Target 聊天|
+## Cases
+When restoring an `AgentChat`, the application must also re-create the `Agent` instances participating in the chat (outside of the control of the deserialization process).  This creates the opportunity for the following cases:
+
+#### 1. **Equivalent:** All of the original agent types (channels) available in the restored chat.
+This shall result in a full-fidelity restoration of of the original chat.
+
+|Source Chat|Target Chat|
 |---|---|
 |`ChatCompletionAgent`|`ChatCompletionAgent`|
 |`OpenAIAssistantAgent`|`OpenAIAssistantAgent`|
 |`ChatCompletionAgent` & `OpenAIAssistantAgent`|`ChatCompletionAgent` & `OpenAIAssistantAgent`|
 
-#### 2. **增强：** 恢复的聊天中可用的其他原始代理类型（频道）。
-这也将导致原始聊天的完全保真恢复。
-任何新的代理类型（频道）在恢复后都将同步到聊天（与将新的代理类型添加到正在进行的聊天相同）。
+#### 2. **Enhanced:** Additional original agent types (channels) available in the restored chat.
+This shall also result in a full-fidelity restoration of of the original chat.
+Any new agent type (channel) will synchronize to the chat once restored (identical to adding a new agent type to a chat that is progress).
 
-|源聊天|Target 聊天|
+|Source Chat|Target Chat|
 |---|---|
 |`ChatCompletionAgent`|`ChatCompletionAgent` & `OpenAIAssistantAgent`|
 |`OpenAIAssistantAgent`|`ChatCompletionAgent` & `OpenAIAssistantAgent`|
 
-#### 3. **减少：** 恢复的聊天中可用的原始代理类型（渠道）的子集。
-这也将导致原始聊天完全保真地恢复到可用频道。 恢复后引入缺失的代理类型 （通道） 将
-将渠道与当前聊天同步（与向正在进行的聊天添加新的代理类型相同）。
+#### 3. **Reduced:** A subset of original agent types (channels) available in the restored chat.
+This shall also result in a full-fidelity restoration of of the original chat to the available channels.  Introduction of a missing agent type (channel) post restoration will
+synchronize the channel to the current chat (identical to adding a new agent type to a chat that is progress).
 
-|源聊天|Target 聊天|
+|Source Chat|Target Chat|
 |---|---|
 |`ChatCompletionAgent` & `OpenAIAssistantAgent`|`ChatCompletionAgent`|
 |`ChatCompletionAgent` & `OpenAIAssistantAgent`|`OpenAIAssistantAgent`|
 
-#### 4. **空：** 恢复的聊天中没有可用的代理。
-这将导致立即异常 （fail-fast），以强烈指示
-聊天尚未恢复。 聊天可能会添加代理以尝试成功恢复，或单独使用。 也就是说， `AgentChat` 实例不会失效。
+#### 4. **Empty:** No agents available in the restored chat.
+This shall result in an immediate exception (fail-fast) in order to strongly indicate that
+the chat has not been restored.  The chat may have agents added in order to attempt a successful restoration, or utilized on its own.  That is, the `AgentChat` instance isn't invalidated.
 
-#### 5. **无效：** 聊天已经形成历史记录或频道状态。
-这将导致立即异常 （fail-fast），以强烈指示
-聊天尚未恢复。 聊天可以继续使用，因为 `AgentChat` 实例不会失效。
+#### 5. **Invalid:** Chat has already developed history or channels state.
+This shall result in an immediate exception (fail-fast) in order to strongly indicate that
+the chat has not been restored.  The chat may continue to be utilized as the `AgentChat` instance isn't invalidated.
 
-#### 笔记：
+#### Notes:
 
-> 还原后，其他 `Agent` 实例可以加入 `AgentChat`，与任何实例没有什么不同 `AgentChat` 。
+> Once restored, additional `Agent` instances may join the `AgentChat`, no different from any `AgentChat` instance.
 
 
-## 分析
+## Analysis
 
-#### 关系：
+#### Relationships:
 
- 下图说明了`AgentChat` any `Agent`、 `AgentChannel` 参与会话的实例以及关联的管道之间的关系：
+The relationships between any `AgentChat`, the `Agent` instances participating in the conversation, and the associated `AgentChannel` conduits are illustrated in the following diagram:
 
 <p align="center">
 <kbd><img src="diagrams/agentchat-relationships.png" style="width: 220pt;"></kbd>
 </p>
 
-而 an `AgentChat` manage a primary `ChatHistory`，每个 each `AgentChannel` 都管理该历史记录如何适应特定 `Agent` 模式。 例如， `AgentChannel` 基于 Open AI Assistant API `Agent` 的  for an 会跟踪关联的 _thread-id_。 而 a `ChatCompletionAgent` 管理自己的改编 `ChatHistory` 实例。
+While an `AgentChat` manages a primary `ChatHistory`, each `AgentChannel` manages how that history is adapted to the specific `Agent` modality.  For instance, an `AgentChannel` for an `Agent` based on the Open AI Assistant API tracks the associated _thread-id_.  Whereas a `ChatCompletionAgent` manages an adapted `ChatHistory` instance of its own.
 
-这意味着从逻辑上讲，`AgentChat`除了每个 state 的适当 state 之外`ChatHistory`，state 还必须保留 primary `AgentChannel`：
+This implies that logically the `AgentChat` state must retain the primary `ChatHistory` in addition to the appropriate state for each `AgentChannel`:
 
 
-#### 逻辑状态：
+#### Logical State:
 
-这些关系转换为以下逻辑状态定义：
+These relationships translate into the following logical state definition:
 
 <p align="center">
 <kbd><img src="diagrams/agentchat-state.png" style="width: 220pt;"></kbd>
 </p>
 
 
-#### 序列化状态：
+#### Serialized State:
 
 ```javascript 
 {
@@ -119,15 +125,15 @@
 ```
 
 
-## 选项
+## Options
 
-#### 1. JSON 序列化器：
+#### 1. JSON Serializer:
 
-主要的序列化模式是使用 dotnet `JsonSerializer`. 这是 _Semantic Kernel_ 内容类型所依赖的方法。
+A dominant serialization pattern is to use the dotnet `JsonSerializer`.  This is the approach relied upon by the _Semantic Kernel_ content types.
 
-**序列化示例：**
+**Serialize Example:**
 
-（_dotnet_）
+(_dotnet_)
 ```c#
 // Create the agents
 ChatCompletionAgent agent1 = ...;
@@ -140,7 +146,7 @@ AgentGroupChat chat = new(agent1, agent2);
 string chatState = JsonSerializer.Serialize(chat);
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 # Create the agents
 agent1 = ChatCompletionAgent(...)
@@ -153,15 +159,15 @@ chat = AgentGroupChat(agent1, agent2)
 chat_state = chat.model_dump()
 ```
 
-**Deserialize 示例：**
+**Deserialize Example:**
 
-（_dotnet_）
+(_dotnet_)
 ```c#
 // Deserialize JSON
 AgentGroupChat chat = JsonSerializer.Deserialize<AgentGroupChat>(chatState);
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 # Deserialize JSON
 def agent_group_chat_decoder(obj) -> AgentGroupChat:
@@ -170,21 +176,21 @@ def agent_group_chat_decoder(obj) -> AgentGroupChat:
 chat = json.loads(chat_state, object_hook=agent_group_chat_decoder)
 ```
 
-**优点：**
-- 不需要了解特定于_代理框架的序列化模式_。
+**Pro:**
+- Doesn't require knowledge of a serialization pattern specific to the _Agent Framework_.
 
-**缺点：**
-- 两者都 `AgentChat` `AgentChannel` 不是作为服务类设计的，而不是数据传输_对象_ （DTO）。 意味着破坏性重构。（想想：完全重写）
-- 要求调用方解决复杂性以支持未知 `AgentChannel` 类和 `AgentChat` 子类的序列化。
-- 限制在恢复聊天时进行后处理的能力（例如频道同步）。
--  `Agent` 反序列化中缺少实例会干扰恢复任何 `AgentChannel`.
+**Con:**
+- Both `AgentChat` nor `AgentChannel` are designed as a service classes, not _data transfer objects_ (DTO's).  Implies disruptive refactoring. (Think: complete re-write)
+- Requires caller to address complexity to support serialization of unknown `AgentChannel` and `AgentChat` subclasses.
+- Limits ability to post process when restoring chat (e.g. channel synchronization).
+- Absence of `Agent` instances in deserialization interferes with ability to restore any `AgentChannel`.
 
 
-#### 2. `AgentChat` 序列化器： 
+#### 2. `AgentChat` Serializer: 
 
-引入具有特定 Contract 知识的序列化程序 `AgentChat` 可以简化序列化和反序列化。
+Introducing a serializer with specific knowledge of `AgentChat` contracts enables the ability to streamline serialization and deserialization.
 
-（_dotnet_）
+(_dotnet_)
 ```c#
 class AgentChatSerializer
 {
@@ -202,7 +208,7 @@ class AgentChatSerializer
 }
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 class AgentChatSerializer:
 
@@ -225,19 +231,19 @@ class AgentChatSerializer:
         pass
 ```
 
-**优点：**
-- 能够明确定义聊天状态，独立于聊天 _服务_ 要求。
-- 支持 any `AgentChat` 和 `AgentChannel` subclass。
-- 能够在恢复聊天时支持后处理（例如频道同步）。
-- 允许在 `AgentChat` 反序列化之前正确初始化 any。
-- 允许检查 `ChatParticipant` 元数据。
+**Pro:**
+- Able to clearly define the chat-state, separate from the chat _service_ requirements.
+- Support any `AgentChat` and `AgentChannel` subclass.
+- Ability to support post processing when restoring chat (e.g. channel synchronization).
+- Allows any `AgentChat` to be properly initialized prior to deserialization.
+- Allows for inspection of `ChatParticipant` metadata.
 
-**缺点：**
-- 需要了解特定于 _Agent Framework 的序列化模式_。
+**Con:**
+- Require knowledge of a serialization pattern specific to the _Agent Framework_.
 
-**序列化示例：**
+**Serialize Example:**
 
-（_dotnet_）
+(_dotnet_)
 ```c#
 // Create agents
 ChatCompletionAgent agent1 = ...;
@@ -256,7 +262,7 @@ async using Stream stream = ...;
 await AgentChatSerializer.SerializeAsync(chat, stream);
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 # Create agents
 agent1 = ChatCompletionAgent(...)
@@ -275,9 +281,9 @@ async with ... as stream:
 await AgentChatSerializer.serialize(chat, stream)
 ```
 
-**Deserialize 示例：**
+**Deserialize Example:**
 
-（_dotnet_）
+(_dotnet_)
 ```c#
 // Create agents
 ChatCompletionAgent agent1 = ...;
@@ -310,7 +316,7 @@ serializer.Deserialize(chat);
 await chat.InvokeAsync();
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 # Create agents
 agent1 = ChatCompletionAgent(...)
@@ -339,18 +345,18 @@ await serializer.deserialize(chat)
 await chat.invoke();
 ```
 
-#### 3. 编码状态 
+#### 3. Encoded State 
 
-此选项与第二个选项相同;但是，每个离散状态都经过 Base64 编码，以防止修改/作捕获的状态。
+This option is identical to the second option; however, each discrete state is base64 encoded to discourage modification / manipulation of the captured state.
 
-**优点：**
-- 阻碍检查和修改的能力。
+**Pro:**
+- Discourages ability to inspect and modify.
 
-**缺点：**
-- 掩盖了检查的能力。
-- 仍然能够解码检查和修改。
+**Con:**
+- Obscures ability to inspect.
+- Still able to decode to inspect and modify.
 
-**序列化状态：**
+**Serialized State:**
 ```javascript
 {
     "history": "VGhpcyBpcyB0aGUgcHJpbWFyeSBjaGF0IGhpc3Rvcnkg...",
@@ -371,6 +377,6 @@ await chat.invoke();
 ```
 
 
-## 结果
+## Outcome
 
-待定
+TBD

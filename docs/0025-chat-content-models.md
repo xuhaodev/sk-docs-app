@@ -1,31 +1,40 @@
-# 聊天模型
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: dmytrostruk
+date: 2023-12-08
+deciders: SergeyMenshykh, markwallace, rbarreto, mabolan, stephentoub, dmytrostruk
+consulted: 
+informed: 
+---
+# Chat Models
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-在最新的 OpenAI API 中，`content`对象的属性 `chat message` 可以接受两种类型的值 `string` 或 `array` （[Documentation](https://platform.openai.com/docs/api-reference/chat/create)）。
+In latest OpenAI API, `content` property of `chat message` object can accept two types of values `string` or `array` ([Documentation](https://platform.openai.com/docs/api-reference/chat/create)).
 
-我们应该更新 `ChatMessageContent` class with `string Content` property 的当前实现以支持此 API。
+We should update current implementation of `ChatMessageContent` class with `string Content` property to support this API.
 
-## 决策驱动因素
+## Decision Drivers
 
-1. 新设计不应与 OpenAI API 耦合，而应适用于其他 AI 提供商。
-2. 类和属性的命名应一致且直观。
+1. New design should not be coupled to OpenAI API and should work for other AI providers.
+2. Naming of classes and properties should be consistent and intuitive.
 
-## 考虑的选项
+## Considered Options
 
-一些选项变体可以组合使用。
+Some of the option variations can be combined.
 
-### 选项 #1：命名更新和新数据类型 `chat message content`
+### Option #1: Naming updates and new data type for `chat message content`
 
-由于 `chat message content` can be an object now 而不是 `string`，因此它需要保留名称以便更好地理解 domain。
+Since `chat message content` can be an object now instead of `string`, it requires reserved name for better understanding in domain.
 
-1. `ChatMessageContent` 将重命名为 `ChatMessage`。（相同 `StreamingChatMessageContent`）。
-2. `GetChatMessageContent` 方法将重命名为 `GetChatMessage`.
-3. 新的抽象类 `ChatMessageContent` ，其属性的值 `ChatMessageContentType Type` 为 `text`， `image`。（将扩展为 `audio`、 `video` 将来）。
-4. `ChatMessage` 将包含 objects 的集合 `ChatMessageContent` `IList<ChatMessageContent> Contents`。
-5. 将有 `ChatMessageContent` - `ChatMessageTextContent` 和 `ChatMessageImageContent`的具体实现。
+1. `ChatMessageContent` will be renamed to `ChatMessage`. (Same for `StreamingChatMessageContent`).
+2. `GetChatMessageContent` methods will be renamed to `GetChatMessage`.
+3. New abstract class `ChatMessageContent` that will have property `ChatMessageContentType Type` with values `text`, `image`. (Will be extended with `audio`, `video` in the future).
+4. `ChatMessage` will contain collection of `ChatMessageContent` objects `IList<ChatMessageContent> Contents`.
+5. There will be concrete implementations of `ChatMessageContent` - `ChatMessageTextContent` and `ChatMessageImageContent`.
 
-新建 _ChatMessageContentType.cs_
+New _ChatMessageContentType.cs_
 
 ```csharp
 public readonly struct ChatMessageContentType : IEquatable<ChatMessageContentType>
@@ -40,7 +49,7 @@ public readonly struct ChatMessageContentType : IEquatable<ChatMessageContentTyp
 }
 ```
 
-新 _ChatMessageContent.cs_
+New _ChatMessageContent.cs_
 
 ```csharp
 public abstract class ChatMessageContent
@@ -54,7 +63,7 @@ public abstract class ChatMessageContent
 }
 ```
 
-更新 _ChatMessage.cs_：
+Updated _ChatMessage.cs_:
 
 ```csharp
 public class ChatMessage : ContentBase
@@ -64,7 +73,7 @@ public class ChatMessage : ContentBase
     public IList<ChatMessageContent> Contents { get; set; }
 ```
 
-新 _ChatMessageTextContent.cs_
+New _ChatMessageTextContent.cs_
 
 ```csharp
 public class ChatMessageTextContent : ChatMessageContent
@@ -78,7 +87,7 @@ public class ChatMessageTextContent : ChatMessageContent
 }
 ```
 
-新 _ChatMessageImageContent.cs_
+New _ChatMessageImageContent.cs_
 
 ```csharp
 public class ChatMessageImageContent : ChatMessageContent
@@ -92,7 +101,7 @@ public class ChatMessageImageContent : ChatMessageContent
 }
 ```
 
-用法：
+Usage:
 
 ```csharp
 var chatHistory = new ChatHistory("You are friendly assistant.");
@@ -129,18 +138,18 @@ foreach (var content in message.Contents)
 }
 ```
 
-### 选项 #2：避免重命名和新的数据类型 `chat message content`
+### Option #2: Avoid renaming and new data type for `chat message content`
 
-与选项 #1 相同，但没有命名更改。为了区分实际和 `chat message` `chat message content`：
+Same as Option #1, but without naming changes. In order to differentiate actual `chat message` and `chat message content`:
 
-- `Chat Message` 将是 `ChatMessageContent` （就像现在一样）。
-- `Chat Message Content` 将为 `ChatMessageContentItem`。
+- `Chat Message` will be `ChatMessageContent` (as it is right now).
+- `Chat Message Content` will be `ChatMessageContentItem`.
 
-1. 新的抽象类 `ChatMessageContentItem` ，其属性的值 `ChatMessageContentItemType Type` 为 `text`， `image`。（将扩展为 `audio`、 `video` 将来）。
-2. `ChatMessageContent` 将包含 objects 的集合 `ChatMessageContentItem` `IList<ChatMessageContentItem> Items`。
-3. 将有 `ChatMessageContentItem` - `ChatMessageTextContentItem` 和 `ChatMessageImageContentItem`的具体实现。
+1. New abstract class `ChatMessageContentItem` that will have property `ChatMessageContentItemType Type` with values `text`, `image`. (Will be extended with `audio`, `video` in the future).
+2. `ChatMessageContent` will contain collection of `ChatMessageContentItem` objects `IList<ChatMessageContentItem> Items`.
+3. There will be concrete implementations of `ChatMessageContentItem` - `ChatMessageTextContentItem` and `ChatMessageImageContentItem`.
 
-新 _ChatMessageContentItemType.cs_
+New _ChatMessageContentItemType.cs_
 
 ```csharp
 public readonly struct ChatMessageContentItemType : IEquatable<ChatMessageContentItemType>
@@ -155,7 +164,7 @@ public readonly struct ChatMessageContentItemType : IEquatable<ChatMessageConten
 }
 ```
 
-新 _ChatMessageContentItem.cs_
+New _ChatMessageContentItem.cs_
 
 ```csharp
 public abstract class ChatMessageContentItem
@@ -169,7 +178,7 @@ public abstract class ChatMessageContentItem
 }
 ```
 
-更新 _ChatMessageContent.cs_：
+Updated _ChatMessageContent.cs_:
 
 ```csharp
 public class ChatMessageContent : ContentBase
@@ -179,7 +188,7 @@ public class ChatMessageContent : ContentBase
     public IList<ChatMessageContentItem> Items { get; set; }
 ```
 
-新 _ChatMessageTextContentItem.cs_
+New _ChatMessageTextContentItem.cs_
 
 ```csharp
 public class ChatMessageTextContentItem : ChatMessageContentItem
@@ -193,7 +202,7 @@ public class ChatMessageTextContentItem : ChatMessageContentItem
 }
 ```
 
-新 _ChatMessageImageContent.cs_
+New _ChatMessageImageContent.cs_
 
 ```csharp
 public class ChatMessageImageContentItem : ChatMessageContentItem
@@ -207,7 +216,7 @@ public class ChatMessageImageContentItem : ChatMessageContentItem
 }
 ```
 
-用法：
+Usage:
 
 ```csharp
 var chatHistory = new ChatHistory("You are friendly assistant.");
@@ -244,11 +253,11 @@ foreach (var contentItem in message.Items)
 }
 ```
 
-### 选项 #3：向 `ChatMessageContent` - 内容项的集合添加新属性
+### Option #3: Add new property to `ChatMessageContent` - collection of content items
 
-此选项将保持 `string Content` property 不变，但会添加新 property - collection of `ContentBase` items。
+This option will keep `string Content` property as it is, but will add new property - collection of `ContentBase` items.
 
-更新的 _ChatMessageContent.cs_
+Updated _ChatMessageContent.cs_
 
 ```csharp
 public class ChatMessageContent : ContentBase
@@ -261,7 +270,7 @@ public class ChatMessageContent : ContentBase
 }
 ```
 
-新 _ChatMessageContentItemCollection.cs_
+New _ChatMessageContentItemCollection.cs_
 
 ```csharp
 public class ChatMessageContentItemCollection : IList<ContentBase>, IReadOnlyList<ContentBase>
@@ -270,7 +279,7 @@ public class ChatMessageContentItemCollection : IList<ContentBase>, IReadOnlyLis
 }
 ```
 
-用法：
+Usage:
 
 ```csharp
 var chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
@@ -288,9 +297,9 @@ var reply = await chatCompletionService.GetChatMessageContentAsync(chatHistory);
 Console.WriteLine(reply.Content);
 ```
 
-## 决策结果
+## Decision Outcome
 
-选项 #3 是首选，因为它需要对现有层次结构进行少量更改，并为最终用户提供干净的可用性。
+Option #3 was preferred as it requires small amount of changes to existing hierarchy and provides clean usability for end-user.
 
-图：
-![聊天和文本模型图](diagrams/chat-text-models.png)
+Diagram:
+![Chat and Text models diagram](diagrams/chat-text-models.png)

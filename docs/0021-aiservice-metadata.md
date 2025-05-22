@@ -1,14 +1,22 @@
-# 添加 AI 服务元数据
+---
+# These are optional elements. Feel free to remove any of them.
+status: {proposed}
+date: {2023-11-10}
+deciders: SergeyMenshykh, markwallace, rbarreto, dmytrostruk
+consulted: 
+informed: 
+---
+# Add AI Service Metadata
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-开发人员需要能够了解有关 `IAIService` 将用于执行语义函数或计划的更多信息。
-他们为什么需要此信息的一些示例：
+Developers need to be able to know more information about the `IAIService` that will be used to execute a semantic function or a plan.
+Some examples of why they need this information:
 
-1. 作为 SK 开发人员，我想编写一个 `IAIServiceSelector` 文档，允许我根据配置的模型 ID 选择要使用的 OpenAI 服务，以便我可以根据我正在执行的提示选择要使用的最佳（可能是最便宜的）模型。
-2. 作为 SK 开发人员，我想编写一个调用前钩子，它将在将提示发送到 LLM 之前计算提示的令牌大小，以便确定 `IAIService` 最佳使用。我用来计算 prompt 的 token 大小的库需要 model id。
+1. As an SK developer I want to write a `IAIServiceSelector` which allows me to select the OpenAI service to used based on the configured model id so that I can select the optimum (could eb cheapest) model to use based on the prompt I am executing.
+2. As an SK developer I want to write a pre-invocation hook which will compute the token size of a prompt before the prompt is sent to the LLM, so that I can determine the optimum `IAIService` to use. The library I am using to compute the token size of the prompt requires the model id.
 
-的当前实现 `IAIService` 为空。
+Current implementation of `IAIService` is empty.
 
 ```csharp
 public interface IAIService
@@ -16,10 +24,10 @@ public interface IAIService
 }
 ```
 
-我们可以使用 `IAIService` `T IKernel.GetService<T>(string? name = null) where T : IAIService;` i.e.，即按服务类型和名称（又名服务 ID）检索实例。
-的具体实例 `IAIService` 可以具有不同的属性，具体取决于服务提供商，例如，Azure OpenAI 具有部署名称，OpenAI 服务具有模型 ID。
+We can retrieve `IAIService` instances using `T IKernel.GetService<T>(string? name = null) where T : IAIService;` i.e., by service type and name (aka service id).
+The concrete instance of an `IAIService` can have different attributes depending on the service provider e.g. Azure OpenAI has a deployment name and OpenAI services have a model id.
 
-请考虑以下代码片段：
+Consider the following code snippet:
 
 ```csharp
 IKernel kernel = new KernelBuilder()
@@ -38,46 +46,46 @@ IKernel kernel = new KernelBuilder()
 var service = kernel.GetService<IChatCompletion>("OpenAIChat");
 ```
 
-对于 Azure OpenAI，我们使用部署名称创建服务。这是部署 AI 模型的人员指定的任意名称，例如，它可以是 `eastus-gpt-4` 或 `foo-bar`。
-对于 OpenAI，我们使用模型 ID 创建服务。这必须与已部署的 OpenAI 模型之一匹配。
+For Azure OpenAI we create the service with a deployment name. This is an arbitrary name specified by the person who deployed the AI model e.g. it could be `eastus-gpt-4` or `foo-bar`.
+For OpenAI we create the service with a model id. This must match one of the deployed OpenAI models.
 
-从使用 OpenAI 的提示创建者的角度来看，他们通常会根据模型调整提示。因此，当执行 prompt 时，我们需要能够使用模型 ID 来检索服务。如上面的代码片段所示， `IKernel` only 支持 `IAService` 按 id 检索实例。此外，它是一个 `IChatCompletion` 通用接口，因此它不包含任何提供有关特定连接器实例信息的属性。
+From the perspective of a prompt creator using OpenAI, they will typically tune their prompts based on the model. So when the prompt is executed we need to be able to retrieve the service using the model id. As shown in the code snippet above the `IKernel` only supports retrieving an `IAService` instance by id. Additionally the `IChatCompletion` is a generic interface so it doesn't contain any properties which provide information about a specific connector instance.
 
-## 决策驱动因素
+## Decision Drivers
 
-* 我们需要一种机制来存储实例的通用元数据 `IAIService` 。
-  * 具体实例将负责 `IAIService` 存储相关的元数据，例如 OpenAI 和 HuggingFace AI 服务的模型 ID。
-* 我们需要能够迭代可用的 `IAIService` 实例。
+* We need a mechanism to store generic metadata for an `IAIService` instance.
+  * It will be the responsibility of the concrete `IAIService` instance to store the metadata that is relevant e.g., model id for OpenAI and HuggingFace AI services.
+* We need to be able to iterate over the available `IAIService` instances.
 
-## 考虑的选项
+## Considered Options
 
-* 选项 #1
-  * 扩展 `IAIService` 以包括以下属性：
-    * `string? ModelId { get; }` ，它返回模型 ID。每个  implementation 都有责任`IAIService`使用适当的值填充 this。
-    * `IReadOnlyDictionary<string, object> Attributes { get; }` ，它将属性作为 readonly 字典返回。每个实施都有责任`IAIService`使用适当的元数据填充此 URL。
-  * 扩展 `INamedServiceProvider` 以包含此方法 `ICollection<T> GetServices<T>() where T : TService;`
-  * 扩展 `OpenAIKernelBuilderExtensions` ，以便 `WithAzureXXX` 方法可以包含属性（ `modelId` 如果可以定位特定模型）。
-* 选项 #2
-  * 扩展 `IAIService` 以包括以下方法：
-    * `T? GetAttributes<T>() where T : AIServiceAttributes;` ，它返回 `AIServiceAttributes`.每个 implementation 都有责任 `IAIService` 定义自己的 service attributes 类，并使用适当的值填充它。
-  * 扩展 `INamedServiceProvider` 以包含此方法 `ICollection<T> GetServices<T>() where T : TService;`
-  * 扩展 `OpenAIKernelBuilderExtensions` ，以便 `WithAzureXXX` 方法可以包含属性（ `modelId` 如果可以定位特定模型）。
-* 选项 #3
-* 选项 #2
-  * 扩展 `IAIService` 以包括以下属性：
-    * `public IReadOnlyDictionary<string, object> Attributes => this.InternalAttributes;` ，它返回一个只读字典。每个 implementation 都有责任 `IAIService` 定义自己的 service attributes 类，并使用适当的值填充它。
+* Option #1
+  * Extend `IAIService` to include the following properties:
+    * `string? ModelId { get; }` which returns the model id. It will be the responsibility of each `IAIService` implementation to populate this with the appropriate value.
+    * `IReadOnlyDictionary<string, object> Attributes { get; }` which returns the attributes as a readonly dictionary. It will be the responsibility of each `IAIService` implementation to populate this with the appropriate metadata.
+  * Extend `INamedServiceProvider` to include this method `ICollection<T> GetServices<T>() where T : TService;`
+  * Extend `OpenAIKernelBuilderExtensions` so that `WithAzureXXX` methods will include a `modelId` property if a specific model can be targeted.
+* Option #2
+  * Extend `IAIService` to include the following method:
+    * `T? GetAttributes<T>() where T : AIServiceAttributes;` which returns an instance of `AIServiceAttributes`. It will be the responsibility of each `IAIService` implementation to define it's own service attributes class and populate this with the appropriate values.
+  * Extend `INamedServiceProvider` to include this method `ICollection<T> GetServices<T>() where T : TService;`
+  * Extend `OpenAIKernelBuilderExtensions` so that `WithAzureXXX` methods will include a `modelId` property if a specific model can be targeted.
+* Option #3
+* Option #2
+  * Extend `IAIService` to include the following properties:
+    * `public IReadOnlyDictionary<string, object> Attributes => this.InternalAttributes;` which returns a read only dictionary. It will be the responsibility of each `IAIService` implementation to define it's own service attributes class and populate this with the appropriate values.
     * `ModelId`
     * `Endpoint`
     * `ApiVersion`
-  * 扩展 `INamedServiceProvider` 以包含此方法 `ICollection<T> GetServices<T>() where T : TService;`
-  * 扩展 `OpenAIKernelBuilderExtensions` ，以便 `WithAzureXXX` 方法可以包含属性（ `modelId` 如果可以定位特定模型）。
+  * Extend `INamedServiceProvider` to include this method `ICollection<T> GetServices<T>() where T : TService;`
+  * Extend `OpenAIKernelBuilderExtensions` so that `WithAzureXXX` methods will include a `modelId` property if a specific model can be targeted.
 
-这些选项的使用方式如下：
+These options would be used as follows:
 
-作为 SK 开发人员，我想编写一个自定义 `IAIServiceSelector` 项，该自定义项将根据模型 ID 选择 AI 服务，因为我想限制使用的 LLM。
-在下面的示例中，服务选择器实现查找第一个 GPT3 模型服务。
+As an SK developer I want to write a custom `IAIServiceSelector` which will select an AI service based on the model id because I want to restrict which LLM is used.
+In the sample below the service selector implementation looks for the first service that is a GPT3 model.
 
-### 选项 1
+### Option 1
 
 ``` csharp
 public class Gpt3xAIServiceSelector : IAIServiceSelector
@@ -99,7 +107,7 @@ public class Gpt3xAIServiceSelector : IAIServiceSelector
 }
 ```
 
-## 选项 2
+## Option 2
 
 ``` csharp
 public class Gpt3xAIServiceSelector : IAIServiceSelector
@@ -122,7 +130,7 @@ public class Gpt3xAIServiceSelector : IAIServiceSelector
 }
 ```
 
-## 选项 3
+## Option 3
 
 ```csharp
 public (T?, AIRequestSettings?) SelectAIService<T>(string renderedPrompt, IAIServiceProvider serviceProvider, IReadOnlyList<AIRequestSettings>? modelSettings) where T : IAIService
@@ -144,6 +152,6 @@ public (T?, AIRequestSettings?) SelectAIService<T>(string renderedPrompt, IAISer
 }
 ```
 
-## 决策结果
+## Decision Outcome
 
-选择的选项：选项 1，因为它是一个简单的实现，并且允许对所有可能的属性进行轻松迭代。
+Chosen option: Option 1, because it's a simple implementation and allows easy iteration over all possible attributes.

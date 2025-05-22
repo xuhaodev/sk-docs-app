@@ -1,46 +1,55 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: markwallace-microsoft
+date: 2023-9-15
+deciders: shawncal
+consulted: stephentoub, lemillermicrosoft, dmytrostruk
+informed:
+---
 
-# 重构以支持通用 LLM 请求设置
+# Refactor to support generic LLM request settings
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-Semantic Kernel abstractions 包包括许多类（`CompleteRequestSettings`、 `ChatRequestSettings` `PromptTemplateConfig.CompletionConfig`、），用于支持：
+The Semantic Kernel abstractions package includes a number of classes (`CompleteRequestSettings`, `ChatRequestSettings`, `PromptTemplateConfig.CompletionConfig`) which are used to support:
 
-1. 在调用 AI 服务时传递 LLM 请求设置
-2. 加载与语义函数关联的 `config.json`LLM 请求设置的反序列化 
+1. Passing LLM request settings when invoking an AI service
+2. Deserialization of LLM requesting settings when loading the `config.json` associated with a Semantic Function
 
-这些类的问题在于它们仅包含 OpenAI 特定的属性。开发人员只能传递 OpenAI 特定的请求设置，这意味着：
+The problem with these classes is they include OpenAI specific properties only. A developer can only pass OpenAI specific requesting settings which means:
 
-1. 可以传递无效的设置，例如，传递给 `MaxTokens` Huggingface
-2. 无法发送与 OpenAI 属性不重叠的设置，例如，Oobabooga 支持其他参数，例如、`do_sample`、`typical_p`、...
+1. Settings may be passed that have no effect e.g., passing `MaxTokens` to Huggingface
+2. Settings that do not overlap with the OpenAI properties cannot be sent e.g., Oobabooga supports additional parameters e.g., `do_sample`, `typical_p`, ...
 
-链接到 Oobabooga AI 服务的实现者提出的问题： <https://github.com/microsoft/semantic-kernel/issues/2735>
+Link to issue raised by the implementer of the Oobabooga AI service: <https://github.com/microsoft/semantic-kernel/issues/2735>
 
-## 决策驱动因素
+## Decision Drivers
 
-- 语义内核抽象必须与 AI 服务无关，即删除 OpenAI 特定属性。
-- 解决方案必须继续支持从 加载语义函数配置（包括 AI 请求设置）。 `config.json`
-- 为开发人员提供良好的体验，例如，必须能够使用 type safety、intellisense 等进行编程。
-- 为 AI 服务的实现者提供良好的体验，即，应该清楚如何为他们支持的服务定义适当的 AI 请求设置抽象。
-- 语义内核实现和示例代码应避免在旨在与多个 AI 服务一起使用的代码中指定特定于 OpenAI 的请求设置。
-- 如果实现是特定于 OpenAI 的，则必须明确语义内核实现和示例代码。
+- Semantic Kernel abstractions must be AI Service agnostic i.e., remove OpenAI specific properties.
+- Solution must continue to support loading Semantic Function configuration (which includes AI request settings) from `config.json`.
+- Provide good experience for developers e.g., must be able to program with type safety, intellisense, etc.
+- Provide a good experience for implementors of AI services i.e., should be clear how to define the appropriate AI Request Settings abstraction for the service they are supporting.
+- Semantic Kernel implementation and sample code should avoid specifying OpenAI specific request settings in code that is intended to be used with multiple AI services.
+- Semantic Kernel implementation and sample code must be clear if an implementation is intended to be OpenAI specific.
 
-## 考虑的选项
+## Considered Options
 
-- 用于 `dynamic` 传递请求设置
-- 用于 `object` 传递请求设置
-- 为 AI 请求设置定义一个基类，所有实现都必须扩展该基类
+- Use `dynamic` to pass request settings
+- Use `object` to pass request settings
+- Define a base class for AI request settings which all implementations must extend
 
-注意：在 Dmytro 进行的早期调查中，使用泛型被打了折扣。
+Note: Using generics was discounted during an earlier investigation which Dmytro conducted.
 
-## 决策结果
+## Decision Outcome
 
-**建议：** 为 AI 请求设置定义一个基类，所有实现都必须扩展该基类。
+**Proposed:** Define a base class for AI request settings which all implementations must extend.
 
-## 选项的优缺点
+## Pros and Cons of the Options
 
-### 用于 `dynamic` 传递请求设置
+### Use `dynamic` to pass request settings
 
- `IChatCompletion` 界面将如下所示：
+The `IChatCompletion` interface would look like this:
 
 ```csharp
 public interface IChatCompletion : IAIService
@@ -59,7 +68,7 @@ public interface IChatCompletion : IAIService
 }
 ```
 
-开发人员可以使用以下选项来指定语义函数的请求设置：
+Developers would have the following options to specify the requesting settings for a semantic function:
 
 ```csharp
 // Option 1: Use an anonymous type
@@ -86,17 +95,17 @@ var func = kernel.CreateSemanticFunction(prompt, config: templateConfig!, "Hello
 await kernel.RunAsync(func);
 ```
 
-公关： <https://github.com/microsoft/semantic-kernel/pull/2807>
+PR: <https://github.com/microsoft/semantic-kernel/pull/2807>
 
-- 很好，SK 抽象不包含对 OpenAI 特定请求设置的引用
-- 中性，因为可以使用匿名类型，这允许开发人员传入多个 AI 服务可能支持的属性，例如， `temperature` 或组合不同 AI 服务的属性，例如 `max_tokens` （OpenAI） 和 `max_new_tokens` （Oobabooga）。
-- 不好，因为开发人员不清楚在创建语义函数时应该传递什么
-- 不好，因为聊天/文本完成服务的实现者不清楚他们应该接受什么或如何添加特定于服务的属性。
-- 糟糕的是，对于尚未解析 dynamic 参数的代码路径，没有编译器类型检查，这会影响代码质量。类型问题显示为 `RuntimeBinderException`，可能难以排除故障。需要特别小心返回类型，例如，可能需要指定显式类型，而不是再次指定，`var`以避免错误，例如 `Microsoft.CSharp.RuntimeBinder.RuntimeBinderException : Cannot apply indexing with [] to an expression of type 'object'`
+- Good, SK abstractions contain no references to OpenAI specific request settings
+- Neutral, because anonymous types can be used which allows a developer to pass in properties that may be supported by multiple AI services e.g., `temperature` or combine properties for different AI services e.g., `max_tokens` (OpenAI) and `max_new_tokens` (Oobabooga).
+- Bad, because it's not clear to developers what they should pass when creating a semantic function
+- Bad, because it's not clear to implementors of a chat/text completion service what they should accept or how to add service specific properties.
+- Bad, there is no compiler type checking for code paths where the dynamic argument has not been resolved which will impact code quality. Type issues manifest as `RuntimeBinderException`'s and may be difficult to troubleshoot. Special care needs to be taken with return types e.g., may be necessary to specify an explicit type rather than just `var` again to avoid errors such as `Microsoft.CSharp.RuntimeBinder.RuntimeBinderException : Cannot apply indexing with [] to an expression of type 'object'`
 
-### 用于 `object` 传递请求设置
+### Use `object` to pass request settings
 
- `IChatCompletion` 界面将如下所示：
+The `IChatCompletion` interface would look like this:
 
 ```csharp
 public interface IChatCompletion : IAIService
@@ -115,19 +124,19 @@ public interface IChatCompletion : IAIService
 }
 ```
 
-调用模式与情况相同 `dynamic` ，即使用匿名类型、特定于 AI 服务的类（例如） `OpenAIRequestSettings` 或从 JSON 加载。
+The calling pattern is the same as for the `dynamic` case i.e. use either an anonymous type, an AI service specific class e.g., `OpenAIRequestSettings` or load from JSON.
 
-公关： <https://github.com/microsoft/semantic-kernel/pull/2819>
+PR: <https://github.com/microsoft/semantic-kernel/pull/2819>
 
-- 很好，SK 抽象不包含对 OpenAI 特定请求设置的引用
-- 中性，因为可以使用匿名类型，这允许开发人员传入多个 AI 服务可能支持的属性，例如， `temperature` 或组合不同 AI 服务的属性，例如 `max_tokens` （OpenAI） 和 `max_new_tokens` （Oobabooga）。
-- 不好，因为开发人员不清楚在创建语义函数时应该传递什么
-- 不好，因为聊天/文本完成服务的实现者不清楚他们应该接受什么或如何添加特定于服务的属性。
-- 糟糕的是，需要代码来执行类型检查和显式强制转换。情况比实际情况略好 `dynamic` 。
+- Good, SK abstractions contain no references to OpenAI specific request settings
+- Neutral, because anonymous types can be used which allows a developer to pass in properties that may be supported by multiple AI services e.g., `temperature` or combine properties for different AI services e.g., `max_tokens` (OpenAI) and `max_new_tokens` (Oobabooga).
+- Bad, because it's not clear to developers what they should pass when creating a semantic function
+- Bad, because it's not clear to implementors of a chat/text completion service what they should accept or how to add service specific properties.
+- Bad, code is needed to perform type checks and explicit casts. The situation is slightly better than for the `dynamic` case.
 
-### 为 AI 请求设置定义一个基类，所有实现都必须扩展该基类
+### Define a base class for AI request settings which all implementations must extend
 
- `IChatCompletion` 界面将如下所示：
+The `IChatCompletion` interface would look like this:
 
 ```csharp
 public interface IChatCompletion : IAIService
@@ -146,7 +155,7 @@ public interface IChatCompletion : IAIService
 }
 ```
 
-`AIRequestSettings` 定义如下：
+`AIRequestSettings` is defined as follows:
 
 ```csharp
 public class AIRequestSettings
@@ -166,7 +175,7 @@ public class AIRequestSettings
 }
 ```
 
-开发人员可以使用以下选项来指定语义函数的请求设置：
+Developers would have the following options to specify the requesting settings for a semantic function:
 
 ```csharp
 // Option 1: Invoke the semantic function and pass an OpenAI specific instance
@@ -192,7 +201,7 @@ var func = kernel.CreateSemanticFunction(prompt, config: templateConfig!, "Hello
 await kernel.RunAsync(func);
 ```
 
-也可以使用以下模式：
+It would also be possible to use the following pattern:
 
 ```csharp
 this._summarizeConversationFunction = kernel.CreateSemanticFunction(
@@ -211,14 +220,14 @@ this._summarizeConversationFunction = kernel.CreateSemanticFunction(
 
 ```
 
-此模式的警告是，假设更具体的实现 `AIRequestSettings` 使用 JSON 序列化/反序列化从 base hydrate 实例 `AIRequestSettings`，这仅在默认 JsonConverter 支持所有属性时才有效，例如，
+The caveat with this pattern is, assuming a more specific implementation of `AIRequestSettings` uses JSON serialization/deserialization to hydrate an instance from the base `AIRequestSettings`, this will only work if all properties are supported by the default JsonConverter e.g.,
 
-- 如果我们有 `MyAIRequestSettings` which includes a `Uri` property.的实现 `MyAIRequestSettings` 将确保加载 URI 转换器，以便它可以正确序列化/反序列化设置。
-- 如果 的设置 `MyAIRequestSettings` 被发送到依赖于默认 JsonConverter 的 AI 服务，那么 `NotSupportedException` 将引发异常。
+- If we have `MyAIRequestSettings` which includes a `Uri` property. The implementation of `MyAIRequestSettings` would make sure to load a URI converter so that it can serialize/deserialize the settings correctly.
+- If the settings for `MyAIRequestSettings` are sent to an AI service which relies on the default JsonConverter then a `NotSupportedException` exception will be thrown.
 
-公关： <https://github.com/microsoft/semantic-kernel/pull/2829>
+PR: <https://github.com/microsoft/semantic-kernel/pull/2829>
 
-- 很好，SK 抽象不包含对 OpenAI 特定请求设置的引用
-- 很好，因为开发人员在创建语义函数时很清楚他们应该传递什么，并且很容易发现存在哪些特定于服务的请求设置实现。
-- 很好，因为聊天 / 文本完成服务的实现者很清楚他们应该接受什么，以及如何扩展基本抽象以添加特定于服务的属性。
-- 中性，因为 `ExtensionData` 可以使用它允许开发人员传入多个 AI 服务可能支持的属性，例如， `temperature` 或组合不同 AI 服务的属性，例如 `max_tokens` （OpenAI） 和 `max_new_tokens` （Oobabooga）。
+- Good, SK abstractions contain no references to OpenAI specific request settings
+- Good, because it is clear to developers what they should pass when creating a semantic function and it is easy to discover what service specific request setting implementations exist.
+- Good, because it is clear to implementors of a chat/text completion service what they should accept and how to extend the base abstraction to add service specific properties.
+- Neutral, because `ExtensionData` can be used which allows a developer to pass in properties that may be supported by multiple AI services e.g., `temperature` or combine properties for different AI services e.g., `max_tokens` (OpenAI) and `max_new_tokens` (Oobabooga).

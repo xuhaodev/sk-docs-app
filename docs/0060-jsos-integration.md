@@ -1,29 +1,38 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: sergeymenshykh
+date: 2024-10-07
+deciders: markwallace, sergeymenshykh, westey-m, 
+consulted: eiriktsarpalis, stephentoub
+informed:
+---
 
-# 考虑将 JsonSerializerOptions 集成到 SK 中的方法
+# Considering Ways to Integrate JsonSerializerOptions into SK
 
-## 上下文和问题陈述
-如今，SK 依靠 JSON 序列化和架构生成功能为函数参数和返回类型生成架构，在封送过程中将它们从 JSON 反序列化为目标类型，将 AI 模型序列化到 SK 并返回，等等。   
+## Context and Problem Statement
+Today, SK relies on JSON serialization and schema generation functionality to generate schemas for function parameters and return types, deserialize them from JSON to the target types as part of the marshaling process, serialize AI models to SK and back, etc.   
   
-目前，序列化代码要么不使用 JsonSerializerOptions （JSO），要么使用硬编码的预定义代码来实现特定目的，而无法提供自定义代码。这对于 JSON 序列化默认使用反射的非 AOT 场景非常有效。但是，在不支持所有必需的反射 API 的原生 AOT 应用程序中，基于反射的序列化将不起作用，并且会崩溃。  
+At the moment, the serialization code either uses no JsonSerializerOptions (JSOs) or uses hardcoded predefined ones for specific purposes without the ability to provide custom ones. This works perfectly fine for non-AOT scenarios where JSON serialization uses reflection by default. However, in Native AOT apps, which do not support all required reflection APIs, reflection-based serialization won't work and will crash.  
    
-若要为 Native-AOT 方案启用序列化，所有序列化代码都应使用由基类表示的源生成的上下文协定 `JsonSerializerContext` 。有关更多详细信息，请参阅[如何在 System.Text.Json 中使用源生成](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/source-generation?pivots=dotnet-8-0#specify-source-generation-mode)一文。此外，应该有一种方法可以通过 SK 公共 API 表面向 JSON 序列化功能提供这些源生成的类。 
+To enable serialization for Native-AOT scenarios, all serialization code should use source-generated context contracts represented by the `JsonSerializerContext` base class. See the article [How to use source generation in System.Text.Json](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/source-generation?pivots=dotnet-8-0#specify-source-generation-mode) for more details. Additionally, there should be a way to supply those source-generated classes via the SK public API surface down to the JSON serialization functionality.  
    
-此 ADR 概述了将具有已配置源生成合约的 JSO 传递到启用 Native-AOT 的 SK 组件的 JSON 序列化代码的潜在选项。
+This ADR outlines potential options for passing JSOs with configured source-generated contracts down to the JSON serialization code of Native-AOT enabled SK components.
 
-## 决策驱动因素
+## Decision Drivers
 
-- 可以提供外部源生成的上下文协定，直至 SK JSON 序列化功能。
-- 直观、清晰、轻松地向 SK 组件提供源生成的上下文契约。
-- 与 Microsoft.Extensions.AI 集成很容易
+- It's possible to provide external source-generated context contracts down to SK JSON serialization functionality.
+- It's intuitively clear and easy to supply source-generated context contracts to SK components.
+- It's easy to integrate with Microsoft.Extensions.AI
 
-## 考虑的选项
+## Considered Options
 
-- 选项 #1：所有 SK 组件都有一个全局 SSO
-- 选项 #2：每个 SK 组件的 JSO
-- 选项 #3：每个 SK 组件作的 JSO
+- Option #1: One global JSOs for all SK components
+- Option #2: JSOs per SK component
+- Option #3: JSOs per SK component operation
 
-## 选项 #1：所有 SK 组件都有一个全局 SSO
-此选项假定将 `JsonSerializerOptions` type `JsonSerializerOptions` 的新属性`Kernel`添加到  class 中。所有外部源生成的上下文契约都将在那里注册，所有需要 JSO 的 SK 组件都将从那里解析它们：
+## Option #1: One global JSOs for all SK components
+This options presumes adding the new `JsonSerializerOptions` property of `JsonSerializerOptions` type to `Kernel` class. All external source-generated context contracts will be registered there and all SK components requiring JSOs will resolve them from there:
 
 ```csharp
 public sealed class MyPlugin { public Order CreateOrder() => new(); }
@@ -65,19 +74,19 @@ public async Task TestAsync()
 }
 ```
 
-优点：  
-- 所有 SK 组件都使用在一个位置配置的 JSO。如果需要，可以提供具有不同选项的内核克隆。  
+Pros:  
+- All SK components use JSOs configured in one place. A kernel clone with different options can be provided if required.  
    
-缺点：  
-- 可能需要将 SK 组件更改为依赖于内核（如果尚未更改）。  
-- 根据 JSO 的初始化方式，此选项在 AOT 应用程序中使用不兼容的 API 时可能不像其他选项那样明确，从而导致根据运行时错误注册源生成的协定。  
-- 与上述类似，可能不清楚哪个组件/API 需要 JSO，从而将发现推迟到运行时。  
-- 将添加另一种在 SK 中提供 JSO 的方式。低级 KernelFunctionFactory 和 KernelPluginFactory 通过方法参数接受 JSO。  
-- SK AI 连接器 **** 在其作中接受内核的可选实例，该实例会发送混合信号。一方面，它是可选的，这意味着 AI 连接器可以在没有它的情况下工作;另一方面，如果未提供内核，则 AOT 应用程序中的作将失败。
-- 在需要多个内核实例的方案中，每个实例可能具有唯一的 JSO，则创建函数时使用的内核的 JSO 将在函数的生命周期内使用。将不会应用可能用于调用该函数的任何其他内核的 JSO，而将使用创建该函数时使用的内核中的 JSO 的 JSO。
+Cons:  
+- May require changing the SK component to depend on the kernel if not already.  
+- Depending on how JSOs are initialized, this option might not be as explicit as others regarding the usage of non-AOT compatible APIs in an AOT app, leading to trial-and-error to register source-generated contracts based on runtime errors.  
+- Similar to the above, it may not be clear which component/API needs JSOs, postponing discovery to runtime.  
+- Will add another way of providing JSOs in SK. Low-level KernelFunctionFactory and KernelPluginFactory accept JSOs via method parameters.  
+- SK AI connectors accept an **optional** instance of the kernel in their operation, which sends mixed signals. On one hand, it's optional, meaning AI connectors can work without it; on the other hand, the operation will fail in an AOT app if no kernel is provided.
+- In scenarios that require more than one kernel instance, where each instance may have unique JSOs, the JSOs of the kernel a function was created with will be used for the lifetime of the function. JSOs from any other kernel the function might be invoked with won't be applied, and the ones from the kernel the function was created with will be used.
 
-### 向内核提供 JSON 序列化程序选项 （JSO） 的方法：
-1. 通过 `Kernel` constructor.
+### Ways to Provide JSON Serializer Options (JSOs) to the Kernel:
+1. Via `Kernel` constructor.
     ```csharp
     private readonly JsonSerializerOptions? _serializerOptions = null;
 
@@ -95,10 +104,10 @@ public async Task TestAsync()
 
     public JsonSerializerOptions JsonSerializerOptions => this._serializerOptions ??= JsonSerializerOptions.Default;
     ```
-    优点：
-    - 在编译时使用不兼容 AOT 的构造函数时，将显示与 AOT 相关的警告。
+    Pros:
+    - AOT related warnings will be shown for the usage of a non-AOT compatible constructor at compile time.
 
-2. 通过 `Kernel.JsonSerializerOptions` 属性 setter
+2. Via the `Kernel.JsonSerializerOptions` property setter
     ```csharp
     private readonly JsonSerializerOptions? _serializerOptions = null;
 
@@ -114,15 +123,15 @@ public async Task TestAsync()
         }
     }
     ```
-    缺点：
-    - 在 AOT 应用程序中进行内核初始化期间，不会生成 AOT 警告，从而导致运行时失败。
-    - 在 SK 组件（KernelFunction 通过构造函数接受 JSO）创建后分配的 JSO 不会被组件选取。
+    Cons:
+    - No AOT warning will be generated during kernel initialization in the AOT application, leading to a runtime failure.
+    - JSOs assigned after an SK component (KernelFunction accepts JSOs via the constructor) is created won't be picked up by the component.
 
-3. 地
-    待定。
+3. DI
+    TBD after requirements are fleshed out.
 
-## 选项 #2：每个 SK 组件的 JSO
-此选项假定在组件的实例化站点或构造函数中提供 JSO：
+## Option #2: JSOs per SK component
+This option presumes supplying JSOs at the component's instantiation site or constructor:
 ```csharp
     public sealed class Order { public string? Number { get; set; } }
 
@@ -154,27 +163,27 @@ public async Task TestAsync()
     KernelPluginFactory.CreateFromType<MyPlugin>(options, "<plugin>");
     KernelPluginFactory.CreateFromFunctions("<plugin>", [kernel.CreateFunctionFromMethod(() => new Order())]);
 ```
-优点：
-- AOT 警告将在编译时在每个组件实例化站点生成。
-- 在所有 SK 组件中使用 JSO 的方式相同。
-- 不需要 SK 组件依赖 Kernel。
+Pros:
+- AOT warnings will be generated at compile time at each component instantiation site.
+- Same way of working with JSOs across all SK components.
+- Does't require SK components to depend on Kernel.
 
-缺点：
-- 没有一个中心位置来注册源生成的上下文。如果应用程序有大量的引导代码驻留在许多不同的类中，这些类之间可能具有继承关系，则这可能是一个优势。
+Cons:
+- There's no central place to register source-generated contexts. It can be a advantage in cases where applications have a large amount of bootstrapping code residing in many different classes that may have inheritance relationships between them.
 
-AI 连接器可以接受 JSO 作为构造函数中的参数或可选属性。当一个或几个连接器被重构为与 AOT 兼容时，将做出该决定。
+AI connectors may accept JSOs as a parameter in the constructor or as an optional property. The decision will be made when one or a few connectors are refactored to be AOT compatible.
 
-## 选项 #3：每个 SK 组件作的 JSO
-此选项假定在组件作调用站点而不是实例化站点提供 JSO。
+## Option #3: JSOs per SK component operation
+This option presumes supplying JSOs at component operation invocation sites rather than at instantiation sites.
 
-优点：
-- AOT 警告将在编译时在每个组件作调用站点生成。
+Pros:
+- AOT warnings will be generated during compile time at each component operation invocation site.
 
-缺点：
-- 必须为所有需要外部源生成合约的 SK 组件添加新的接受 JSO 的作/方法重载。
-- 将添加另一种在 SK 中提供 JSO 的方式。低级 KernelFunctionFactory 和 KernelPluginFactory 通过方法参数接受 JSO。  
-- 不适用于所有 SK 组件。KernelFunction 在被调用以生成架构之前需要 JSO。 
-- 鼓励无效使用 JSO，其中每个方法调用可能会创建 JSO，这可能会在内存方面造成昂贵。
+Cons:
+- New operations/methods overloads accepting JSOs will have to be added for all SK components requiring external source-generated contracts.
+- Will add another way of providing JSOs in SK. Low-level KernelFunctionFactory and KernelPluginFactory accept JSOs via method parameters.  
+- Not applicable to all SK components. KernelFunction needs JSOs before it is invoked for schema generation purposes. 
+- Encourage ineffective usage of JSOs where JSOs may be created per method call, which may be expensive memory-wise.
 
-## 决策结果
-“选项 #2 每个 SK 组件的 JSO”比其他选项更受欢迎，因为它提供了一种在组件的实例化/创建站点提供 JSO 的明确、统一、清晰、简单和有效的方法。
+## Decision Outcome
+The "Option #2 JSOs per SK component" was preferred over the other options since it provides an explicit, unified, clear, simple, and effective way of supplying JSOs at the component's instantiation/creation sites.

@@ -1,19 +1,26 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: dmytrostruk
+date: 2024-04-24
+deciders: sergeymenshykh, markwallace, rbarreto, dmytrostruk, stoub
+---
 
-# 筛选器中的异常处理
+# Exception handling in filters
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-在 .NET 版本的语义内核中，当内核函数引发异常时，它将通过执行堆栈传播，直到某些代码捕获它。要处理 的异常 `kernel.InvokeAsync(function)`，此代码应包装在 block 中 `try/catch` ，这是处理异常的直观方法。
+In .NET version of Semantic Kernel, when kernel function throws an exception, it will be propagated through execution stack until some code will catch it. To handle exception for `kernel.InvokeAsync(function)`, this code should be wrapped in `try/catch` block, which is intuitive approach how to deal with exceptions.
 
-不幸的是， `try/catch` block 对于自动函数调用场景没有用，当一个函数是基于某个提示被调用时。在这种情况下，当 function 抛出异常时，消息 `Error: Exception while invoking function.` 将被添加到具有`tool`作者角色的聊天历史记录中，这应该为 LLM 提供一些出错的上下文。
+Unfortunately, `try/catch` block is not useful for auto function calling scenario, when a function is called based on some prompt. In this case, when function throws an exception, message `Error: Exception while invoking function.` will be added to chat history with `tool` author role, which should provide some context to LLM that something went wrong.
 
-需要能够覆盖函数 result - 而不是抛出异常并向 AI 发送错误消息，应该可以设置一些自定义结果，这应该允许控制 LLM 行为。
+There is a requirement to have the ability to override function result - instead of throwing an exception and sending error message to AI, it should be possible to set some custom result, which should allow to control LLM behavior.
 
-## 考虑的选项
+## Considered Options
 
-### [选项 1] 向现有接口添加新方法 `IFunctionFilter` 
+### [Option 1] Add new method to existing `IFunctionFilter` interface
 
-抽象化：
+Abstraction:
 
 ```csharp
 public interface IFunctionFilter
@@ -27,16 +34,16 @@ public interface IFunctionFilter
 }
 ```
 
-弊：
+Disadvantages:
 
-- 向现有接口添加新方法将是一项重大更改，因为它将强制当前过滤器用户实现新方法。
-- 使用函数过滤器时，即使不需要异常处理，也始终需要实现此方法。另一方面，此方法不会返回任何内容，因此它可能始终为空，或者使用 .NET 多目标，应该可以为 C# 8 及更高版本定义默认实现。
+- Adding new method to existing interface will be a breaking change, as it will force current filter users to implement new method.
+- This method will be always required to implement when using function filters, even when exception handling is not needed. On the other hand, this method won't return anything, so it could remain always empty, or with .NET multitargeting, it should be possible to define default implementation for C# 8 and above.
 
-### [选项 2] 引入新 `IExceptionFilter` 界面
+### [Option 2] Introduce new `IExceptionFilter` interface
 
-新接口将允许接收异常对象、取消异常或重新引发新类型的异常。此选项也可以稍后添加为更高级别的过滤器，以进行全局异常处理。
+New interface will allow to receive exception objects, cancel exception or rethrowing new type of exception. This option can be also added later as filter on a higher level for global exception handling.
 
-抽象化：
+Abstraction:
 
 ```csharp
 public interface IExceptionFilter
@@ -46,7 +53,7 @@ public interface IExceptionFilter
 }
 ```
 
-用法：
+Usage:
 
 ```csharp
 public class MyFilter : IFunctionFilter, IExceptionFilter
@@ -59,22 +66,22 @@ public class MyFilter : IFunctionFilter, IExceptionFilter
 }
 ```
 
-优势：
+Advantages:
 
-- 这不是一个重大更改，所有异常处理逻辑都应该添加到现有筛选机制之上。
-- 类似于 `IExceptionFilter` ASP.NET 中的 API。
+- It's not a breaking change, and all exception handling logic should be added on top of existing filter mechanism.
+- Similar to `IExceptionFilter` API in ASP.NET.
 
-弊：
+Disadvantages:
 
-- 对于异常处理，应该实现单独的接口，这可能不直观且难以记住。
+- It may be not intuitive and hard to remember, that for exception handling, separate interface should be implemented.
 
-### [选项 3] 在现有接口中扩展 Context 模型 `IFunctionFilter` 
+### [Option 3] Extend Context model in existing `IFunctionFilter` interface
 
-在 method 中 `IFunctionFilter.OnFunctionInvoked` ，可以通过添加 property 来扩展 `FunctionInvokedContext` model `Exception` 。在这种情况下，`OnFunctionInvoked`一旦触发，就可以观察函数执行期间是否有异常。
+In `IFunctionFilter.OnFunctionInvoked` method, it's possible to extend `FunctionInvokedContext` model by adding `Exception` property. In this case, as soon as `OnFunctionInvoked` is triggered, it will be possible to observe whether there was an exception during function execution.
 
-如果出现异常，用户什么都不能做，异常会照常抛出，这意味着为了处理它，函数调用应该用 block 包装 `try/catch` 。但是也可以取消该异常并覆盖函数结果，这应该可以更好地控制函数执行和传递给 LLM 的内容。
+If there was an exception, users could do nothing and the exception will be thrown as usual, which means that in order to handle it, function invocation should be wrapped with `try/catch` block. But it will be also possible to cancel that exception and override function result, which should provide more control over function execution and what is passed to LLM.
 
-抽象化：
+Abstraction:
 
 ```csharp
 public sealed class FunctionInvokedContext : FunctionFilterContext
@@ -85,7 +92,7 @@ public sealed class FunctionInvokedContext : FunctionFilterContext
 }
 ```
 
-用法：
+Usage:
 
 ```csharp
 public class MyFilter : IFunctionFilter
@@ -116,21 +123,21 @@ public class MyFilter : IFunctionFilter
 }
 ```
 
-优势：
+Advantages:
 
-- 需要对现有实现进行最少的更改，并且不会破坏现有的过滤器用户。
-- 类似于 `IActionFilter` ASP.NET 中的 API。
-- 可扩展，因为可以在需要时为其他类型的过滤器（提示或函数调用过滤器）扩展类似的 Context 模型。
+- Requires minimum changes to existing implementation and also it won't break existing filter users.
+- Similar to `IActionFilter` API in ASP.NET.
+- Scalable, because it will be possible to extend similar Context models for other type of filters when needed (prompt or function calling filters).
 
-弊：
+Disadvantages:
 
-- 不。使用 或 的 NET 友好型异常处理方式 `context.Exception = null` `context.Exception = new AnotherException()`，而不是使用本机 `try/catch` 方法。
+- Not .NET-friendly way of exception handling with `context.Exception = null` or `context.Exception = new AnotherException()`, instead of using native `try/catch` approach.
 
-### [选项 4] 通过添加 `IFunctionFilter` 委托 `next` 来更改签名。
+### [Option 4] Change `IFunctionFilter` signature by adding `next` delegate.
 
-这种方法改变了过滤器目前的工作方式。`Invoking`在使用 delegate 执行函数期间，将只有一个方法将被调用，而不是在 filter 中`Invoked`有两个  and `next` 方法，该方法将负责调用管道中下一个注册的过滤器或函数本身，以防没有剩余的过滤器。
+This approach changes the way how filters work at the moment. Instead of having two `Invoking` and `Invoked` methods in filter, there will be only one method that will be invoked during function execution with `next` delegate, which will be responsible to call next registered filter in pipeline or function itself, in case there are no remaining filters.
 
-抽象化：
+Abstraction:
 
 ```csharp
 public interface IFunctionFilter
@@ -139,7 +146,7 @@ public interface IFunctionFilter
 }
 ```
 
-用法：
+Usage:
 
 ```csharp
 public class MyFilter : IFunctionFilter
@@ -153,7 +160,7 @@ public class MyFilter : IFunctionFilter
 }
 ```
 
-使用本机方法进行异常处理 `try/catch` ：
+Exception handling with native `try/catch` approach:
 
 ```csharp
 public async Task OnFunctionInvocationAsync(FunctionInvocationContext context, Func<FunctionInvocationContext, Task> next)
@@ -175,17 +182,17 @@ public async Task OnFunctionInvocationAsync(FunctionInvocationContext context, F
 }
 ```
 
-优势：
+Advantages:
 
-- 本机方式如何处理和重新引发异常。
-- 类似于 `IAsyncActionFilter` ASP.NET 中的`IEndpointFilter` API。
-- 要实现一个 filter 方法而不是两个 （）`Invoking/Invoked` - 这允许将调用上下文信息保存在一个方法中，而不是将其存储在类级别。例如，要测量函数执行时间， `Stopwatch` 可以在调用之前创建和启动 `await next(context)` ，并在调用后使用，而在方法中 `Invoking/Invoked` ，数据应该以其他方式在过滤器作之间传递，例如在类级别设置它，这更难维护。
-- 不需要取消逻辑（例如 `context.Cancel = true`）。要取消作，只需不调用 `await next(context)`.
+- Native way how to handle and rethrow exceptions.
+- Similar to `IAsyncActionFilter` and `IEndpointFilter` API in ASP.NET.
+- One filter method to implement instead of two (`Invoking/Invoked`) - this allows to keep invocation context information in one method instead of storing it on class level. For example, to measure function execution time, `Stopwatch` can be created and started before `await next(context)` call and used after the call, while in approach with `Invoking/Invoked` methods the data should be passed between filter actions in other way, for example setting it on class level, which is harder to maintain.
+- No need in cancellation logic (e.g. `context.Cancel = true`). To cancel the operation, simply don't call `await next(context)`.
 
-弊：
+Disadvantages:
 
-- 请记住在所有 `await next(context)` 过滤器中手动调用。如果未调用，则不会调用 pipeline 和/或 function 本身中的 next filter。
+- Remember to call `await next(context)` manually in all filters. If it's not called, next filter in pipeline and/or function itself won't be called.
 
-## 决策结果
+## Decision Outcome
 
-继续执行选项 4 并将此方法应用于函数、提示符和函数调用筛选器。
+Proceed with Option 4 and apply this approach to function, prompt and function calling filters.

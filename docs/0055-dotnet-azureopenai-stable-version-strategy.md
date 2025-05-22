@@ -1,41 +1,49 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: rogerbarreto
+date: 2024-10-03
+deciders: sergeymenshykh, markwallace, rogerbarreto, westey-m, dmytrostruk, evchaki
+consulted: crickman
+---
 
-# 底层 SDK 的连接器版本控制策略
+# Connectors Versioning Strategy for Underlying SDKs
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-本周 （2024 年 10 月 1 日） OpenAI 和 Azure OpenAI 发布了他们的第一个稳定版本，我们需要就如何推进下一版本的连接器的版本控制策略提供一些选项 `OpenAI` `AzureOpenAI` ，这也将为其他连接器和提供商的版本控制策略奠定前进的道路。
+This week (01-10-2024) OpenAI and Azure OpenAI released their first stable version and we need to bring some options ahead of us regarding how to move forward with the versioning strategy for the next releases of `OpenAI` and `AzureOpenAI` connectors which will also set the path moving forward with other connectors and providers versioning strategies.
 
-这个 ADR 带来了不同的选择，我们如何向前思考对用户的影响，以及如何在我们的策略上保持明确的信息。
+This ADR brings different options how we can move forward thinking on the impact on the users and also how to keep a clear message on our strategy.
 
-目前，Azure Open AI GA 包与我们预期的选择相反，从其第一个 GA 版本中删除了以前在预览包中提供的许多功能。
+Currently, Azure Open AI GA package against what we were expecting choose remove many of the features previously available in preview packages from their first GA version.
 
-这也要求我们重新考虑如何为以下版本的连接器实施策略。
+This also requires us to rethink how we are going to proceed with our strategy for the following versions of our connectors.
 
-| 名字                | SDK 命名空间   | 语义内核 NameSpace                       |
+| Name                | SDK NameSpace   | Semantic Kernel NameSpace                       |
 | ------------------- | --------------- | ----------------------------------------------- |
-| OpenAI （OAI）        | 开放人工智能          | Microsoft.SemanticKernel.Connectors.OpenAI      |
-| Azure OpenAI （AOAI） | Azure.AI.OpenAI | Microsoft.SemanticKernel.Connectors.AzureOpenAI |
+| OpenAI (OAI)        | OpenAI          | Microsoft.SemanticKernel.Connectors.OpenAI      |
+| Azure OpenAI (AOAI) | Azure.AI.OpenAI | Microsoft.SemanticKernel.Connectors.AzureOpenAI |
 
-## 决策驱动因素
+## Decision Drivers
 
-- 最大限度地减少客户的影响
-- 允许客户使用 OpenAI 和 Azure.AI.OpenAI 包的 GA 或 Beta 版本
-- 明确说明我们的战略
-- 保持与以前版本的兼容性
-- 我们的包版本控制应该清楚地表明我们依赖哪个版本的 OpenAI 或 Azure.AI.OpenAI 包
-- 遵循语义内核版本控制策略，使其能够很好地适应其他 SDK 版本策略。
+- Minimize the impact of customers
+- Allow customers to use either GA or Beta versions of OpenAI and Azure.AI.OpenAI packages
+- Keep a clear message on our strategy
+- Keep the compatibility with the previous versions
+- Our package versioning should make it clear which version of OpenAI or Azure.AI.OpenAI packages we depend on
+- Follow the Semantic Kernel versioning strategy in a way that accommodates well with other SDK version strategies.
 
-## 考虑的选项
+## Considered Options
 
-1. **按原样保留** - 仅定位预览包。
-2. **预览版 + GA 版本控制** （在 Azure OpenAI 和 OpenAI 连接器之间并排创建新版本（GA + 预发布版））。
-3. **停止定位预览包**，仅定位 GA 包。
+1. **Keep As-Is** - Target only preview packages.
+2. **Preview + GA versioning** (Create a new version (GA + pre-release) side by side of the Azure OpenAI and OpenAI Connectors).
+3. **Stop targeting preview packages**, only target GA packages moving forward.
 
-## 1. 保持原样 - 仅定位预览包
+## 1. Keep As-Is - Target only preview packages
 
-此选项将保留当前仅面向预览包的策略，这将保持与以前版本和新 GA 目标版本和管道的兼容性。此选项对我们的用户和我们的管道策略的影响最小。
+This option will keep the current strategy of targeting only preview packages, which will keep the compatibility with the previous versions and new GA targeting versions and pipelines for our customers. This option has the least impact on our users and our pipeline strategy.
 
-目前，所有已在使用 Azure OpenAI 连接器的客户都将其管道配置为使用预览包。
+Today all customers that are already using Azure OpenAI Connector have their pipelines configured to use the preview packages.
 
 ```mermaid
 %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': {'showBranches': true, 'showCommitLabel':true,'mainBranchName': 'SemanticKernel'}} }%%
@@ -64,30 +72,30 @@
         merge AzureOpenAI id:"SK AOAI 1.23"
 ```
 
-优点：
+Pros:
 
-- 策略没有变化。（对客户的影响最小）
-- 保持与以前版本和新的 GA 目标版本和管道的兼容性。
-- 与我们之前以预览包为目标的策略兼容。
-- Azure 和 OpenAI SDK 将始终与新的 GA 版本同步，从而使我们能够使用最新的 GA 补丁保留定位预览。
+- No changes in strategy. (Least impact on customers)
+- Keep the compatibility with the previous versions and new GA targeting versions and pipelines.
+- Compatible with our previous strategy of targeting preview packages.
+- Azure and OpenAI SDKs will always be in sync with new GA versions, allowing us to keep the targeting preview with the latest GA patches.
 
-缺点：
+Cons:
 
-- 不会有面向 OpenAI 或 AzureOpenAI 的稳定 GA 包的 SK 连接器版本。
-- 如果新客户了解并仅以 GA 可用功能为目标，并且严格要求依赖软件包也要为 GA，则新客户将无法使用 SK 连接器。（我们没有估计值，但与过去 18 个月中已经同意使用预览版 Azure SDK OpenAI SDK 的客户数量相比，这可能非常小）
-- OpenAI 和 Azure.AI.OpenAI beta 版本引入的潜在意外中断性变更，由于它们的依赖关系，我们最终可能会传递这些变更。
+- There won't be a SK connector version that targets a stable GA package for OpenAI or AzureOpenAI.
+- New customers that understand and target GA only available features and also have a strict requirement for dependent packages to be also GA will not be able to use the SK connector. (We don't have an estimate but this could be very small compared to the number of customers that are already OK on using the preview Azure SDK OpenAI SDK available for the past 18 months)
+- Potential unexpected breaking changes introduced by OpenAI and Azure.AI.OpenAI beta versions that eventually we might be passing on due to their dependency.
 
-## 2. 预览版 + GA 版本控制
+## 2. Preview + GA versioning
 
-此选项我们将介绍连接器的预发布版本：
+This option we will introduce pre-release versions of the connectors:
 
-1. 连接器的正式发布 （GA） 版本将面向 SDK 的 GA 版本。
-2. 连接器的预发布版本将面向 SDK 的预发布版本。
+1. General Available (GA) versions of the connector will target a GA version of the SDK.
+2. Pre-release versions of the connector will target a pre-release versions of the SDK.
 
-对于在管道上严格仅针对 GA 包，同时使用基础 SDK GA 版本上不再可用的预览功能的客户，此选项会有一些影响。
+This option has some impact for customers that were targeting strictly only GA packages on their pipeline while using preview features that are not available anymore on underlying SDK GA versions.
 
-SDK 中不可用的所有仅预览功能都将在 Semantic kernel connectors 中使用 Experimental `SKEXP0011` 专用标识符属性进行注释，以识别和阐明尝试移动到包时的潜在影响 `GA` 。
-一旦这些注释在 SDK 的 GA 版本上得到正式支持，它们就会被删除。
+All preview only functionalities not available in the SDK will be Annotate in Semantic kernel connectors with an Experimental `SKEXP0011` dedicated identifier attribute, to identify and clarify the potential impact when attempting to move to a `GA` package.
+Those annotations will be removed as soon as they are officially supported on the GA version of the SDK.
 
 ```mermaid
 %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': {'showBranches': true, 'showCommitLabel':true,'mainBranchName': 'SemanticKernel'}} }%%
@@ -125,49 +133,50 @@ SDK 中不可用的所有仅预览功能都将在 Semantic kernel connectors 中
         merge AzureOpenAI id:"SK AOAI 1.24-beta"
 ```
 
-优点：
+Pros:
 
-- 我们向前发出了一个明确的信息，即 Azure 和 OpenAI 认为哪些是稳定的，哪些不是，在我们之前认为是 GA 可用功能中仅公开这些 SDK 的稳定功能。
-- 对依赖软件包也有 GA 严格要求的新客户将能够使用 SK 连接器。
-- 我们将能够为尚未正式发布的新功能提供连接器的预览版，而不会影响连接器的正式发布版本。
+- We send a clear message moving forward regarding what Azure and OpenAI consider stable and what is not, exposing only stable features from those SDKs in what we previously were considering as GA available features.
+- New customers that have a strict requirement for dependent packages to be also GA will be able to use the SK connector.
+- We will be able to have preview versions of Connectors for new features that are not yet GA without impacting the GA versions of the Connectors.
 
-缺点：
+Cons:
 
-- 这改变了我们的版本控制策略，需要对第一个版本进行一些明确的澄清和沟通，以减轻影响或顺利过渡。
-- 使用 `OpenAI` 和 `AzureOpenAI` 仅预览以前 SK GA 包中提供的功能的客户需要更新其管道，以仅面向未来的 SK 预发布版本。
-- Small 开销，用于维护两个版本的连接器。
+- This change our strategy for versioning, needing to some clear clarification and communication for the first releases to mitigate impact or smooth the transition.
+- Customers that were using `OpenAI` and `AzureOpenAI` preview only features available in previous SK GA packages will need to update their pipelines to target only future SK pre-release versions.
+- Small Overhead to maintain two versions of the connectors.
 
-### 版本和分支策略
+### Version and Branching Strategy
 
-为连接器的目标版本创建一个特殊的发布分支 `GA` ，将其保存在该版本的记录中，其中包含所有其他项目为使用稳定版本而需要进行的所有修改/删除，这也将是关于何时何地从 API 示例中添加/删除异常的重要指南 `SKEXP0011` 。
+Create a special release branch for the targeted `GA` version of the connector, keeping it in the record for that release with all modifications/removal that all the other projects need to make to work with the stable release this will be also a important guideline on where and when to add/remove the `SKEXP0011` exceptions from API's samples.
 
-我们将遵循自己的版本节奏， `beta` 为基础 `beta` SDK 的版本添加前缀。
+We will follow our own version cadence with the addition of `beta` prefix for `beta` versions of the underlying SDKs.
 
-| 序列 | OpenAI 版本 | Azure OpenAI 版本 | 语义内核版本<sup>1</sup> | 分支          |
+| Seq | OpenAI Version | Azure OpenAI Version | Semantic Kernel Version<sup>1</sup> | Branch          |
 | --- | -------------- | -------------------- | ----------------------------------- | --------------- |
-| 1   | 2.0.0          | 2.0.0                | 1.25.0                              | 版本/1.25.0 |
-| 2   | 2.1.0-beta.1 版本   | 2.1.0-beta.1 版本         | 1.26.0-测试版                         | 主要            |
-| 3   | 2.1.0-beta.3 版   | 2.1.0-beta.2 版本         | 1.27.0-测试版                         | 主要            |
-| 4   | 无变化     | 无变化           | 1.27.1-测试版<sup>**2**</sup>         | 主要            |
-| 5   | 2.1.0          | 2.1.0                | 1.28.0                              | 版本/1.28.0 |
-| 6   | 2.2.0-beta.1 版本   | 2.1.0-beta.1 版本         | 1.29.0-测试版                         | 主要            |
+| 1   | 2.0.0          | 2.0.0                | 1.25.0                              | releases/1.25.0 |
+| 2   | 2.1.0-beta.1   | 2.1.0-beta.1         | 1.26.0-beta                         | main            |
+| 3   | 2.1.0-beta.3   | 2.1.0-beta.2         | 1.27.0-beta                         | main            |
+| 4   | No changes     | No changes           | 1.27.1-beta<sup>**2**</sup>         | main            |
+| 5   | 2.1.0          | 2.1.0                | 1.28.0                              | releases/1.28.0 |
+| 6   | 2.2.0-beta.1   | 2.1.0-beta.1         | 1.29.0-beta                         | main            |
 
-1. 版本适用于 **Connectors 包** 和 **Semantic Kernel 元包**。
-2. SDK 没有变化，但对语义内核代码库进行了其他细微的更改，需要更新版本。
+1. Versions apply for the **Connectors packages** and the **Semantic Kernel meta package**.
+2. No changes on the SDKs but other minor changes to Semantic Kernel code base that needed a version update.
 
-### 可选的平滑过渡
+### Optional Smoothing Transition
 
-为了顺利过渡并减轻对使用 SK GA 包上的预览功能的客户的影响，我们将提供一个通知期，让客户有时间适应 `preview` `GA` 连接器包的未来版本。而在通知期限内，我们会在切换到 **Preview + GA versioning** 选项之前，使用 **Keep As-Is** 选项来维护我们的策略。
+In the intend to smooth the transition and mitigate impact on customers using preview features on SK GA packages straight away we would provide a notice period where we give the time for customers adapt to the `preview` vs `GA` future releases of the connector packages. While for the notice duration we would maintain our strategy with the **Keep As-Is** option before shifting to the **Preview + GA versioning** option.
 
-## 3. 停止定位预览包
+## 3. Stop targeting preview packages
 
-> [!警告]不建议使用此选项，但需要考虑此选项。
-> 
-此选项将停止以预览包为目标，严格执行我们的 1.0 GA 策略，不会让我们的客户接触到非 GA SDK 功能。
+> [!WARNING]
+> This option is not recommended but needs to be considered.
 
-由于 Azure 助手等重要功能仍处于预览阶段，因此，如果我们的客户面向尚未正式发布的代理框架和其他重要功能，则此选项将对我们的客户产生重大影响。在此处描述 [](https://github.com/Azure/azure-sdk-for-net/releases/tag/Azure.AI.OpenAI_2.0.0)
+This option will stop targeting preview packages, being strict with our 1.0 GA strategy, not exposing our customers to non-GA SDK features.
 
-> Assistants、Audio Generation、Batch、Files、Fine-Tuning 和 Vector Store 尚未包含在 GA Surface 中;它们将继续在预览库版本和原始 Azure OpenAI 服务 api 版本标签中提供。
+As big features like Azure Assistants are still in preview, this option will have a big impact on our customers if they were targeting Agent frameworks and other important features that are not yet General Available. Described in [here](https://github.com/Azure/azure-sdk-for-net/releases/tag/Azure.AI.OpenAI_2.0.0)
+
+> Assistants, Audio Generation, Batch, Files, Fine-Tuning, and Vector Stores are not yet included in the GA surface; they will continue to be available in preview library releases and the originating Azure OpenAI Service api-version labels.
 
 ```mermaid
 %%{init: { 'logLevel': 'debug', 'theme': 'base', 'gitGraph': {'showBranches': true, 'showCommitLabel':true,'mainBranchName': 'SemanticKernel'}} }%%
@@ -201,17 +210,17 @@ SDK 中不可用的所有仅预览功能都将在 Semantic kernel connectors 中
 
 ```
 
-优点：
+Pros:
 
-- 由于我们只部署了连接器的 GA 版本，因此严格来说，我们将遵循负责任的仅 GA 方法，使用 GA SK 包，而不会将客户作为 GA 功能公开预览功能。
+- As we have been only deploying GA versions of the connector, strictly we would be following a responsible GA only approach with GA SK packages not exposing customers to preview features as GA features at all.
 
-缺点：
+Cons:
 
-- 对以预览功能为目标而没有选项求助于连接器预览版的客户产生重大影响。
-- 此策略将导致将语义内核与 Azure 中的助手和任何其他预览功能一起使用变得不切实际。
+- Big impact on customers that are targeting preview features with no option to resort to a preview version of the connector.
+- This strategy will render the use of the Semantic Kernel with Assistants and any other preview feature in Azure impractical.
 
-## 决策结果
+## Decision Outcome
 
-已选择选项： **保持原样**
+Chosen option: **Keep as is**
 
-由于 SDK 的当前 AI 环境是一个快速变化的环境，我们需要能够更新，同时尽可能避免混合我们当前的版本控制策略，同时最大限度地减少对客户的影响。我们目前决定使用**“保持原样**”选项，将来可能会重新考虑“**预览版 + GA”版本控制**选项，前提是该决定不会因缺少客户群已使用的重要功能而产生重大影响。
+As the current AI landscape for SDK is a fast changing environment, we need to be able be update and at the same time avoid as much as possible mix our current versioning strategy also minimizing the impact on customers. We decided on **Keep As-Is** option for now, and we may reconsider **Preview + GA versioning** option in the future when that decision doesn't bring big impact of lack of important functionality already used by our customer base.

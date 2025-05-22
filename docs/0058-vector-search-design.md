@@ -1,20 +1,29 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+contact: westey-m
+date: 2024-08-14
+deciders: sergeymenshykh, markwallace, rbarreto, dmytrostruk, westey-m, matthewbolanos, eavanvalkenburg
+consulted: stephentoub, dluc, ajcvickers, roji
+informed: 
+---
 
-# 更新的向量搜索设计
+# Updated Vector Search Design
 
-## 要求
+## Requirements
 
-1. 支持按 Vector 搜索。
-1. 支持具有不同类型元素的 Vector，并允许扩展性以支持将来的新型 Vector（例如稀疏）。
-1. 支持按文本搜索。这是支持服务执行嵌入生成的方案或在管道中完成嵌入生成的方案所必需的。
-1. 允许按其他模式（例如 image）进行搜索的可扩展性。
-1. 允许扩展性执行混合搜索。
-1. 允许基本筛选，并有可能在将来扩展。
-1. 提供扩展方法，简化搜索体验。
+1. Support searching by Vector.
+1. Support Vectors with different types of elements and allow extensibility to support new types of vector in future (e.g. sparse).
+1. Support searching by Text. This is required to support the scenario where the service does the embedding generation or the scenario where the embedding generation is done in the pipeline.
+1. Allow extensibility to search by other modalities, e.g. image.
+1. Allow extensibility to do hybrid search.
+1. Allow basic filtering with possibility to extend in future.
+1. Provide extension methods to simplify search experience.
 
-## 接口
+## Interface
 
-vector search interface 接受一个 `VectorSearchQuery` 对象。此对象是具有各种子类的抽象基类
-表示不同类型的搜索。
+The vector search interface takes a `VectorSearchQuery` object. This object is an abstract base class that has various subclasses
+representing different types of search.
 
 ```csharp
 interface IVectorSearch<TRecord>
@@ -25,10 +34,10 @@ interface IVectorSearch<TRecord>
 }
 ```
 
-每个 `VectorSearchQuery` 子类代表一种特定的搜索类型。
-可能的变体受到以下事实的限制 `VectorSearchQuery` ：并且所有 subclasses 都有内部构造函数。
-因此，开发人员无法创建自定义搜索查询类型并期望它由 . `IVectorSearch.SearchAsync`
-但是，以这种方式拥有子类允许每个查询具有不同的参数和选项。
+Each `VectorSearchQuery` subclass represents a specific type of search.
+The possible variations are restricted by the fact that `VectorSearchQuery` and all subclasses have internal constructors.
+Therefore, a developer cannot create a custom search query type and expect it to be executable by `IVectorSearch.SearchAsync`.
+Having subclasses in this way though, allows each query to have different parameters and options.
 
 ```csharp
 // Base class for all vector search queries.
@@ -90,8 +99,8 @@ public sealed class HybridVectorSearchOptions
 }
 ```
 
-为了简化调用搜索，无需调用 CreateQuery，我们可以使用扩展方法。
-例如，您可以 `SearchAsync(VectorSearchQuery.CreateQuery(vector))` 调用 `SearchAsync(vector)`
+To simplify calling search, without needing to call CreateQuery we can use extension methods.
+e.g. Instead of `SearchAsync(VectorSearchQuery.CreateQuery(vector))` you can call `SearchAsync(vector)`
 
 ```csharp
 public static class VectorSearchExtensions
@@ -120,7 +129,7 @@ public static class VectorSearchExtensions
 }
 ```
 
-## 使用示例
+## Usage Examples
 
 ```csharp
 public sealed class Glossary
@@ -182,33 +191,33 @@ public async Task VectorSearchAsync(IVectorSearch<Glossary> vectorSearch)
 }
 ```
 
-## 考虑的选项
+## Options considered
 
-### 选项 1：搜索对象
+### Option 1: Search object
 
-有关此选项的描述[，请参阅上面的 ](#interface)Interface 部分。
+See the [Interface](#interface) section above for a description of this option.
 
-优点：
+Pros:
 
-- 它可以支持多种查询类型，每种类型都有不同的选项。
-- 将来很容易添加更多查询类型，而不会成为重大更改。
+- It can support multiple query types, each with different options.
+- It is easy to add more query types in future without it being a breaking change.
 
-缺点：
+Cons:
 
-- 连接器实现不支持的任何查询类型都将导致引发异常。
+- Any query type that isn't supported by a connector implementation will cause an exception to be thrown.
 
-### 选项 2：仅矢量
+### Option 2: Vector only
 
-抽象将仅支持最基本的功能，而所有其他功能都支持具体实现。
-例如，某些矢量数据库不支持在服务中生成嵌入，因此连接器不支持 `VectorizableTextSearchQuery` 选项 1。
+The abstraction will only support the most basic functionality and all other functionality is supported on the concrete implementation.
+E.g. Some vector databases do not support generating embeddings in the service, so the connector would not support `VectorizableTextSearchQuery` from option 1.
 
-优点：
+Pros:
 
-- 用户不需要知道哪些 vector store 连接器类型支持哪些查询类型。
+- The user doesn't need to know which query types are supported by which vector store connector types.
 
-缺点：
+Cons:
 
-- 仅允许按抽象中的向量进行搜索，这是一个非常低的公分母。
+- Only allows searching by vectors in the abstraction which is a very low common denominator.
 
 ```csharp
 interface IVectorSearch<TRecord>
@@ -233,37 +242,37 @@ class AzureAISearchVectorStoreRecordCollection<TRecord> : IVectorSearch<TRecord>
 }
 ```
 
-### 选项 3：抽象基类
+### Option 3: Abstract base class
 
-主要要求之一是允许将来使用其他查询类型进行扩展。
-实现此目的的一种方法是使用可以自动实现新方法的抽象基类
-与 NotSupported 一起引发，除非被每个实现覆盖。此行为将
-与选项 1 类似。但是，对于选项 1，相同的行为是通过扩展方法实现的。
-方法集最终与选项 1 和选项 3 相同，只是选项 1 也具有
-一个 Search 方法 `VectorSearchQuery` 作为输入。
+One of the main requirements is to allow future extensibility with additional query types.
+One way to achieve this is to use an abstract base class that can auto implement new methods
+that throw with NotSupported unless overridden by each implementation. This behavior would
+be similar to Option 1. With Option 1 though, the same behavior is achieved via extension methods.
+The set of methods end up being the same with Option 1 and Option 3, except that Option 1 also has
+a Search method that takes `VectorSearchQuery` as input.
 
-`IVectorSearch` 是 的单独接口 `IVectorStoreRecordCollection`，但目的是
-for `IVectorStoreRecordCollection` 继承自 `IVectorSearch`。
+`IVectorSearch` is a separate interface to `IVectorStoreRecordCollection`, but the intention is
+for `IVectorStoreRecordCollection` to inherit from `IVectorSearch`.
 
-这意味着 的一些 （大多数） implementation `IVectorSearch` 将成为 `IVectorStoreRecordCollection` implementations 的一部分。
-我们预计`IVectorSearch`在商店支持搜索的情况下，我们需要支持独立实现
-但不一定是可写的。
+This means that some (most) implementations of `IVectorSearch` will be part of `IVectorStoreRecordCollection` implementations.
+We anticipate cases where we need to support standalone `IVectorSearch` implementations where the store supports search
+but isn't necessarily writable.
 
-因此，需要抽象基类的层次结构。
+Therefore a hierarchy of abstract base classes would be required.
 
-我们还考虑了默认接口方法，但 .net Framework 不支持此方法，SK 必须支持 .net Framework。
+We also considered default interface methods, but there is no support in .net Framework for this, and SK has to support .net Framework.
 
-优点：
+Pros:
 
-- 它可以支持多种查询类型，每种类型都有不同的选项。
-- 将来很容易添加更多查询类型，而不会成为重大更改。
-- 允许每种搜索类型使用不同的返回类型。
+- It can support multiple query types, each with different options.
+- It is easy to add more query types in future without it being a breaking change.
+- Allows different return types for each search type.
 
-缺点：
+Cons:
 
-- 连接器实现不支持的任何查询类型都将导致引发异常。
-- 不支持多重继承，因此在需要支持多个键类型的情况下，这不起作用。
-- 不支持多重继承，因此任何需要添加到 的附加功能都`VectorStoreRecordCollection`无法使用类似的机制添加。
+- Any query type that isn't supported by a connector implementation will cause an exception to be thrown.
+- Doesn't support multiple inheritance, so where multiple key types need to be supported this doesn't work.
+- Doesn't support multiple inheritance, so any additional functionality that needs to be added to `VectorStoreRecordCollection`, won't be possible to be added using a similar mechanism.
 
 ```csharp
 abstract class BaseVectorSearch<TRecord>
@@ -305,20 +314,20 @@ class QdrantVectorStoreRecordCollection<TRecord> : BaseVectorStoreRecordCollecti
 }
 ```
 
-### 选项 4：每种搜索类型的界面
+### Option 4: Interface per search type
 
-主要要求之一是允许将来使用其他查询类型进行扩展。
-实现此目的的一种方法是添加其他接口，因为 implementations 支持其他功能。
+One of the main requirements is to allow future extensibility with additional query types.
+One way to achieve this is to add additional interfaces as implementations support additional functionality.
 
-优点：
+Pros:
 
-- 允许不同的实现支持不同的搜索类型，而无需为不支持的功能引发异常。
-- 允许每种搜索类型使用不同的返回类型。
+- Allows different implementations to support different search types without needing to throw exceptions for not supported functionality.
+- Allows different return types for each search type.
 
-缺点：
+Cons:
 
-- 用户仍然需要知道每个实现实现了哪些接口，以便根据需要转换为这些接口。
-- 随着时间的推移，我们将无法添加更多的搜索功能 `IVectorStoreRecordCollection` ，因为这将是一个重大更改。因此，具有 `IVectorStoreRecordCollection`实例 的用户，但想要例如执行混合搜索，则需要先强制转换为 `IHybridTextVectorizedSearch` first，然后才能进行搜索。
+- Users will still need to know which interfaces are implemented by each implementation to cast to those as necessary.
+- We will not be able to add more Search functionality to `IVectorStoreRecordCollection` over time, since it would be a breaking change. Therefore, a user that has an instance of `IVectorStoreRecordCollection`, but wants to e.g. do a hybrid search, will need to cast to `IHybridTextVectorizedSearch` first before being able to search.
 
 ```csharp
 
@@ -361,8 +370,8 @@ class AzureAISearchVectorStoreRecordCollection<TRecord>: IVectorStoreRecordColle
 
 ```
 
-## 决策结果
+## Decision Outcome
 
-选项： 4
+Chosen option: 4
 
-共识是选项 4 对用户来说更容易理解，默认情况下只公开适用于所有 vector store 的功能。
+The consensus is that option 4 is easier to understand for users, where only functionality that works for all vector stores are exposed by default.

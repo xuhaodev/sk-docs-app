@@ -1,15 +1,21 @@
+---
+status: proposed
+contact: sergeymenshykh
+date: 2024-10-25
+deciders: dmytrostruk, markwallace, rbarreto, sergeymenshykh, westey-m, 
+---
 
-# 为 OpenAPI 函数提供 payload
+# Providing Payload for OpenAPI Functions
 
-## 上下文和问题陈述
-如今，SK OpenAPI 函数的有效负载可以由调用者提供，也可以由 SK 根据 OpenAPI 文档元数据和提供的参数动态构建。 
+## Context and Problem Statement
+Today, SK OpenAPI functions' payload can either be provided by a caller or constructed dynamically by SK from OpenAPI document metadata and provided arguments. 
 
-此 ADR 概述了 OpenAPI 功能当前用于处理有效负载的现有选项，并提出了一个新选项来简化复杂有效负载的动态创建。
+This ADR provides an overview of the existing options that OpenAPI functionality currently has for handling payloads and proposes a new option to simplify dynamic creation of complex payloads.
 
-## 在 SK 中处理有效负载的现有选项概述
+## Overview of Existing Options for Handling Payloads in SK
 
-### 1. 和 `payload` `content-type` 参数
-此选项允许调用方创建符合 OpenAPI 架构的有效负载，并在调用时将其作为参数传递给 OpenAPI 函数。
+### 1. The `payload` and the `content-type` Arguments
+This option allows the caller to create payload that conforms to the OpenAPI schema and pass it as an argument to the OpenAPI function when invoking it.
 ```csharp
 // Import an OpenAPI plugin with the createEvent function and disable dynamic payload construction
 KernelPlugin plugin = await kernel.ImportPluginFromOpenApiAsync("<plugin-name>", new Uri("<plugin-uri>"), new OpenApiFunctionExecutionParameters 
@@ -47,13 +53,13 @@ KernelArguments arguments = new ()
 FunctionResult functionResult = await kernel.InvokeAsync(plugin["createEvent"], arguments);
 ```
 
-请注意，Semantic Kernel 不会以任何方式验证或修改有效负载。调用方有责任确保有效负载有效并符合 OpenAPI 架构。
+Note that Semantic Kernel does not validate or modify the payload in any way. It is the caller's responsibility to ensure that the payload is valid and conforms to the OpenAPI schema.
 
 
-### 2. 从 Leaf Properties 构建动态负载
-此选项允许 SK 根据 OpenAPI 架构和提供的参数动态构建负载。
-调用方在调用 OpenAPI 函数时不需要提供有效负载。但是，调用方必须提供参数
-将用作同名 payload 属性的值。
+### 2. Dynamic Payload Construction From Leaf Properties
+This option allows SK to construct the payload dynamically based on the OpenAPI schema and the provided arguments. 
+The caller does not need to provide the payload when invoking the OpenAPI function. However, the caller must provide the arguments 
+that will be used as values for the payload properties of the same name.
 ```csharp
 // Import an OpenAPI plugin with the createEvent function and disable dynamic payload construction
 KernelPlugin plugin = await kernel.ImportPluginFromOpenApiAsync("<plugin-name>", new Uri("<plugin-uri>"), new OpenApiFunctionExecutionParameters 
@@ -89,24 +95,24 @@ KernelArguments arguments = new()
 FunctionResult functionResult = await kernel.InvokeAsync(plugin["createEvent"], arguments);
 ```
 
-此选项从根属性开始遍历有效负载架构，并在此过程中收集所有叶属性（没有任何子属性的属性）。
-调用方必须为标识的叶属性提供参数，SK 将根据架构和提供的参数构建有效负载。
+This option traverses the payload schema starting from the root properties down and collects all leaf properties (properties that do not have any child properties) along the way. 
+The caller must provide arguments for the identified leaf properties, and SK will construct the payload based on the schema and the provided arguments.
 
-此选项在创建包含不同级别具有相同名称的属性的有效负载时存在限制。
-考虑到导入过程会为每个 OpenAPI作创建一个内核函数，因此没有可行的方法可以创建具有多个具有相同名称的参数的内核函数。
-尝试导入具有此类有效负载的插件将失败，并显示以下错误：“该函数具有两个或多个具有相同名称的参数 `<property-name>`。
+There is a limitation with this option regarding the creation of payloads that contain properties with the same names at different levels.
+Taking into account that import process creates a kernel function for each OpenAPI operation, there's no feasible way to create a kernel function with more than one parameter having the same name.
+An attempt to import a plugin with such a payload will fail with the following error: "The function has two or more parameters with the same name `<property-name>`."
 
-此外，当两个或多个属性相互引用时，有效负载架构中可能会发生循环引用，从而创建循环。
-SK 将检测此类循环引用并引发作导入失败的错误。
+Additionally, there's probability of circular references in the payload schema that may occur when two or more properties reference each other, creating a loop. 
+SK will detect such circular references and throw an error failing the operation import.
 
-此选项的另一个特点是它不会遍历数组属性，而是将它们视为叶子属性。
-这意味着调用方必须为数组类型的属性提供参数，但不能为数组元素或数组元素的属性提供参数。
-在上面的示例中，对象数组应作为 “tags” 数组属性的参数提供。
+Another specificity of this option is that it does not traverse array properties and considers them as leaf properties. 
+This means that the caller must provide arguments for the properties of the array type, but not for the array elements or the properties of the array elements. 
+In the example above, the array of objects should be provided as an argument for the "tags" array property.
 
-### 3. 使用命名空间从叶属性构建动态有效负载
-此选项解决了上述 dynamic payload construction 选项在不同级别处理具有相同名称的属性的限制。
-它通过在子属性名称前加上其父属性名称来实现此目的，从而有效地创建唯一名称。
-调用方仍需要为属性提供参数，SK 将完成其余工作。
+### 3. Dynamic Payload Construction From Leaf Properties Using Namespaces
+This option addresses the limitation of the dynamic payload construction option described above regarding handling properties with the same name at different levels.
+It does so by prepending child property names with their parent property names, effectively creating unique names. 
+The caller still needs to provide arguments for the properties and SK will do the rest.
 ```csharp
 // Import an OpenAPI plugin with the createEvent function and disable dynamic payload construction
 KernelPlugin plugin = await kernel.ImportPluginFromOpenApiAsync("<plugin-name>", new Uri("<plugin-uri>"), new OpenApiFunctionExecutionParameters 
@@ -148,33 +154,33 @@ KernelArguments arguments = new()
 FunctionResult functionResult = await kernel.InvokeAsync(plugin["createEvent"], arguments);
 ```
 
-与上一个选项一样，此选项从根属性向下遍历有效负载架构以收集所有叶属性。遇到叶属性时，SK 会检查父属性。
-如果存在父级，则叶属性名称前面会加上父级属性名称（用点分隔）以创建唯一名称。
-例如，对象的`dateTime`属性 `start` 将被命名为 `start.dateTime`. 
+This option, like the previous one, traverses the payload schema from the root properties down to collect all leaf properties. When a leaf property is encountered, SK checks for a parent property. 
+If a parent exists, the leaf property name is prepended with the parent property name, separated by a dot, to create a unique name.
+For instance, the `dateTime` property of the `start` object will be named `start.dateTime`.  
    
-此选项以与前一个相同的方式处理数组属性，将它们视为叶属性，这意味着调用者必须为它们提供参数。
+This option treats array properties in the same way as the previous one, considering them as leaf properties, which means the caller must supply arguments for them.
 
-此选项也容易受到有效负载架构中的循环引用的影响，如果 SK 检测到任何循环引用，它将使作导入失败。
+This option is susceptible to circular references in the payload schema as well, and SK will fail the operation import if it detects any.
 
-## 在 SK 中处理有效负载的新选项
+## New Options for Handling Payloads in SK
 
-### 上下文和问题陈述
-SK 不遗余力地处理动态构建有效负载的复杂性，并将这一责任从调用方那里分担出来。
+### Context and Problem Statement
+SK goes above and beyond to handle the complexity of constructing payloads dynamically and offloading this responsibility from the caller.
 
-但是，当有效负载包含不同级别的同名属性并且无法使用命名空间时，现有选项都不适用于复杂场景。
+However, neither of the existing options is suitable for complex scenarios when the payload contains properties with the same name at different levels and using namespaces is not an option.
 
-为了涵盖这些场景，我们提出了一个在 SK 中处理有效负载的新选项。
+To cover these scenarios, we propose a new option for handling payloads in SK.
 
-### 考虑的选项
+### Considered Options
 
-- 选项 #4：从根属性中构造有效负载
+- Option #4: Construct payload out of root properties
 
-### 选项 #4：从根属性构建动态负载
+### Option #4: Dynamic Payload Construction From Root Properties
 
-在某些情况下，有效负载包含具有相同名称的属性，并且由于各种原因无法使用命名空间。为了不卸载
-将构建有效负载的责任交给调用者，SK 可以执行额外的步骤并从根属性中构造有效负载。由于建筑的复杂性
-这些根属性的参数将位于调用方端，但如果不允许对不同级别具有相同名称的属性使用命名空间和参数，则 SK 无能为力
-必须从 kernel 参数的平面列表中解析。
+There could be cases when the payload contains properties with the same name, and using namespaces is not possible for a various reasons. In order not to offload 
+the responsibility of constructing the payload to the caller, SK can do an extra step and construct the payload out of the root properties. Of cause the complexity of building
+arguments for those root properties will be on the caller side but there's not much SK can do if it's not allowed to use namespaces and arguments for properties with the same name at different levels
+have to be resolved from the flat list of kernel arguments.
 
 ```csharp
 // Import an OpenAPI plugin with the createEvent function and disable dynamic payload construction
@@ -210,18 +216,18 @@ KernelArguments arguments = new()
 FunctionResult functionResult = await kernel.InvokeAsync(plugin["createEvent"], arguments);
 ```
 
-此选项自然适合现有选项 #1 之间。和 `payload` `content-type` Arguments 和选项 #2。使用叶属性构建动态负载，如下面的概述表所示。
+This option naturally fits between existing option #1. The `payload` and the `content-type` Arguments and option #2. Dynamic Payload Construction Using Leaf Properties as shown in the overview table below.
 
-### 选项概述
-| 选择 | 访客 | SK | 局限性 |
+### Options Overview
+| Option | Caller | SK | Limitations |
 |--------|-------|----|--------|
-| 1. 和 `payload` `content-type` 参数 | 构造有效负载 | 按原样使用 | 无限制 |
-| 4. 从根属性构建动态负载 | 为根属性提供参数 | 构造有效负载 | 1. 不支持 `anyOf`、 、 `allOf` `oneOf` |
-| 2. 从 Leaf Properties 构建动态负载 | 为叶属性提供参数 | 构造有效负载 | 1. 不支持 `anyOf`， `allOf`， ， `oneOf`， 2.叶属性必须是唯一的，3.循环引用  |
-| 3. 从叶属性 + 命名空间构建动态有效负载 | 为命名空间属性提供参数 | 构造有效负载 | 1. 不支持 `anyOf`， `allOf`， ， `oneOf`， 2.循环引用 |
+| 1. The `payload` and the `content-type` Arguments | Constructs payload | Use it as is | No limitations |
+| 4. Dynamic Payload Construction From Root Properties | Provides arguments for root properties | Constructs payload | 1. No support for `anyOf`, `allOf`, `oneOf` |
+| 2. Dynamic Payload Construction From Leaf Properties | Provides arguments for leaf properties | Constructs payload | 1. No support for `anyOf`, `allOf`, `oneOf`, 2. Leaf properties must be unique, 3. Circular references  |
+| 3. Dynamic Payload Construction From Leaf Properties + Namespaces | Provides arguments for namespaced properties | Constructs payload | 1. No support for `anyOf`, `allOf`, `oneOf`, 2. Circular references |
 
-### 决策结果
-在讨论了这些选项之后，决定不继续实施选项 #4，因为没有强有力的证据表明它比现有的选项 #1 有任何好处。
+### Decision Outcome
+Having discussed these options, it was decided not to proceed with implementation of Option #4 because of absence of strong evidence that it provides any benefits over the existing Option #1.
 
-## 样品
-演示上述现有选项用法的示例可以在 [Semantic Kernel Samples 存储库中找到](https://github.com/microsoft/semantic-kernel/blob/main/dotnet/samples/Concepts/Plugins/OpenApiPlugin_PayloadHandling.cs)
+## Samples
+Samples demonstrating the usage of the existing options described above can be found in the [Semantic Kernel Samples repository](https://github.com/microsoft/semantic-kernel/blob/main/dotnet/samples/Concepts/Plugins/OpenApiPlugin_PayloadHandling.cs)

@@ -1,24 +1,32 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+contact: rogerbarreto
+date: 2024-05-02
+deciders: rogerbarreto, markwallace-microsoft, sergeymenkshi, dmytrostruk, sergeymenshik, westey-m, matthewbolanos
+consulted: stephentoub
+---
 
-# 内核内容类型毕业
+# Kernel Content Types Graduation
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-目前，我们有许多内容类型处于实验状态，此 ADR 将提供一些有关如何将它们升级到稳定状态的选项。
+Currently, we have many Content Types in experimental state and this ADR will give some options on how to graduate them to stable state.
 
-## 决策驱动因素
+## Decision Drivers
 
-- 无中断性变更
-- 方法简单，复杂性最低
-- 允许扩展性
-- 简洁明了
+- No breaking changes
+- Simple approach, minimal complexity
+- Allow extensibility
+- Concise and clear
 
-## BinaryContent 毕业
+## BinaryContent Graduation
 
-此内容应按内容专用化或直接针对不特定的类型，类似于“application/octet-stream”MIME 类型。
+This content should be by content specializations or directly for types that aren't specific, similar to "application/octet-stream" mime type.
 
-> **Application/Octet-Stream** 是用于任意二进制数据或字节流的 MIME，它不适合任何其他更具体的 MIME 类型。此 MIME 类型通常用作默认类型或回退类型，指示应将文件视为纯二进制数据。
+> **Application/Octet-Stream** is the MIME used for arbitrary binary data or a stream of bytes that doesn't fit any other more specific MIME type. This MIME type is often used as a default or fallback type, indicating that the file should be treated as pure binary data.
 
-#### 当前
+#### Current
 
 ```csharp
 public class BinaryContent : KernelContent
@@ -32,7 +40,7 @@ public class BinaryContent : KernelContent
 }
 ```
 
-#### 提出
+#### Proposed
 
 ```csharp
 public class BinaryContent : KernelContent
@@ -51,49 +59,49 @@ public class BinaryContent : KernelContent
 }
 ```
 
-- No Content 属性（如果从专用类型上下文中使用，请避免冲突和/或误导信息）
+- No Content property (Avoid clashing and/or misleading information if used from a specialized type context)
 
-  即：
+  i.e:
 
-  - `PdfContent.Content` （描述纯文本信息）
-  - `PictureContent.Content` （公开类型 `Picture` ）
+  - `PdfContent.Content` (Describe the text only information)
+  - `PictureContent.Content` (Exposes a `Picture` type)
 
-- 摆脱延迟 （延迟加载） 内容提供程序，使用更简单的 API。
-- `GetContentAsync` removal （不再有 derrefed API）
-- 为 `Data` 字节数组内容信息添加了 setter 和 getter 属性。
+- Move away from deferred (lazy loaded) content providers, simpler API.
+- `GetContentAsync` removal (No more derrefed APIs)
+- Added `Data` property as setter and getter for byte array content information.
 
-  设置此属性将覆盖 `DataUri` base64 数据部分。
+  Setting this property will override the `DataUri` base64 data part.
 
-- 为 `DataUri` 数据 uri 内容信息添加了 setter 和 getter 属性。
+- Added `DataUri` property as setter and getter for data uri content information.
 
-  设置此属性将使用 `Data` `MimeType` 当前有效负载详细信息覆盖 and 属性。
+  Setting this property will override the `Data` and `MimeType` properties with the current payload details.
 
-- 为 `Uri` 引用的内容信息添加属性。此属性不接受 not a `UriData` ，仅支持非数据方案。
-- 添加 `CanRead` 属性 （指示是否可以使用 `Data` 或 `DataUri` properties 读取内容。
-- 用于创建 Uri、DataUri 和 ByteArray + MimeType 的专用构造函数。
+- Add `Uri` property for referenced content information. This property is does not accept not a `UriData` and only supports non-data schemes.
+- Add `CanRead` property (To indicate if the content can be read using `Data` or `DataUri` properties.)
+- Dedicated constructors for Uri, DataUri and ByteArray + MimeType creation.
 
-优点：
+Pros:
 
-- 由于没有延迟内容，我们有了更简单的 API，并且对内容负责。
-- 可以以 OR 格式写入和读取 `Data` `DataUri` 。
-- 可以具有 `Uri` reference 属性，这在专用上下文中很常见。
-- 完全可序列化。
-- 数据 Uri 参数支持（包括序列化）。
-- 数据 Uri 和 Base64 验证检查
-- Data Uri 和 Data 可以动态生成
-- `CanRead` 将清楚地识别内容是否可以读取为 `bytes` 或 `DataUri`。
+- With no deferred content we have simpler API and a single responsibility for contents.
+- Can be written and read in both `Data` or `DataUri` formats.
+- Can have a `Uri` reference property, which is common for specialized contexts.
+- Fully serializable.
+- Data Uri parameters support (serialization included).
+- Data Uri and Base64 validation checks
+- Data Uri and Data can be dynamically generated
+- `CanRead` will clearly identify if the content can be read as `bytes` or `DataUri`.
 
-缺点：
+Cons:
 
-- 针对实验性使用者的突破性变化 `BinaryContent` 
+- Breaking change for experimental `BinaryContent` consumers
 
-### 数据 Uri 参数
+### Data Uri Parameters
 
-根据 [RFC 2397，data](https://datatracker.ietf.org/doc/html/rfc2397) uri 方案支持参数
+According to [RFC 2397](https://datatracker.ietf.org/doc/html/rfc2397), the data uri scheme supports parameters
 
-从数据URI导入的每个参数都将添加到元数据字典中，其中“data-uri-parameter-name”作为键及其重复值。
+Every parameter imported from the data uri will be added to the Metadata dictionary with the "data-uri-parameter-name" as key and its respetive value.
 
-#### 提供参数化数据 URI 会将这些参数包含在 Metadata 字典中。
+#### Providing a parameterized data uri will include those parameters in the Metadata dictionary.
 
 ```csharp
 var content = new BinaryContent("data:application/json;parameter1=value1;parameter2=value2;base64,SGVsbG8gV29ybGQ=");
@@ -101,7 +109,7 @@ var parameter1 = content.Metadata["data-uri-parameter1"]; // value1
 var parameter2 = content.Metadata["data-uri-parameter2"]; // value2
 ```
 
-#### 在获取 DataUri 属性时，内容的反序列化也将包括这些参数。
+#### Deserialization of contents will also include those parameters when getting the DataUri property.
 
 ```csharp
 var json = """
@@ -119,9 +127,9 @@ var content = JsonSerializer.Deserialize<BinaryContent>(json);
 content.DataUri // "data:application/json;parameter1=value1;parameter2=value2;base64,SGVsbG8gV29ybGQ="
 ```
 
-### 专业化示例
+### Specialization Examples
 
-#### 图像内容
+#### ImageContent
 
 ```csharp
 public class ImageContent : BinaryContent
@@ -138,25 +146,25 @@ public class AudioContent : BinaryContent
 }
 ```
 
-优点：
+Pros:
 
-- 支持数据 URI 大型内容
-- 允许使用 dataUrl 方案创建二进制 ImageContent，并允许由 Url 引用。
-- 支持数据 Uri 验证
+- Supports data uri large contents
+- Allows a binary ImageContent to be created using dataUrl scheme and also be referenced by a Url.
+- Supports Data Uri validation
 
-## ImageContent 毕业典礼
+## ImageContent Graduation
 
-⚠️ 目前，这不是实验性的，需要将破坏性更改升级到具有潜在好处的稳定状态。
+⚠️ Currently this is not experimental, breaking changes needed to be graduated to stable state with potential benefits.
 
-### 问题
+### Problems
 
-1. 电流 `ImageContent` 不是源自 `BinaryContent`
-2. 具有不良行为，允许同一实例同时具有 distinct `DataUri` 和 `Data` at。
-3. `Uri` 属性用于数据 URI 和引用的 URI 信息
-4. `Uri` 不支持大型语言数据 URI 格式。
-5. 不清楚 `sk developer` 内容何时可读或不可读。
+1. Current `ImageContent` does not derive from `BinaryContent`
+2. Has an undesirable behavior allowing the same instance to have distinct `DataUri` and `Data` at the same time.
+3. `Uri` property is used for both data uri and referenced uri information
+4. `Uri` does not support large language data uri formats.
+5. Not clear to the `sk developer` whenever the content is readable or not.
 
-#### 当前
+#### Current
 
 ```csharp
 public class ImageContent : KernelContent
@@ -170,9 +178,9 @@ public class ImageContent : KernelContent
 }
 ```
 
-#### 提出
+#### Proposed
 
-如 `BinaryContent` 部分示例所示，可以 `ImageContent` 毕业成为 `BinaryContent` 专业化，并继承它带来的所有好处。
+As already shown in the `BinaryContent` section examples, the `ImageContent` can be graduated to be a `BinaryContent` specialization an inherit all the benefits it brings.
 
 ```csharp
 public class ImageContent : BinaryContent
@@ -184,40 +192,40 @@ public class ImageContent : BinaryContent
 }
 ```
 
-优点：
+Pros:
 
-- 可以用作 `BinaryContent` 类型
-- 可以以 OR 格式写入和读取 `Data` `DataUri` 。
-- 可以具有 `Uri` 专用的 for referenced location。
-- 完全可序列化。
-- 数据 Uri 参数支持（包括序列化）。
-- 数据 Uri 和 Base64 验证检查
-- 可以检索
-- Data Uri 和 Data 可以动态生成
-- `CanRead` 将清楚地识别内容是否可以读取为 `bytes` 或 `DataUri`。
+- Can be used as a `BinaryContent` type
+- Can be written and read in both `Data` or `DataUri` formats.
+- Can have a `Uri` dedicated for referenced location.
+- Fully serializable.
+- Data Uri parameters support (serialization included).
+- Data Uri and Base64 validation checks
+- Can be retrieved
+- Data Uri and Data can be dynamically generated
+- `CanRead` will clearly identify if the content can be read as `bytes` or `DataUri`.
 
-缺点：
+Cons:
 
-- ⚠️ 为消费者带来突破性的变化 `ImageContent` 
+- ⚠️ Breaking change for `ImageContent` consumers
 
-### ImageContent 重大更改
+### ImageContent Breaking Changes
 
-- `Uri` 属性将专门用于引用的位置（非 data-uri），尝试添加 `data-uri` 格式将引发异常，建议改用该 `DataUri` 属性。
-- 设置 `DataUri` 将根据提供的信息覆盖 `Data` and `MimeType` 属性。
-- 尝试设置无效 `DataUri` 将引发异常。
-- setting `Data` 现在将覆盖 `DataUri` 数据部分。
-- 尝试在属性`ImageContent`中使用 data-uri `Uri` 序列化  将引发异常。
+- `Uri` property will be dedicated solely for referenced locations (non-data-uri), attempting to add a `data-uri` format will throw an exception suggesting the usage of the `DataUri` property instead.
+- Setting `DataUri` will override the `Data` and `MimeType` properties according with the information provided.
+- Attempting to set an invalid `DataUri` will throw an exception.
+- Setting `Data` will now override the `DataUri` data part.
+- Attempting to serialize an `ImageContent` with data-uri in the `Uri` property will throw an exception.
 
-## AudioContent 毕业
+## AudioContent Graduation
 
-与 `ImageContent` 提案`AudioContent`类似，可以毕业为 `BinaryContent`.
+Similar to `ImageContent` proposal `AudioContent` can be graduated to be a `BinaryContent`.
 
-#### 当前
+#### Current
 
-1. 当前 `AudioContent` 不派生支持 `Uri` 引用位置
-2. `Uri` 属性用于数据 URI 和引用的 URI 信息
-3. `Uri` 不支持大型语言数据 URI 格式。
-4. 不清楚 `sk developer` 内容何时可读或不可读。
+1. Current `AudioContent` does not derive support `Uri` referenced location
+2. `Uri` property is used for both data uri and referenced uri information
+3. `Uri` does not support large language data uri formats.
+4. Not clear to the `sk developer` whenever the content is readable or not.
 
 ```csharp
 public class AudioContent : KernelContent
@@ -229,7 +237,7 @@ public class AudioContent : KernelContent
 }
 ```
 
-#### 提出
+#### Proposed
 
 ```csharp
 public class AudioContent : BinaryContent
@@ -241,29 +249,29 @@ public class AudioContent : BinaryContent
 }
 ```
 
-优点：
+Pros:
 
-- 可以用作 `BinaryContent` 类型
-- 可以以 OR 格式写入和读取 `Data` `DataUri` 。
-- 可以具有 `Uri` 专用的 for referenced location。
-- 完全可序列化。
-- 数据 Uri 参数支持（包括序列化）。
-- 数据 Uri 和 Base64 验证检查
-- 可以检索
-- Data Uri 和 Data 可以动态生成
-- `CanRead` 将清楚地识别内容是否可以读取为 `bytes` 或 `DataUri`。
+- Can be used as a `BinaryContent` type
+- Can be written and read in both `Data` or `DataUri` formats.
+- Can have a `Uri` dedicated for referenced location.
+- Fully serializable.
+- Data Uri parameters support (serialization included).
+- Data Uri and Base64 validation checks
+- Can be retrieved
+- Data Uri and Data can be dynamically generated
+- `CanRead` will clearly identify if the content can be read as `bytes` or `DataUri`.
 
-缺点：
+Cons:
 
-- 面向消费者`AudioContent`的实验性中断性变更 
+- Experimental breaking change for `AudioContent` consumers
 
-## FunctionCallContent 毕业
+## FunctionCallContent Graduation
 
-### 当前
+### Current
 
-无需更改当前结构。
+No changes needed to current structure.
 
-我们可能有一个基础`FunctionContent`，但同时，通过 `KernelContent` 提供明确的关注点分离来获得这两个基础是好的。
+Potentially we could have a base `FunctionContent` but at the same time is good having those two deriving from `KernelContent` providing a clear separation of concerns.
 
 ```csharp
 public sealed class FunctionCallContent : KernelContent
@@ -281,14 +289,14 @@ public sealed class FunctionCallContent : KernelContent
 }
 ```
 
-## FunctionResultContent 刻度
+## FunctionResultContent Graduation
 
-尽管目前的结构很好，但它可能需要一些改变。
+It may require some changes although the current structure is good.
 
-### 当前
+### Current
 
-- 从纯度的角度来看，该 `Id` 属性可能会导致混淆，因为它不是响应 ID，而是函数调用 ID。
-- ctor 对于 `functionCall` `functionCallContent` 同一类型具有不同的 PARAMETER 名称。
+- From a purity perspective the `Id` property can lead to confusion as it's not a response Id but a function call Id.
+- ctors have different `functionCall` and `functionCallContent` parameter names for same type.
 
 ```csharp
 public sealed class FunctionResultContent : KernelContent
@@ -304,10 +312,10 @@ public sealed class FunctionResultContent : KernelContent
 }
 ```
 
-### 建议 - 选项 1
+### Proposed - Option 1
 
-- 重命名 `Id` 为 `CallId` 以避免混淆。
-- 调整 `ctor` 参数名称。
+- Rename `Id` to `CallId` to avoid confusion.
+- Adjust `ctor` parameters names.
 
 ```csharp
 public sealed class FunctionResultContent : KernelContent
@@ -323,19 +331,19 @@ public sealed class FunctionResultContent : KernelContent
 }
 ```
 
-### 建议 - 选项 2
+### Proposed - Option 2
 
-使用组合 a 在 `FunctionResultContent`.
+Use composition a have a dedicated CallContent within the `FunctionResultContent`.
 
-优点：
+Pros:
 
-- `CallContent` 具有从函数响应中再次调用函数的选项，这在某些情况下可能很方便
-- 明确结果的来源以及特定于结果的数据（根类）。
-- 了解调用中使用的参数。
+- `CallContent` has options to invoke a function again from its response which can be handy for some scenarios
+- Brings clarity from where the result came from and what is result specific data (root class).
+- Knowledge about the arguments used in the call.
 
-缺点：
+Cons:
 
-- 引入一个额外的跃点以从 `call` 结果中获取详细信息。
+- Introduce one extra hop to get the `call` details from the result.
 
 ```csharp
 public sealed class FunctionResultContent : KernelContent
@@ -350,9 +358,9 @@ public sealed class FunctionResultContent : KernelContent
 
 ## FileReferenceContent + AnnotationContent
 
-这两个内容是由于 `SemanticKernel.Abstractions` 序列化的方便而添加的，但非常特定于 **OpenAI Assistant API**，目前应保持为 Experimental。
+Those two contents were added to `SemanticKernel.Abstractions` due to Serialization convenience but are very specific to **OpenAI Assistant API** and should be kept as Experimental for now.
 
-作为毕业典礼，他们应该 `SemanticKernel.Agents.OpenAI` 遵循下面的建议。
+As a graduation those should be into `SemanticKernel.Agents.OpenAI` following the suggestion below.
 
 ```csharp
 #pragma warning disable SKEXP0110
@@ -362,15 +370,15 @@ public sealed class FunctionResultContent : KernelContent
 public abstract class KernelContent { ... }
 ```
 
-对于其他具有 specialization 的软件包，不应鼓励这种耦合 `KernelContent` 。
+This coupling should not be encouraged for other packages that have `KernelContent` specializations.
 
-### 解决方案 - JsonConverter 注释的使用 [](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/converters-how-to?pivots=dotnet-6-0#registration-sample---jsonconverter-on-a-type) 
+### Solution - Usage of [JsonConverter](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/converters-how-to?pivots=dotnet-6-0#registration-sample---jsonconverter-on-a-type) Annotations
 
-在项目中创建专用 `JsonConverter` 帮助程序 `Agents.OpenAI` 来处理这些类型的序列化和反序列化。
+Creation of a dedicated `JsonConverter` helper into the `Agents.OpenAI` project to handle the serialization and deserialization of those types.
 
-使用 attribute 注释这些 Content 类型 `[JsonConverter(typeof(KernelContentConverter))]` 以指示 `JsonConverter` 要使用的 。
+Annotate those Content types with `[JsonConverter(typeof(KernelContentConverter))]` attribute to indicate the `JsonConverter` to be used.
 
-### Agents.OpenAI 的 JsonConverter 示例
+### Agents.OpenAI's JsonConverter Example
 
 ```csharp
 public class KernelContentConverter : JsonConverter<KernelContent>
@@ -419,11 +427,11 @@ public class AnnotationContent : KernelContent
 }
 ```
 
-## 决策结果
+## Decision Outcome
 
-- `BinaryContent`：接受。
-- `ImageContent`：接受重大更改，但使用 `BinaryContent` 专业化可享受权益。没有向后兼容性，因为当前 `ImageContent` 行为是不可取的。
-- `AudioContent`：使用专精的实验性重大更改 `BinaryContent` 。
-- `FunctionCallContent`：按原样毕业。
-- `FunctionResultContent`：从 property 到 的实验性中断性更改 `Id` `CallId` ，以避免在成为函数调用 ID 或响应 ID 时产生混淆。
-- `FileReferenceContent` 和 `AnnotationContent`：无更改，继续作为实验性。
+- `BinaryContent`: Accepted.
+- `ImageContent`: Breaking change accepted with benefits using the `BinaryContent` specialization. No backwards compatibility as the current `ImageContent` behavior is undesirable.
+- `AudioContent`: Experimental breaking changes using the `BinaryContent` specialization.
+- `FunctionCallContent`: Graduate as is.
+- `FunctionResultContent`: Experimental breaking change from property `Id` to `CallId` to avoid confusion regarding being a function call Id or a response id.
+- `FileReferenceContent` and `AnnotationContent`: No changes, continue as experimental.

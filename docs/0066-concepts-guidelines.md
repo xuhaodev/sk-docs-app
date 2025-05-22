@@ -1,85 +1,93 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+contact: rogerbarreto
+date: 2025-02-11
+deciders: markwallace, sergey, dmytro, weslie, evan, shawn
+---
 
-# 结构化概念
+# Structured Concepts
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-目前，概念画板项目已经有了很大的发展，许多样本并不一致地遵循结构化的模式或指南。
+Currently, the Concepts project has grown considerably, with many samples that do not consistently follow a structured pattern or guideline.
 
-需要考虑重新审视我们的样本模式，以支持关键驱动因素。
+A revisit of our sample patterns in favor of key drivers needs to be considered.
 
-本 ADR 首先建议我们可以遵循的规则，以使新概念遵循良好的模式，使它们易于理解、查找和描述。
+This ADR starts by suggesting rules we might follow to keep new concepts following good patterns that make them easy to comprehend, find, and descriptive.
 
-Semantic Kernel 的受众差异很大 — 从专业开发人员、初学者到非开发人员。我们明白，确保示例和指南尽可能简单明了是我们的首要任务。
+The Semantic Kernel audience can vary greatly—from pro-devs, beginners, and non-developers. We understand that making sure examples and guidelines are as straightforward as possible is of our highest priority.
 
-### 决策驱动因素
+### Decision Drivers
 
-- 容易找到
-- 易于理解
-- 易于设置
-- 易于执行
+- Easy to find
+- Easy to understand
+- Easy to set up
+- Easy to execute
 
-上述驱动因素侧重于确保我们遵循示例的良好实践、模式和结构，保证正确的文档，简化代码以便于理解，以及使用描述性类、方法和变量。
+The above drivers focus on ensuring that we follow good practices, patterns, and a structure for our samples, guaranteeing proper documentation, simplification of code for easier understanding, as well as the usage of descriptive classes, methods, and variables.
 
-我们还了解确保我们的样品易于复制和粘贴（按“原样”工作）并尽可能顺畅的重要性。
+We also understand how important it is to ensure our samples are copy-and-paste friendly (work "as is"), being as frictionless as possible.
 
-## 溶液
+## Solution
 
-将一组易于遵循的指南和良好实践应用于概念画板项目将有助于维护一个易于查找、理解、设置和执行的良好示例集合。
+Applying a set of easy-to-follow guidelines and good practices to the Concepts project will help maintain a good collection of samples that are easy to find, understand, set up, and execute.
 
-该指南将适用于概念画板项目的任何维护或新添加的示例。这些内容可以添加到概念画板项目中的新 CONTRIBUTING.md 文件中。
+This guideline will be applied for any maintenance or newly added samples to the Concepts project. The contents may be added to a new CONTRIBUTING.md file in the Concepts project.
 
-> [!注意]分析器已经确保的规则/约定未在下面的列表中提及。
-> 
-## 规则
+> [!NOTE]
+> Rules/Conventions that are already ensured by analyzers are not mentioned in the list below.
 
-### 示例类
+## Rules
 
-Concepts 项目中的每个类都必须有一个 xmldoc 描述，说明所采样的内容，以及关于所采样内容的明确信息。
+### Sample Classes
 
-✅ 要有 xmldoc 描述，详细说明要采样的内容。
+Each class in the Concepts project MUST have an xmldoc description of what is being sampled, with clear information on what is being sampled.
 
-✅ 要为所需的包提供 xmldoc 备注。
+✅ DO have xmldoc description detailing what is being sampled.
 
-✅ 请考虑使用 xmldoc remarks 来获取更多信息。
+✅ DO have xmldoc remarks for the required packages.
 
-❌ 避免使用通用描述。
+✅ CONSIDER using xmldoc remarks for additional information.
 
-✅ DO 命名类至少包含两个单词，用下划线分隔 `First_Second_Third_Fourth`。
+❌ AVOID using generic descriptions.
 
-✅ DO name 类，并为 `First` 给定的概念或提供者名称保留单词（例如， `OpenAI_ChatCompletion`）。
+✅ DO name classes with at least two words, separated by an underscore `First_Second_Third_Fourth`.
 
-当文件包含特定 的示例`<provider>`时，它应以 作为 `<provider>` 第一个单词 `<provider>` 。 此处还可以包括 runtime、platform、protocol 或 service 名称。
+✅ DO name classes with the `First` word reserved for the given concept or provider name (e.g., `OpenAI_ChatCompletion`).
 
-✅ 考虑命名 `Second` 和后面的单词，以创建最佳分组，例如， 
-例如， `AzureAISearch_VectorStore_ConsumeFromMemoryStore`.
+When the file has examples for a specific `<provider>`, it should start with the `<provider>` as the first word. `<provider>` here can also include runtime, platform, protocol, or service names.
 
-✅ 当单词超过两个时，请考虑使用从左到右的分组进行命名， 
-例如， `AzureAISearch_VectorStore_ConsumeFromMemoryStore`： 对于 `AzureAISearch` Within `VectorStore` Grouping，有一个 `ConsumeFromMemoryStore` 示例。
+✅ CONSIDER naming `Second` and later words to create the best grouping for examples,  
+e.g., `AzureAISearch_VectorStore_ConsumeFromMemoryStore`.
 
-### 示例方法
+✅ CONSIDER naming when there are more than two words, using a left-to-right grouping,  
+e.g., `AzureAISearch_VectorStore_ConsumeFromMemoryStore`: for `AzureAISearch` within `VectorStore` grouping, there's a `ConsumeFromMemoryStore` example.
 
-✅ 务必有一个 xmldoc 描述，详细说明当类具有多个 sample 方法时要采样的内容。
+### Sample Methods
 
-✅ DO 具有描述性方法名称，限制为 5 个单词，以下划线分隔， 
-例如， `[Fact] public Task First_Second_Third_Fourth_Fifth()`.
+✅ DO have an xmldoc description detailing what is being sampled when the class has more than one sample method.
 
-❌ 不要对 Task 使用 `Async` suffix。
+✅ DO have descriptive method names limited to five words, separated by an underscore,  
+e.g., `[Fact] public Task First_Second_Third_Fourth_Fifth()`.
 
-❌ 避免在方法签名中使用参数。
+❌ DO NOT use `Async` suffix for Tasks.
 
-❌ 一个类中的样本数不能超过 3 个。需要时，将示例拆分为多个类。
+❌ AVOID using parameters in the method signature.
 
-### 法典
+❌ DO NOT have more than 3 samples in a single class. Split the samples into multiple classes when needed.
 
-✅ 务必保持代码清晰简洁。在大多数情况下，变量名称和 API 应该是不言自明的。
+### Code
 
-✅ 考虑对大型示例方法的代码进行注释。
+✅ DO keep code clear and concise. For the most part, variable names and APIs should be self-explanatory.
 
-❌ 不要对变量、方法或类使用首字母缩略词或短名称。
+✅ CONSIDER commenting the code for large sample methods.
 
-❌ 避免对不属于示例文件的常见帮助程序类或方法的任何引用， 
-例如，避免使用像 `BaseTest.OutputLastMessage`.
+❌ DO NOT use acronyms or short names for variables, methods, or classes.
 
-## 决策结果
+❌ AVOID any references to common helper classes or methods that are not part of the sample file,  
+e.g., avoid methods like `BaseTest.OutputLastMessage`.
 
-待定
+## Decision Outcome
+
+TBD

@@ -1,44 +1,50 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+contact: John Oliver
+date: 2024-06-18
+---
 
-# 将 Java 存储库分离到单独的代码库
+# Separate Java Repository To a Separate Code Base
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-在单个存储库中管理多种语言会给不同语言及其构建工具带来一些挑战
-管理存储库。特别是关于 Java 的常见构建工具（如 Apache Maven）如何与存储库交互。通常
-在执行 Maven 版本时，您希望能够冻结存储库，以便在
-准备发布。为了在共享存储库中实现这一点，我们实际上需要请求所有语言停止
-合并拉取请求。Maven 发布过程与项目的交互也很糟糕
-希望合并被压制，这在很大程度上阻碍了需要推送的典型 Maven 发布过程
-将多个提交提交到一个存储库中。
+Managing multiple languages within a single repository provides some challenges with respect to how different languages and their build tools
+manage repositories. Particularly with respect to how common build tooling for Java, like Apache Maven, interacts with repositories. Typically,
+while doing a Maven release you want to be able to freeze your repository so that commits are not being added while
+preparing a release. To achieve this in a shared repository we would effectively need to request all languages halt
+merging pull requests while we are in this process. The Maven release process also interacts badly with the projects
+desire for merges to be squashed which for the most part blocks a typical Maven release process that needs to push
+multiple commits into a repository.
 
-此外，从可发现性的角度来看，在原始存储库中，当前大多数拉取请求、议题和活动都来自
-其他语言。这已经创建了一些
-用户对语义内核存储库是否是 Java 的正确存储库感到困惑。管理 git 历史记录
-执行查找
-当大多数提交和代码与 Java 无关时，编写发行说明也要困难得多。
+Additionally, from a discoverability standpoint, in the original repository the majority of current pull requests, issues and activity are from
+other languages. This has created some
+confusion from users about if the semantic kernel repository is the correct repository for Java. Managing git history
+when performing tasks such as looking
+at diffs or compiling release notes is also significantly harder when the majority of commits and code are unrelated to Java.
 
-此外，管理所有语言都首选的存储库策略也是一项挑战，因为我们必须生成更多的
-复杂的构建过程，用于构建多种语言。如果用户在自己的语言之外对仓库进行了意外更改，
-或更改 common 文件，需要其他语言的签字，从而导致延迟，因为我们
-需要其他语言的用户进行审核。同样，GitHub Actions 工作流、`.gitignore`VS Code 设置 `README.md` `.editorconfig`等常见文件也会变为
-更复杂，因为它们必须同时支持多种语言。
+Also managing repository policies that are preferred by all languages is a challenge as we have to produce a more
+complex build process to account for building multiple languages. If a user makes accidental changes to the repository outside their own language,
+or make changes to the common files, require sign off from other languages, leading to delays as we
+require review from users in other languages. Similarly common files such as GitHub Actions workflows, `.gitignore`, VS Code settings, `README.md`, `.editorconfig` etc, become
+more complex as they have to simultaneously support multiple languages.
 
-从社区的角度来看，拥有单独的存储库将促进社区参与，允许开发人员仅在 Java 项目上做出贡献、分享想法和协作。
-此外，它还支持对贡献进行透明跟踪，从而轻松识别主要贡献者并认可他们的努力。
-拥有单个存储库还将提供有关提交、拉取请求和其他活动的宝贵统计数据，帮助维护人员监控项目进度和活动水平。 
+In a community point of view, having a separate repo will foster community engagement, allowing developers to contribute, share ideas, and collaborate on the Java projects only.
+Additionally, it enables transparent tracking of contributions, making it easy to identify top contributors and acknowledge their efforts. 
+Having a single repository will also provide valuable statistics on commits, pull requests, and other activities, helping maintainers monitor project progress and activity levels. 
 
-## 决策驱动因素
+## Decision Drivers
 
-- 允许与 Java 工具兼容的项目设置
-- 提高社区发现 Java 项目并与之交互的能力
-- 提高社区隔离观察 Java 项目更改的能力
-- 简化存储库构建/文件以专注于单一语言
+- Allow project settings that are compatible with Java tooling
+- Improve the communities' ability to discover and interact with the Java project
+- Improve the ability for the community to observe changes to the Java project in isolation
+- Simplify repository build/files to concentrate on a single language
 
-## 考虑的选项
+## Considered Options
 
-我们过去在 Semantic Kernel[ 存储库中用完了一个单独的分支 ](https://github.co/microsoft/semantic-kernel) ，它解决了
-然而，一些问题严重阻碍了用户的可发现性，因为用户希望在 main 分支上找到最新的代码。
+We have in the past run out of a separate branch within the [Semantic Kernel](https://github.co/microsoft/semantic-kernel) repository which solved 
+some of the issues however significantly hindered user discoverability as users expect to find the latest code on the main branch.
 
-## 决策结果
+## Decision Outcome
 
-Java 存储库已移至 [semantic-kernel-java](https://github.com/microsoft/semantic-kernel-java)
+Java repository has been moved to [semantic-kernel-java](https://github.com/microsoft/semantic-kernel-java)

@@ -1,27 +1,36 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: sergeymenshykh
+date: 2024-04-17
+deciders: markwallace, matthewbolanos, rbarreto, dmytrostruk
+consulted: 
+informed:
+---
 
-# 函数调用内容
+# Function Call Content
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-如今，在 SK 中，LLM 函数调用仅由 OpenAI 连接器支持，并且函数调用模型特定于该连接器。在编写 ARD 时，正在添加两个支持函数调用的新连接器，每个连接器都有自己特定的函数调用模型。该设计中，每个新连接器都引入了自己的特定模型类用于函数调用，从连接器开发的角度来看，它不能很好地扩展，并且不允许 SK 消费者代码对连接器进行多态使用。
+Today, in SK, LLM function calling is supported exclusively by the OpenAI connector, and the function calling model is specific to that connector. At the time of writing the ARD, two new connectors are being added that support function calling, each with its own specific model for function calling. The design, in which each new connector introduces its own specific model class for function calling, does not scale well from the connector development perspective and does not allow for polymorphic use of connectors by SK consumer code.
 
-让 LLM/服务无关的函数调用模型类的另一种情况是使代理能够相互传递函数调用。在这种情况下，使用 OpenAI Assistant API 连接器/LLM 的代理可以将函数调用 content/request/model 传递给基于 OpenAI 聊天完成 API 构建的另一个代理以执行。
+Another scenario in which it would be beneficial to have an LLM/service-agnostic function calling model classes is to enable agents to pass function calls to one another. In this situation, an agent using the OpenAI Assistant API connector/LLM may pass the function call content/request/model for execution to another agent that build on top of the OpenAI chat completion API.
 
-此 ADR 描述了与服务无关的函数调用模型类的高级详细信息，同时将低级详细信息留给实现阶段。此外，本 ADR 还概述了设计各个方面的已确定选项。
+This ADR describes the high-level details of the service-agnostic function-calling model classes, while leaving the low-level details to the implementation phase. Additionally, this ADR outlines the identified options for various aspects of the design.
 
-要求 - https://github.com/microsoft/semantic-kernel/issues/5153
+Requirements - https://github.com/microsoft/semantic-kernel/issues/5153
 
-## 决策驱动因素
-1. 连接器应使用与服务无关的函数模型类将 LLM 函数调用传达给连接器调用方。
-2. 使用者应该能够使用与服务无关的函数模型类将函数结果传回连接器。  
-3. 所有现有的函数调用行为应该仍然有效。  
-4. 应该可以使用与服务无关的函数模型类，而无需依赖 OpenAI 包或任何其他特定于 LLM 的包。  
-5. 应该可以使用函数调用和结果类序列化聊天历史记录对象，以便将来可以解除冻结（并可能使用不同的 AI 模型运行聊天历史记录）。  
-6. 应该可以在 agent 之间传递函数调用。在多代理方案中，一个代理可以为另一个代理创建函数调用来完成该调用。  
-7. 应该可以模拟函数调用。开发人员应该能够将带有他们创建的函数调用的聊天消息添加到聊天历史记录对象中，然后使用任何 LLM 运行它（在 OpenAI 的情况下，这可能需要模拟函数调用 ID）。
+## Decision Drivers
+1. Connectors should communicate LLM function calls to the connector callers using service-agnostic function model classes.
+2. Consumers should be able to communicate function results back to connectors using service-agnostic function model classes.  
+3. All existing function calling behavior should still work.  
+4. It should be possible to use service-agnostic function model classes without relying on the OpenAI package or any other LLM-specific one.  
+5. It should be possible to serialize a chat history object with function call and result classes so it can be rehydrated in the future (and potentially run the chat history with a different AI model).  
+6. It should be possible to pass function calls between agents. In multi-agent scenarios, one agent can create a function call for another agent to complete it.  
+7. It should be possible to simulate a function call. A developer should be able to add a chat message with a function call they created to a chat history object and then run it with any LLM (this may require simulating function call IDs in the case of OpenAI).
 
-## 1. 与服务无关的函数调用模型类
-如今，SK 依赖于特定于连接器的内容类将调用函数的 LLM 意向传达给 SK 连接器调用方：
+## 1. Service-agnostic function call model classes
+Today, SK relies on connector specific content classes to communicate LLM intent to call function(s) to the SK connector caller:
 ```csharp
 IChatCompletionService chatCompletionService = kernel.GetRequiredService<IChatCompletionService>();
 
@@ -48,16 +57,16 @@ foreach (ChatCompletionsFunctionToolCall toolCall in toolCalls)
 }
 ```
 
-这两个 `OpenAIChatMessageContent` and `ChatCompletionsFunctionToolCall` 类都是特定于 OpenAI 的，不能由非 OpenAI 连接器使用。此外，使用 LLM 供应商特定的类会使连接器的调用方代码复杂化，并且无法多态地使用连接器 - 通过接口引用连接器 `IChatCompletionService` ，同时能够交换其实现。
+Both `OpenAIChatMessageContent` and `ChatCompletionsFunctionToolCall` classes are OpenAI-specific and cannot be used by non-OpenAI connectors. Moreover, using the LLM vendor-specific classes complicates the connector's caller code and makes it impossible to work with connectors polymorphically - referencing a connector through the `IChatCompletionService` interface while being able to swap its implementations.
 
-为了解决这个问题，我们需要一种机制，允许将 LLM 意图以调用函数的意图传达给调用者，并以与服务无关的方式将函数调用结果返回给 LLM。此外，此机制应具有足够的可扩展性，以便在 LLM 请求函数调用并在单个响应中返回其他内容类型时支持潜在的多模式情况。
+To address this issues, we need a mechanism that allows communication of LLM intent to call functions to the caller and returning function call results back to LLM in a service-agnostic manner. Additionally, this mechanism should be extensible enough to support potential multi-modal cases when LLM requests function calls and returns other content types in a single response.
 
-考虑到 SK 聊天补全模型类已经通过集合支持多模式场景 `ChatMessageContent.Items` ，因此此集合也可以用于函数调用场景。连接器需要将 LLM 函数调用映射到与服务无关的函数内容模型类，并将它们添加到 items 集合中。同时，连接器调用方将执行函数，并通过 items 集合将执行结果传回。
+Considering that the SK chat completion model classes already support multi-modal scenarios through the `ChatMessageContent.Items` collection, this collection can also be leveraged for function calling scenarios. Connectors would need to map LLM function calls to service-agnostic function content model classes and add them to the items collection. Meanwhile, connector callers would execute the functions and communicate the execution results back through the items collection as well.
 
-下面考虑了与服务无关的函数内容模型类的几个选项。
+A few options for the service-agnostic function content model classes are being considered below.
 
-### 选项 1.1 - FunctionCallContent 表示函数调用 （请求） 和函数结果  
-此选项假定有一个与服务无关的模型类 - `FunctionCallContent` 用于传达函数调用和函数结果：
+### Option 1.1 - FunctionCallContent to represent both function call (request) and function result  
+This option assumes having one service-agnostic model class - `FunctionCallContent` to communicate both function call and function result:
 ```csharp
 class FunctionCallContent : KernelContent
 {
@@ -78,15 +87,15 @@ class FunctionCallContent : KernelContent
 }
 ```
 
-**优点**：
-- 一个模型类，用于表示函数调用和函数结果。
+**Pros**:
+- One model class to represent both function call and function result.
 
-**缺点**：
-- 连接器需要通过分析父级在聊天历史记录中的角色来确定内容是表示函数调用还是函数结果 `ChatMessageContent` ，因为类型本身并不传达其用途。  
-  * 这可能根本不是一个骗局，因为需要一个协议来定义聊天消息的特定角色 （AuthorRole.Tool？） 以将函数结果传递给连接器。本 ADR 将在下文讨论详细信息。
+**Cons**:
+- Connectors will need to determine whether the content represents a function call or a function result by analyzing the role of the parent `ChatMessageContent` in the chat history, as the type itself does not convey its purpose.  
+  * This may not be a con at all because a protocol defining a specific role (AuthorRole.Tool?) for chat messages to pass function results to connectors will be required. Details are discussed below in this ADR.
 
-### 选项 1.2 - FunctionCallContent 表示函数调用，FunctionResultContent 表示函数结果
-此选项建议使用两个模型类 - `FunctionCallContent` 用于将函数调用传递给连接器调用者：
+### Option 1.2 - FunctionCallContent to represent a function call and FunctionResultContent to represent the function result
+This option proposes having two model classes - `FunctionCallContent` for communicating function calls to connector callers:
 ```csharp
 class FunctionCallContent : KernelContent
 {
@@ -110,7 +119,7 @@ class FunctionCallContent : KernelContent
 }
 ```
 
-和 - `FunctionResultContent` 用于将函数结果传回连接器：
+and - `FunctionResultContent` for communicating function results back to connectors:
 ```csharp
 class FunctionResultContent : KernelContent
 {
@@ -127,14 +136,14 @@ class FunctionResultContent : KernelContent
 }
 ```
 
-**优点**：
-- 与前一个选项相比，显式模型允许调用方明确声明内容的意图，而不管父消息的角色如何 `ChatMessageContent` 。  
-  * 与上述选项的缺点类似，这可能不是一个优势，因为需要定义聊天消息角色的协议，以便将函数结果传递给连接器。
+**Pros**:
+- The explicit model, compared to the previous option, allows the caller to clearly declare the intent of the content, regardless of the role of the parent `ChatMessageContent` message.  
+  * Similar to the drawback for the option above, this may not be an advantage because the protocol defining the role of chat message to pass the function result to the connector will be required.
 
-**缺点**：
-- 一个额外的内容类。
+**Cons**:
+- One extra content class.
 
-### 连接器调用方代码示例：
+### The connector caller code example:
 ```csharp
 //The GetChatMessageContentAsync method returns only one choice. However, there is a GetChatMessageContentsAsync method that can return multiple choices.
 ChatMessageContent messageContent = await completionService.GetChatMessageContentAsync(chatHistory, settings, kernel);
@@ -170,7 +179,7 @@ foreach (FunctionCallContent functionCall in functionCalls)
 messageContent = await completionService.GetChatMessageContentAsync(chatHistory, settings, kernel);
 ```
 
-该设计不要求调用方为每个函数结果内容创建聊天消息的实例。相反，它允许通过聊天消息的单个实例将函数结果内容的多个实例发送到连接器：
+The design does not require callers to create an instance of chat message for each function result content. Instead, it allows multiple instances of the function result content to be sent to the connector through a single instance of chat message:
 ```csharp
 ChatMessageContent messageContent = await completionService.GetChatMessageContentAsync(chatHistory, settings, kernel);
 chatHistory.Add(messageContent); // Adding original chat message content containing function call(s) to the chat history.
@@ -193,13 +202,13 @@ chatHistory.Add(new ChatMessageContent(AuthorRole.Tool, items);
 messageContent = await completionService.GetChatMessageContentAsync(chatHistory, settings, kernel);
 ```
 
-### 决策结果
-选择选项 1.2 是因为它具有显式性质。
+### Decision Outcome
+Option 1.2 was chosen due to its explicit nature.
 
-## 2. 聊天完成连接器的函数调用协议
-不同的聊天完成连接器可能会将函数调用传达给调用方，并期望通过具有连接器特定角色的消息发回函数结果。例如， `{Azure}OpenAIChatCompletionService` 连接器使用带有角色的消息 `Assistant` 将函数调用传达给连接器调用者，并期望调用者通过带有角色的消息返回函数结果 `Tool` 。  
+## 2. Function calling protocol for chat completion connectors
+Different chat completion connectors may communicate function calls to the caller and expect function results to be sent back via messages with a connector-specific role. For example, the `{Azure}OpenAIChatCompletionService` connectors use messages with an `Assistant` role to communicate function calls to the connector caller and expect the caller to return function results via messages with a `Tool` role.  
    
-连接器返回的函数调用消息的角色对调用者来说并不重要，因为 `GetFunctionCalls` 无论响应消息的角色如何，都可以通过调用该方法轻松获取函数列表。
+The role of a function call message returned by a connector is not important to the caller, as the list of functions can easily be obtained by calling the `GetFunctionCalls` method, regardless of the role of the response message.
 
 ```csharp
 ChatMessageContent messageContent = await completionService.GetChatMessageContentAsync(chatHistory, settings, kernel);
@@ -207,7 +216,7 @@ ChatMessageContent messageContent = await completionService.GetChatMessageConten
 IEnumerable<FunctionCallContent> functionCalls = FunctionCallContent.GetFunctionCalls(); // Will return list of function calls regardless of the role of the messageContent if the content contains the function calls.
 ```
 
-但是，对于连接器的多态使用，邮件只有一个与连接器无关的角色将函数结果发送回连接器，这一点很重要。这将允许调用方编写如下代码：
+However, having only one connector-agnostic role for messages to send the function result back to the connector is important for polymorphic usage of connectors. This would allow callers to write code like this:
 
  ```csharp
  ...
@@ -222,7 +231,7 @@ foreach (FunctionCallContent functionCall in functionCalls)
 ...
 ```
 
-并避免使用这样的代码：
+and avoid code like this:
 
 ```csharp
 IChatCompletionService chatCompletionService = new();
@@ -250,17 +259,17 @@ foreach (FunctionCallContent functionCall in functionCalls)
 ...
 ```
 
-### 决策结果
-之所以决定使用这个 `AuthorRole.Tool` 角色，是因为它是众所周知的，从概念上讲，它可以表示功能结果以及 SK 将来需要支持的任何其他工具。
+### Decision Outcome
+It was decided to go with the `AuthorRole.Tool` role because it is well-known, and conceptually, it can represent function results as well as any other tools that SK will need to support in the future.
 
-## 3. FunctionResultContent.Result 属性的类型：
-有几种数据类型可用于该 `FunctionResultContent.Result` 属性。有问题的数据类型应允许以下情况：  
-- 可序列化/可反序列化，以便可以序列化包含函数结果内容的聊天历史记录，并在以后需要时解除冻结。  
-- 应该可以通过向 LLM 发送原始异常或描述问题的字符串来传达函数执行失败。  
+## 3. Type of FunctionResultContent.Result property:
+There are a few data types that can be used for the `FunctionResultContent.Result` property. The data type in question should allow the following scenarios:  
+- Be serializable/deserializable, so that it's possible to serialize chat history containing function result content and rehydrate it later when needed.  
+- It should be possible to communicate function execution failure either by sending the original exception or a string describing the problem to LLM.  
    
-到目前为止，已经确定了三种可能的数据类型：object、string 和 FunctionResult。
+So far, three potential data types have been identified: object, string, and FunctionResult.
 
-### 选项 3.1 - 对象
+### Option 3.1 - object
 ```csharp
 class FunctionResultContent : KernelContent
 {
@@ -269,17 +278,17 @@ class FunctionResultContent : KernelContent
 }
 ```
 
-此选项可能需要使用 JSON 转换器/解析器对聊天历史记录进行 {de}序列化，其中包含由 JsonSerializer 默认不支持的类型表示的函数结果。
+This option may require the use of JSON converters/resolvers for the {de}serialization of chat history, which contains function results represented by types not supported by JsonSerializer by default.
 
-**优点**：
-- 序列化由连接器执行，但如有必要，也可以由调用方执行。
-- 如果需要，调用方可以提供其他数据以及函数结果。
-- 调用者可以控制如何传达函数执行失败：通过传递 Exception 类的实例或向 LLM 提供问题的字符串描述。
+**Pros**:
+- Serialization is performed by the connector, but it can also be done by the caller if necessary.
+- The caller can provide additional data, along with the function result, if needed.
+- The caller has control over how to communicate function execution failure: either by passing an instance of an Exception class or by providing a string description of the problem to LLM.
 
-**缺点**：
+**Cons**:
 
 
-### 选项 3.2 - 字符串（当前实现）
+### Option 3.2 - string (current implementation)
 ```csharp
 class FunctionResultContent : KernelContent
 {
@@ -287,15 +296,15 @@ class FunctionResultContent : KernelContent
     public string? Result {get; set;}
 }
 ```
-**优点**：
-- 聊天记录 {de} 序列化不需要转换器。
-- 如果需要，调用方可以提供其他数据以及函数结果。
-- 调用者可以控制如何传达函数执行失败：通过传递序列化异常、其消息或向 LLM 提供问题的字符串描述。
+**Pros**:
+- No convertors are required for chat history {de}serialization.
+- The caller can provide additional data, along with the function result, if needed.
+- The caller has control over how to communicate function execution failure: either by passing serialized exception, its message or by providing a string description of the problem to LLM.
 
-**缺点**：
-- 序列化由调用方执行。对于聊天完成服务的多态使用，可能会出现问题。
+**Cons**:
+- Serialization is performed by the caller. It can be problematic for polymorphic usage of chat completion service.
 
-### 选项 3.3 - FunctionResult
+### Option 3.3 - FunctionResult
 ```csharp
 class FunctionResultContent : KernelContent
 {
@@ -307,29 +316,29 @@ class FunctionResultContent : KernelContent
     public object? Error { get; set; } // Can contain either an instance of an Exception class or a string describing the problem.
 }
 ```
-**优点**：
-- 使用 FunctionResult SK 域类。
+**Pros**:
+- Usage of FunctionResult SK domain class.
 
-**缺点**：
-- 如果没有额外的 Exception/Error 属性，则无法将异常传达给连接器/LLM。  
-- `FunctionResult` 今天不是 {de}可序列化的：
-  * 默认情况下，该 `FunctionResult.ValueType` 属性的类型 `Type` 不能被 JsonSerializer 序列化，因为它被认为是危险的。  
-  * 这同样适用于 `KernelReturnParameterMetadata.ParameterType` 和 `KernelParameterMetadata.ParameterType` 类型的属性 `Type`。  
-  * 该 `FunctionResult.Function` 属性是不可反序列化的，应该用 attribute 标记 [JsonIgnore] 。  
-    * 需要添加新的构造函数 ctr（object？ value = null， IReadOnlyDictionary<string, object?>？ metadata = null） 以进行反序列化。 
-    * 该 `FunctionResult.Function` 属性必须是可为 null的。这可能是一个突破性的变化？对于函数过滤器 users，因为过滤器使用 `FunctionFilterContext` 通过属性公开 kernel function 实例的类 `Function` 。
+**Cons**:
+- It is not possible to communicate an exception to the connector/LLM without the additional Exception/Error property.  
+- `FunctionResult` is not {de}serializable today:
+  * The `FunctionResult.ValueType` property has a `Type` type that is not serializable by JsonSerializer by default, as it is considered dangerous.  
+  * The same applies to `KernelReturnParameterMetadata.ParameterType` and `KernelParameterMetadata.ParameterType` properties of type `Type`.  
+  * The `FunctionResult.Function` property is not deserializable and should be marked with the [JsonIgnore] attribute.  
+    * A new constructor, ctr(object? value = null, IReadOnlyDictionary<string, object?>? metadata = null), needs to be added for deserialization. 
+    * The `FunctionResult.Function` property has to be nullable. It can be a breaking change? for the function filter users because the filters use `FunctionFilterContext` class that expose an instance of kernel function via the `Function` property.
 
-### 选项 3.4 - FunctionResult： KernelContent
-注意： 此选项是在对本 ADR 进行第二轮审核时建议的。
+### Option 3.4 - FunctionResult: KernelContent
+Note: This option was suggested during a second round of review of this ADR.
    
-此选项建议将 `FunctionResult` class 设为 class 的派生 `KernelContent` ：
+This option suggests making the `FunctionResult` class a derivative of the `KernelContent` class:
 ```csharp
 public class FunctionResult : KernelContent
 {
     ....
 }
 ```
-因此，该类将从类继承`FunctionResultContent`，成为内容本身，而不是使用单独的 `FunctionResult` 类来表示函数结果内容 `KernelContent` 。因此，该方法返回的函数结果 `KernelFunction.InvokeAsync` 可以直接添加到集合中 `ChatMessageContent.Items` ：
+So, instead of having a separate `FunctionResultContent` class to represent the function result content, the `FunctionResult` class will inherit from the `KernelContent` class, becoming the content itself. As a result, the function result returned by the `KernelFunction.InvokeAsync` method can be directly added to the `ChatMessageContent.Items` collection:
 ```csharp
 foreach (FunctionCallContent functionCall in functionCalls)
 {
@@ -344,31 +353,31 @@ foreach (FunctionCallContent functionCall in functionCalls)
 }
 ```
 
-问题：
-- 如何将原始数据与 `FunctionCallContent` 函数结果一起传递给连接器。实际上，目前尚不清楚是否需要它。目前的基本原理是，某些模型可能希望原始函数调用的属性（例如参数）与函数结果一起传递回 LLM。如果需要，可以提出一个参数，即连接器可以在聊天历史记录中找到原始函数调用。然而，一个反驳意见是，这可能并不总是可能的，因为聊天记录可能会被截断以保存令牌、减少幻觉等。
-- 如何将函数 ID 传递给 connector？
-- 如何将异常传达给连接器？建议将属性添加 `Exception` `FunctionResult` 将始终由该方法分配的类 `KernelFunction.InvokeAsync` 。但是，此更改将破坏 C# 函数调用语义，如果满足合同，则应执行该函数，如果未满足合同，则应引发异常。
-- 如果 `FunctionResult` 通过继承类成为非直播内容，那么以后`KernelContent`需要的时候`FunctionResult`/如果需要的话，如何表示类所代表的流媒体内容能力 `StreamingKernelContent` 呢？C# 不支持多重继承。
+Questions:
+- How to pass the original `FunctionCallContent` to connectors along with the function result. It's actually not clear atm whether it's needed or not. The current rationale is that some models might expect properties of the original function call, such as arguments, to be passed back to the LLM along with the function result. An argument can be made that the original function call can be found in the chat history by the connector if needed. However, a counterargument is that it may not always be possible because the chat history might be truncated to save tokens, reduce hallucination, etc.
+- How to pass function id to connector?
+- How to communicate exception to the connectors? It was proposed to add the `Exception` property the the `FunctionResult` class that will always be assigned by the `KernelFunction.InvokeAsync` method. However, this change will break C# function calling semantic, where the function should be executed if the contract is satisfied, or an exception should be thrown if the contract is not fulfilled.
+- If `FunctionResult` becomes a non-steaming content by inheriting `KernelContent` class, how the `FunctionResult` can represent streaming content capabilities represented by the `StreamingKernelContent` class when/if it needed later? C# does not support multiple inheritance.
 
-**优点**
-- 该 `FunctionResult` 类本身就是一个内容（非流式的），并且可以传递到所有需要内容的地方。
-- 不需要额外的 `FunctionResultContent` 类 。
+**Pros**
+- The `FunctionResult` class becomes a content(non-streaming one) itself and can be passed to all the places where content is expected.
+- No need for the extra `FunctionResultContent` class .
   
-**缺点**
-- 和 类之间不必要的耦合 `FunctionResult` `KernelContent` 可能是一个限制因素，阻止每个类都像其他方式那样独立发展。
--  `FunctionResult.Function` 需要将属性更改为 nullable 才能序列化，或者必须应用自定义序列化来 {de}序列化函数架构，而无需函数实例本身。  
--  `Id` 应将该属性添加到 `FunctionResult` 类中，以表示 LLM 所需的函数 ID。
+**Cons**
+- Unnecessarily coupling between the `FunctionResult` and `KernelContent` classes might be a limiting factor preventing each one from evolving independently as they otherwise could.
+- The `FunctionResult.Function` property needs to be changed to nullable in order to be serializable, or custom serialization must be applied to {de}serialize the function schema without the function instance itself.  
+- The `Id` property should be added to the `FunctionResult` class to represent the function ID required by LLMs.
 - 
-### 决策结果
-最初，决定使用选项 3.1，因为与其他两个相比，它是最灵活的选项。如果连接器需要获取函数架构，可以很容易地从 kernel 获取。Plugins 集合。函数结果元数据可以通过属性传递到连接器 `KernelContent.Metadata` 。
-然而，在对该 ADR 的第二轮审查期间，建议探索选项 3.4。最后，在对选项 3.4 进行原型设计后，由于选项 3.4 的缺点，决定返回选项 3.1。
+### Decision Outcome
+Originally, it was decided to go with Option 3.1 because it's the most flexible one comparing to the other two. In case a connector needs to get function schema, it can easily be obtained from kernel.Plugins collection available to the connector. The function result metadata can be passed to the connector through the `KernelContent.Metadata` property.
+However, during the second round of review for this ADR, Option 3.4 was suggested for exploration. Finally, after prototyping Option 3.4, it was decided to return to Option 3.1 due to the cons of Option 3.4.
 
-## 4. 模拟功能
-在某些情况下，由于模型的训练，LLM 会忽略提示中提供的数据。但是，如果通过函数 result 将模型提供给模型，则模型可以使用相同的数据。  
+## 4. Simulated functions
+There are cases when LLM ignores data provided in the prompt due to the model's training. However, the model can work with the same data if it is provided to the model via a function result.  
    
-有几种方法可以对模拟函数进行建模：
+There are a few ways the simulated function can be modeled:
 
-### 选项 4.1 - 模拟函数作为 SemanticFunction
+### Option 4.1 - Simulated function as SemanticFunction
 ```csharp
 ...
 
@@ -390,13 +399,13 @@ messageContent = await completionService.GetChatMessageContentAsync(chatHistory,
 
 ...
 ```
-**优点**：
-- 当调用方调用模拟函数时，可以触发 SK 函数过滤器/钩子。
+**Pros**:
+- SK function filters/hooks can be triggered when the caller invoke the simulated function.
  
-**缺点**：
-- 不如其他选项轻。
+**Cons**:
+- Not as light-weight as the other option.
 
-### 选项 4.2 - 对象作为模拟函数
+### Option 4.2 - object as simulated function
 ```csharp
 ...
 
@@ -421,18 +430,18 @@ messageContent = await completionService.GetChatMessageContentAsync(chatHistory,
 
 ...
 ```
-**优点**：
-- 与前一个选项相比，这是一个更轻量级的选项，因为不需要创建和执行 SK 函数。
+**Pros**:
+- A lighter option comparing to the previous one because no SK function creation and execution required.
 
-**缺点**：
-- 当调用方调用模拟函数时，无法触发 SK 函数过滤器/钩子。
+**Cons**:
+- SK function filters/hooks can't be triggered when the caller invoke the simulated function.
 
-### 决策结果
-提供的选项不是互斥的;每个都可以根据场景使用。
+### Decision Outcome
+The provided options are not mutually exclusive; each can be used depending on the scenario.
 
-## 5. 流媒体
-连接器的流式处理 API 的与服务无关的函数调用模型的设计应类似于上述非流式处理模型。
+## 5. Streaming
+The design of a service-agnostic function calling model for connectors' streaming API should be similar to the non-streaming one described above.
   
-流式处理 API 与非流式处理 API 的不同之处在于，内容以块的形式返回，而不是一次全部返回。例如，OpenAI 连接器目前以两个块的形式返回函数调用：函数 id 和 name 位于第一个块中，而函数参数则在后续块中发送。此外，LLM 可能会在同一响应中流式传输多个函数的函数调用。例如，连接器流式传输的第一个数据块可能具有第一个函数的 id 和 name，而后续数据块将具有第二个函数的 id 和 name。 
+The streaming API differs from a non-streaming one in that the content is returned in chunks rather than all at once. For instance, OpenAI connectors currently return function calls in two chunks: the function id and name come in the first chunk, while the function arguments are sent in subsequent chunks. Furthermore, LLM may stream function calls for more than one function in the same response. For example, the first chunk streamed by a connector may have the id and name of the first function, and the following chunk will have the id and name of the second function. 
 
-这将要求流式处理 API 的函数调用模型设计略有偏差，以便更自然地适应流式处理细节。如果出现重大偏差，将创建一个单独的 ADR 来概述详细信息。
+This will require slight deviations in the design of the function-calling model for the streaming API to more naturally accommodate the streaming specifics. In the case of a significant deviation, a separate ADR will be created to outline the details.

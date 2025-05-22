@@ -1,135 +1,145 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status:  proposed 
+contact:  eavanvalkenburg
+date:  2025-01-31 
+deciders:  eavanvalkenburg, markwallace, alliscode, sphenry
+consulted:  westey-m, rbarreto, alliscode, markwallace, sergeymenshykh, moonbox3
+informed: taochenosu, dmytrostruk
+---
 
-# 多模式实时 API 客户端
+# Multi-modal Realtime API Clients
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-多个模型提供商开始启用实时语音到语音甚至多模式、实时、双向通信，这包括 OpenAI 及其 [实时 API][openai-实时-api] 和 [谷歌双子座][谷歌-双子座].这些 API 承诺为不同场景提供一些非常有趣的新方法，我们希望通过 Semantic Kernel 实现这些方法。
+Multiple model providers are starting to enable realtime voice-to-voice or even multi-modal, realtime, two-way communication with their models, this includes OpenAI with their [Realtime API][openai-realtime-api] and [Google Gemini][google-gemini]. These API's promise some very interesting new ways of using LLM's for different scenario's, which we want to enable with Semantic Kernel.
 
-Semantic Kernel 为该系统带来的关键功能是能够（重新）使用 Semantic Kernel 函数作为这些 API 的工具。Google 也有一些选项可以使用视频和图像作为输入，这可能不会首先实现，但抽象应该能够处理它。
+The key feature that Semantic Kernel brings into this system is the ability to (re)use Semantic Kernel function as tools with these API's. There are also options for Google to use video and images as input, this will likely not be implemented first, but the abstraction should be able to deal with it.
 
-> [!重要] OpenAI 和 Google 实时 API 都处于预览/测试阶段，这意味着它们的工作方式将来可能会发生重大变化，因此为支持这些 API 而构建的客户端将处于试验阶段，直到 API 稳定下来。
-> 
-目前，这些 API 使用的协议是 Websockets 和 WebRTC。
+> [!IMPORTANT] 
+> Both the OpenAI and Google realtime api's are in preview/beta, this means there might be breaking changes in the way they work coming in the future, therefore the clients built to support these API's are going to be experimental until the API's stabilize.
 
-在这两种情况下，都有事件被发送到服务或从服务发送，一些事件包含内容、文本、音频或视频（到目前为止只发送，没有接收），而一些事件是“控制”事件，如创建内容、请求函数调用等。发送事件包括发送内容（语音、文本或函数调用输出）或事件（如提交输入音频和请求响应）。 
+At this time, the protocols that these API's use are Websockets and WebRTC.
 
-### Websocket 浏览器
-Websocket 已经存在了一段时间，是一项众所周知的技术，它是一个通过单个长期连接实现的全双工通信协议。它用于在客户端和服务器之间实时发送和接收消息。每个事件都可以包含一条消息 （可能包含内容项） 或一个控制事件。音频在事件中作为 base64 编码的字符串发送。
+In both cases there are events being sent to and from the service, some events contain content, text, audio, or video (so far only sending, not receiving), while some events are "control" events, like content created, function call requested, etc. Sending events include, sending content, either voice, text or function call output, or events, like committing the input audio and requesting a response. 
 
-### WebRTC 浏览器
-WebRTC 是一个 Mozilla 项目，它通过简单的 API 为 Web 浏览器和移动应用程序提供实时通信。它允许直接的点对点通信，无需安装插件或下载本机应用程序，从而允许在网页和其他应用程序内进行音频和视频通信。它用于发送和接收音频和视频流，也可用于发送 （数据） 消息。与 websockets 相比，最大的区别在于它显式地为音频和视频创建了一个通道，并为“数据”创建了一个单独的通道，数据是事件，在这个空间中包含所有非 AV 内容、文本、函数调用、函数结果和控制事件，如错误或确认。
+### Websocket
+Websocket has been around for a while and is a well known technology, it is a full-duplex communication protocol over a single, long-lived connection. It is used for sending and receiving messages between client and server in real-time. Each event can contain a message, which might contain a content item, or a control event. Audio is sent as a base64 encoded string in a event.
+
+### WebRTC
+WebRTC is a Mozilla project that provides web browsers and mobile applications with real-time communication via simple APIs. It allows audio and video communication to work inside web pages and other applications by allowing direct peer-to-peer communication, eliminating the need to install plugins or download native apps. It is used for sending and receiving audio and video streams, and can be used for sending (data-)messages as well. The big difference compared to websockets is that it explicitly create a channel for audio and video, and a separate channel for "data", which are events and in this space that contains all non-AV content, text, function calls, function results and control events, like errors or acknowledgements.
 
 
-### 事件类型（Websocket 和部分 WebRTC）
+### Event types (Websocket and partially WebRTC)
 
-#### 客户端事件：
-| **Content/Control 事件** | **活动描述**             | **OpenAI 活动**             | **Google 活动**                   |
+#### Client side events:
+| **Content/Control event** | **Event Description**             | **OpenAI Event**             | **Google Event**                   |
 | ------------------------- | --------------------------------- | ---------------------------- | ---------------------------------- |
-| 控制                   | 配置会话                 | `session.update`             | `BidiGenerateContentSetup`         |
-| 内容                   | 发送语音输入                  | `input_audio_buffer.append`  | `BidiGenerateContentRealtimeInput` |
-| 控制                   | 提交输入和请求响应 | `input_audio_buffer.commit`  | `-`                                |
-| 控制                   | 清理音频输入缓冲区          | `input_audio_buffer.clear`   | `-`                                |
-| 内容                   | 发送文本输入                   | `conversation.item.create`   | `BidiGenerateContentClientContent` |
-| 控制                   | 中断音频                   | `conversation.item.truncate` | `-`                                |
-| 控制                   | 删除内容                    | `conversation.item.delete`   | `-`                                |
-| 控制                   | 响应函数调用请求  | `conversation.item.create`   | `BidiGenerateContentToolResponse`  |
-| 控制                   | 请求回复                  | `response.create`            | `-`                                |
-| 控制                   | 取消响应                   | `response.cancel`            | `-`                                |
+| Control                   | Configure session                 | `session.update`             | `BidiGenerateContentSetup`         |
+| Content                   | Send voice input                  | `input_audio_buffer.append`  | `BidiGenerateContentRealtimeInput` |
+| Control                   | Commit input and request response | `input_audio_buffer.commit`  | `-`                                |
+| Control                   | Clean audio input buffer          | `input_audio_buffer.clear`   | `-`                                |
+| Content                   | Send text input                   | `conversation.item.create`   | `BidiGenerateContentClientContent` |
+| Control                   | Interrupt audio                   | `conversation.item.truncate` | `-`                                |
+| Control                   | Delete content                    | `conversation.item.delete`   | `-`                                |
+| Control                   | Respond to function call request  | `conversation.item.create`   | `BidiGenerateContentToolResponse`  |
+| Control                   | Ask for response                  | `response.create`            | `-`                                |
+| Control                   | Cancel response                   | `response.cancel`            | `-`                                |
 
-#### 服务器端事件：
-| **Content/Control 事件** | **活动描述**                  | **OpenAI 活动**                                        | **Google 活动**                          |
+#### Server side events:
+| **Content/Control event** | **Event Description**                  | **OpenAI Event**                                        | **Google Event**                          |
 | ------------------------- | -------------------------------------- | ------------------------------------------------------- | ----------------------------------------- |
-| 控制                   | 错误                                  | `error`                                                 | `-`                                       |
-| 控制                   | 已创建会话                        | `session.created`                                       | `BidiGenerateContentSetupComplete`        |
-| 控制                   | 会话已更新                        | `session.updated`                                       | `BidiGenerateContentSetupComplete`        |
-| 控制                   | 已创建对话                   | `conversation.created`                                  | `-`                                       |
-| 控制                   | 已提交输入音频缓冲区           | `input_audio_buffer.committed`                          | `-`                                       |
-| 控制                   | 输入音频缓冲区已清除             | `input_audio_buffer.cleared`                            | `-`                                       |
-| 控制                   | 输入音频缓冲区语音已启动      | `input_audio_buffer.speech_started`                     | `-`                                       |
-| 控制                   | 输入音频缓冲区语音已停止      | `input_audio_buffer.speech_stopped`                     | `-`                                       |
-| 内容                   | 已创建会话项              | `conversation.item.created`                             | `-`                                       |
-| 内容                   | 输入音频转录已完成    | `conversation.item.input_audio_transcription.completed` |                                           |
-| 内容                   | 输入音频转录失败       | `conversation.item.input_audio_transcription.failed`    |                                           |
-| 控制                   | 对话项被截断            | `conversation.item.truncated`                           | `-`                                       |
-| 控制                   | 已删除对话项              | `conversation.item.deleted`                             | `-`                                       |
-| 控制                   | 已创建响应                       | `response.created`                                      | `-`                                       |
-| 控制                   | 响应完成                          | `response.done`                                         | `-`                                       |
-| 内容                   | 已添加响应输出项             | `response.output_item.added`                            | `-`                                       |
-| 内容                   | 响应输出项 done              | `response.output_item.done`                             | `-`                                       |
-| 内容                   | 已添加响应内容部分            | `response.content_part.added`                           | `-`                                       |
-| 内容                   | 响应内容部分已完成             | `response.content_part.done`                            | `-`                                       |
-| 内容                   | 响应文本增量                    | `response.text.delta`                                   | `BidiGenerateContentServerContent`        |
-| 内容                   | 响应文本已完成                     | `response.text.done`                                    | `-`                                       |
-| 内容                   | 响应音频转录 delta        | `response.audio_transcript.delta`                       | `BidiGenerateContentServerContent`        |
-| 内容                   | 响应音频转录 done         | `response.audio_transcript.done`                        | `-`                                       |
-| 内容                   | 响应音频增量                   | `response.audio.delta`                                  | `BidiGenerateContentServerContent`        |
-| 内容                   | 响应音频完成                    | `response.audio.done`                                   | `-`                                       |
-| 内容                   | 响应函数调用参数 delta | `response.function_call_arguments.delta`                | `BidiGenerateContentToolCall`             |
-| 内容                   | 响应函数调用参数完成  | `response.function_call_arguments.done`                 | `-`                                       |
-| 控制                   | 函数调用已取消                | `-`                                                     | `BidiGenerateContentToolCallCancellation` |
-| 控制                   | 速率限制已更新                    | `rate_limits.updated`                                   | `-`                                       |
+| Control                   | Error                                  | `error`                                                 | `-`                                       |
+| Control                   | Session created                        | `session.created`                                       | `BidiGenerateContentSetupComplete`        |
+| Control                   | Session updated                        | `session.updated`                                       | `BidiGenerateContentSetupComplete`        |
+| Control                   | Conversation created                   | `conversation.created`                                  | `-`                                       |
+| Control                   | Input audio buffer committed           | `input_audio_buffer.committed`                          | `-`                                       |
+| Control                   | Input audio buffer cleared             | `input_audio_buffer.cleared`                            | `-`                                       |
+| Control                   | Input audio buffer speech started      | `input_audio_buffer.speech_started`                     | `-`                                       |
+| Control                   | Input audio buffer speech stopped      | `input_audio_buffer.speech_stopped`                     | `-`                                       |
+| Content                   | Conversation item created              | `conversation.item.created`                             | `-`                                       |
+| Content                   | Input audio transcription completed    | `conversation.item.input_audio_transcription.completed` |                                           |
+| Content                   | Input audio transcription failed       | `conversation.item.input_audio_transcription.failed`    |                                           |
+| Control                   | Conversation item truncated            | `conversation.item.truncated`                           | `-`                                       |
+| Control                   | Conversation item deleted              | `conversation.item.deleted`                             | `-`                                       |
+| Control                   | Response created                       | `response.created`                                      | `-`                                       |
+| Control                   | Response done                          | `response.done`                                         | `-`                                       |
+| Content                   | Response output item added             | `response.output_item.added`                            | `-`                                       |
+| Content                   | Response output item done              | `response.output_item.done`                             | `-`                                       |
+| Content                   | Response content part added            | `response.content_part.added`                           | `-`                                       |
+| Content                   | Response content part done             | `response.content_part.done`                            | `-`                                       |
+| Content                   | Response text delta                    | `response.text.delta`                                   | `BidiGenerateContentServerContent`        |
+| Content                   | Response text done                     | `response.text.done`                                    | `-`                                       |
+| Content                   | Response audio transcript delta        | `response.audio_transcript.delta`                       | `BidiGenerateContentServerContent`        |
+| Content                   | Response audio transcript done         | `response.audio_transcript.done`                        | `-`                                       |
+| Content                   | Response audio delta                   | `response.audio.delta`                                  | `BidiGenerateContentServerContent`        |
+| Content                   | Response audio done                    | `response.audio.done`                                   | `-`                                       |
+| Content                   | Response function call arguments delta | `response.function_call_arguments.delta`                | `BidiGenerateContentToolCall`             |
+| Content                   | Response function call arguments done  | `response.function_call_arguments.done`                 | `-`                                       |
+| Control                   | Function call cancelled                | `-`                                                     | `BidiGenerateContentToolCallCancellation` |
+| Control                   | Rate limits updated                    | `rate_limits.updated`                                   | `-`                                       |
 
 
-## 总体决策驱动因素
-- 抽象出底层协议，以便开发人员可以构建实现他们想要支持的任何协议的应用程序，而无需在更改模型或协议时更改客户端代码。
-  - 这里预计会有一些限制，因为 WebRTC 在会话创建时需要的信息与 websockets 不同。
-- 简单的编程模型，可能能够处理未来的实时 API 和现有 API 的演变。
-- 只要有可能，我们就会将传入的内容转换为 Semantic Kernel 内容，但会显示所有内容，以便开发人员和将来都可以扩展。
+## Overall Decision Drivers
+- Abstract away the underlying protocols, so that developers can build applications that implement whatever protocol they want to support, without having to change the client code when changing models or protocols.
+  - There are some limitations expected here as i.e. WebRTC requires different information at session create time than websockets.
+- Simple programming model that is likely able to handle future realtime api's and the evolution of the existing ones.
+- Whenever possible we transform incoming content into Semantic Kernel content, but surface everything, so it's extensible for developers and in the future.
 
-我们需要在多个领域做出决策，这些是：
-- 内容和活动
-- 编程模型
-- 音频扬声器/麦克风处理
-- 界面设计和命名
+There are multiple areas where we need to make decisions, these are:
+- Content and Events
+- Programming model
+- Audio speaker/microphone handling
+- Interface design and naming
 
-# 内容和活动
+# Content and Events
 
-## 考虑的选项 - 内容和事件
-这些集成的发送端和接收方都需要决定如何处理事件。
+## Considered Options - Content and Events
+Both the sending and receiving side of these integrations need to decide how to deal with the events.
 
-1. 将内容与控件分开处理
-1. 将所有内容视为内容项
-1. 将所有内容视为事件
+1. Treat content separate from control
+1. Treat everything as content items
+1. Treat everything as events
 
-### 1. 将内容与控件分开处理
-这意味着客户端中有两种机制，一种处理内容，另一种处理控制事件。
+### 1. Treat content separate from control
+This would mean there are two mechanisms in the clients, one deals with content, and one with control events.
 
-- 优点：
-    - 已知内容的强类型响应
-    - 易于使用，因为主要交互与熟悉的 SK 内容类型很明确，其余部分通过单独的机制
-- 缺点：
-    - 新内容支持需要代码库中的更新，并且可以被视为中断性 （可能会发送其他类型）
-    - 处理两个数据流的额外复杂性
-    - 有些项目，比如 Function 调用，可以同时认为是 content 和 control，在进行自动函数调用时是 control，但当开发人员想要自己处理时是 content
+- Pro:
+    - strongly typed responses for known content
+    - easy to use as the main interactions are clear with familiar SK content types, the rest goes through a separate mechanism
+- Con:
+    - new content support requires updates in the codebase and can be considered breaking (potentially sending additional types back)
+    - additional complexity in dealing with two streams of data
+    - some items, such as Function calls can be considered both content and control, control when doing auto-function calling, but content when the developer wants to deal with it themselves
 
-### 2. 将所有内容视为内容项
-这意味着所有事件都转换为 Semantic Kernel 内容项，也意味着我们需要为控制事件定义其他内容类型。
+### 2. Treat everything as content items
+This would mean that all events are turned into Semantic Kernel content items, and would also mean that we need to define additional content types for the control events.
 
-- 优点：
-  - 一切都是内容项，因此很容易处理
-- 缺点：
-  - 控制事件需要新的内容类型
+- Pro:
+  - everything is a content item, so it's easy to deal with
+- Con:
+  - new content type needed for control events
 
-### 3. 将一切都视为事件
-这将引入事件，每个事件都有一个类型，这些类型可以是核心内容类型，如音频、视频、图像、文本、函数调用或函数响应，以及没有内容的控制事件的通用事件。每个事件都有一个 SK 类型，来自上面，以及一个 service_event_type 字段，其中包含来自服务的事件类型。最后，事件具有一个 content 字段，该字段对应于类型，对于通用事件，包含来自服务的原始事件。
+### 3. Treat everything as events
+This would introduce events, each event has a type, those can be core content types, like audio, video, image, text, function call or function response, as well as a generic event for control events without content. Each event has a SK type, from above as well as a service_event_type field that contains the event type from the service. Finally the event has a content field, which corresponds to the type, and for the generic event contains the raw event from the service.
 
-- 优点：
-  - 服务事件无需转换
-  - 易于维护和扩展
-- 缺点：
-  - 引入新概念
-  - 包含和不包含 SK 类型的内容可能会令人困惑
+- Pro:
+  - no transformation needed for service events
+  - easy to maintain and extend
+- Con:
+  - new concept introduced
+  - might be confusing to have contents with and without SK types
 
-## 决策结果 - 内容和事件
+## Decision Outcome - Content and Events
 
-已选择选项：3 将所有内容视为事件
+Chosen option: 3 Treat Everything as Events
 
-选择此选项是为了允许从原始事件中抽象出来，同时仍允许开发人员在需要时访问原始事件。
-添加了一个名为 的基本事件类型 `RealtimeEvent`，它有三个字段 a `event_type`、 `service_event_type` 和 `service_event`。然后，它有四个子类，分别用于音频、文本、函数调用和函数结果。
+This option was chosen to allow abstraction away from the raw events, while still allowing the developer to access the raw events if needed. 
+A base event type is added called `RealtimeEvent`, this has three fields, a `event_type`, `service_event_type` and `service_event`. It then has four subclasses, one each for audio, text, function call and function result.
 
-当一个已知的内容进来时，它将被解析成一个 SK 内容类型并添加，这个内容也应该在 inner_content 中具有原始事件，所以事件会存储两次，一次在事件中，一次在内容中，这是设计使然，所以如果开发者需要访问原始事件， 即使他们删除了事件图层，他们也可以轻松执行此作。
+When a known piece of content has come in, it will be parsed into a SK content type and added, this content should also have the raw event in the inner_content, so events are then stored twice, once in the event, once in the content, this is by design so that if the developer needs to access the raw event, they can do so easily even when they remove the event layer.
 
-服务中的单个事件也可能包含多个内容项，例如，响应可能同时包含文本和音频，在这种情况下，将发出多个事件。原则上，一个事件必须处理一次，因此如果存在可解析的事件，则仅返回子类型，因为它具有与 this 相同的信息 `RealtimeEvent` ，这将允许开发人员直接从 service_event_type 触发，如果他们不想使用抽象类型，则service_event。
+It might also be possible that a single event from the service contains multiple content items, for instance a response might contain both text and audio, in that case multiple events will be emitted. In principle a event has to be handled once, so if there is event that is parsable only the subtype is returned, since it has all the same information as the `RealtimeEvent` this will allow developers to trigger directly off the service_event_type and service_event if they don't want to use the abstracted types.
 
 ```python
 RealtimeEvent(
@@ -184,98 +194,98 @@ RealtimeImageEvent(RealtimeEvent)(
 )
 ```
 
-这样，您就可以轻松地在 event_type 上进行模式匹配，或使用 service_event_type 筛选服务事件的特定事件类型，或匹配事件类型并从中获取 SK 内容。
+This allows you to easily do pattern matching on the event_type, or use the service_event_type to filter on the specific event type for service events, or match on the type of the event and get the SK contents from it.
 
-在某些时候可能需要其他抽象类型，例如 errors 或 session updates，但由于当前两个服务对这些事件的存在及其结构没有达成一致，因此最好等到需要它们时再使用。
+There might be other abstracted types needed at some point, for instance errors, or session updates, but since the current two services have no agreement on the existence of these events and their structure, it is better to wait until there is a need for them.
 
-### 被拒绝的想法
+### Rejected ideas
 
-#### ID 处理
-一个未解决的问题是是否在这些类型中包含额外的字段来跟踪相关片段，但是这会成为问题，因为这些字段的生成方式因服务而异并且非常复杂，例如 OpenAI API 返回一段具有以下 id 的音频记录： 
-- `event_id`：事件的唯一 ID
-- `response_id`：响应的 ID
-- `item_id`：项目的 ID
-- `output_index`：响应中输出项的索引
-- `content_index`：项目的内容数组中内容部分的索引
+#### ID Handling
+One open item is whether to include a extra field in these types for tracking related pieces, however this becomes problematic because the way those are generated differs per service and is quite complex, for instance the OpenAI API returns a piece of audio transcript with the following ids: 
+- `event_id`: the unique id of the event
+- `response_id`: the id of the response
+- `item_id`: the id of the item
+- `output_index`: the index of the output item in the response
+- `content_index`: The index of the content part in the item's content array
 
-有关 OpenAI 发出的事件的示例，请参阅下面[的详细信息](#background-info)。
+For an example of the events emitted by OpenAI see the [details](#background-info) below.
 
-虽然 Google 仅在某些内容项（如函数调用）中具有 ID，但对于音频或文本内容没有 ID。
+While Google has ID's only in some content items, like function calls, but not for audio or text content.
 
-由于 ID 始终可通过原始事件（作为 inner_content 或 .event）获得，因此无需将它们添加到内容类型中，这将使内容类型更加复杂，并且更难跨服务重用。
+Since the id's are always available through the raw event (either as inner_content or as .event), it is not necessary to add them to the content types, and it would make the content types more complex and harder to reuse across services.
 
-#### 将内容包装在 （Streaming）ChatMessageContent 中
-首先将内容包装起来 `(Streaming)ChatMessageContent` ，这将增加另一层复杂性，并且由于 CMC 可以包含多个项目，因此要访问音频，将如下所示： `service_event.content.items[0].audio.data`，这不像 `service_event.audio.data`.
+#### Wrapping content in a (Streaming)ChatMessageContent
+Wrapping content in a `(Streaming)ChatMessageContent` first, this will add another layer of complexity and since a CMC can contain multiple items, to access audio, would look like this: `service_event.content.items[0].audio.data`, which is not as clear as `service_event.audio.data`.
 
-# 编程模型
+# Programming model
 
-## 考虑的选项 - 编程模型
-客户端的编程模型需要简单易用，同时还要能够处理实时 API 的复杂性。
+## Considered Options - Programming model
+The programming model for the clients needs to be simple and easy to use, while also being able to handle the complexity of the realtime api's.
 
-_在本节中，我们将引用 content 和 events 的事件，而不管上一节中做出的决策如何。_
+_In this section we will refer to events for both content and events, regardless of the decision made in the previous section._
 
-这主要是关于接收方，发送要简单得多。
+This is mostly about the receiving side of things, sending is much simpler.
 
-1. 事件处理程序，开发人员为特定事件注册处理程序，客户端在收到事件时调用这些处理程序
-   - 1a：单个事件处理程序，其中每个事件都传递给处理程序
-   - 1b：多个事件处理程序，其中每个事件类型都有自己的处理程序
-2. 向开发人员公开的事件缓冲区/队列，开始发送和开始接收方法，这些方法只是启动事件的发送和接收，从而填充缓冲区
-3. AsyncGenerator 生成事件
+1. Event handlers, developers register handlers for specific events, and the client calls these handlers when an event is received
+   - 1a: Single event handlers, where each event is passed to the handler
+   - 1b: Multiple event handlers, where each event type has its own handler(s)
+2. Event buffers/queues that are exposed to the developer, start sending and start receiving methods, that just initiate the sending and receiving of events and thereby the filling of the buffers
+3. AsyncGenerator that yields Events
 
-### 1. 事件处理程序，开发人员为特定事件注册处理程序，客户端在收到事件时调用这些处理程序
-这意味着客户端将具有注册事件处理程序的机制，并且集成将在收到事件时调用这些处理程序。对于发送事件，将创建一个函数，用于将事件发送到服务。
+### 1. Event handlers, developers register handlers for specific events, and the client calls these handlers when an event is received
+This would mean that the client would have a mechanism to register event handlers, and the integration would call these handlers when an event is received. For sending events, a function would be created that sends the event to the service.
 
-- 优点：
-  - 无需处理异步生成器等复杂事情，更容易跟踪要响应的事件
-- 缺点：
-  - 可能会变得繁琐，并且在 1b 中需要更新以支持新事件
-  - 开发人员不清楚排序（首先调用哪个事件处理程序）等内容
+- Pro:
+  - no need to deal with complex things like async generators and easier to keep track of what events you want to respond to
+- Con:
+  - can become cumbersome, and in 1b would require updates to support new events
+  - things like ordering (which event handler is called first) are unclear to the developer
 
-### 2. 向开发人员公开的事件缓冲区/队列，开始发送和开始接收方法，它们只是启动事件的发送和接收，从而填充缓冲区
-这意味着有两个队列，一个用于发送，一个用于接收，开发人员可以侦听接收队列并发送到发送队列。首先处理将事件解析为内容类型和自动函数调用等内部内容，然后将结果放入队列中，内容类型应使用 inner_content 来捕获完整事件，这些也可能将消息添加到发送队列中。
+### 2. Event buffers/queues that are exposed to the developer, start sending and start receiving methods, that just initiate the sending and receiving of events and thereby the filling of the buffers
+This would mean that there are two queues, one for sending and one for receiving, and the developer can listen to the receiving queue and send to the sending queue. Internal things like parsing events to content types and auto-function calling are processed first, and the result is put in the queue, the content type should use inner_content to capture the full event and these might add a message to the send queue as well.
 
-- 优点：
-  - 使用简单，只需开始发送和接收
-  - 易于理解，因为队列是一个众所周知的概念
-  - 开发人员可以跳过他们不感兴趣的事件
-- 缺点：
-  - 可能会因排队机制而导致音频延迟
+- Pro:
+  - simple to use, just start sending and start receiving
+  - easy to understand, as queues are a well known concept
+  - developers can just skip events they are not interested in
+- Con:
+  - potentially causes audio delays because of the queueing mechanism
 
-### 2b.与选项 2 相同，但优先处理音频内容
-这意味着首先处理音频内容并直接发送到回调，以便开发人员可以尽快播放或继续发送音频内容，然后处理所有其他事件（如文本、函数调用等）并将其放入队列中。
+### 2b. Same as option 2, but with priority handling of audio content
+This would mean that the audio content is handled first and sent to a callback directly so that the developer can play it or send it onward as soon as possible, and then all other events are processed (like text, function calls, etc) and put in the queue.
 
-- 优点：
-  - 减少音频延迟
-  - 易于理解，因为队列是一个众所周知的概念
-  - 开发人员可以跳过他们不感兴趣的事件
-- 缺点：
-  - 用于音频内容和事件的两种独立机制
+- Pro:
+  - mitigates audio delays
+  - easy to understand, as queues are a well known concept
+  - developers can just skip events they are not interested in
+- Con:
+  - Two separate mechanisms used for audio content and events
 
-### 3. 生成事件的 AsyncGenerator
-这意味着客户端实现一个产生事件的函数，开发人员可以循环访问它并在事件来临时处理它们。
+### 3. AsyncGenerator that yields Events
+This would mean that the clients implement a function that yields events, and the developer can loop through it and deal with events as they come.
 
-- 优点：
-  - 易于使用，只需循环浏览事件
-  - 易于理解，因为异步生成器是一个众所周知的概念
-  - 开发人员可以跳过他们不感兴趣的事件
-- 缺点：
-  - 由于生成器的异步性质，可能会导致音频延迟
-  - 许多事件类型意味着需要大量的单组代码来处理这一切
+- Pro:
+  - easy to use, just loop through the events
+  - easy to understand, as async generators are a well known concept
+  - developers can just skip events they are not interested in
+- Con:
+  - potentially causes audio delays because of the async nature of the generator
+  - lots of events types mean a large single set of code to handle it all
 
-### 3b.与选项 3 相同，但优先处理音频内容
-这意味着首先处理音频内容并直接发送到回调，以便开发人员可以尽快播放或继续发送音频内容，然后解析并生成所有其他事件。
+### 3b. Same as option 3, but with priority handling of audio content
+This would mean that the audio content is handled first and sent to a callback directly so that the developer can play it or send it onward as soon as possible, and then all other events are parsed and yielded.
 
-- 优点：
-  - 减少音频延迟
-  - 易于理解，因为异步生成器是一个众所周知的概念
-- 缺点：
-  - 用于音频内容和事件的两种独立机制
+- Pro:
+  - mitigates audio delays
+  - easy to understand, as async generators are a well known concept
+- Con:
+  - Two separate mechanisms used for audio content and events
   
-## 决策结果 - 编程模型
+## Decision Outcome - Programming model
 
-所选选项：3b AsyncGenerator，它生成 Event 并通过回调对音频内容进行优先级处理
+Chosen option: 3b AsyncGenerator that yields Events combined with priority handling of audio content through a callback
 
-这使得编程模型非常简单，一个应该适用于每个服务和协议的最小设置如下所示：
+This makes the programming model very easy, a minimal setup that should work for every service and protocol would look like this:
 ```python
 async for event in realtime_client.start_streaming():
     match event:
@@ -285,85 +295,85 @@ async for event in realtime_client.start_streaming():
             print(event.text.text)
 ```
 
-# 音频扬声器/麦克风处理
+# Audio speaker/microphone handling
 
-## 考虑的选项 - 音频扬声器/麦克风处理
+## Considered Options - Audio speaker/microphone handling
 
-1. 在 SK 中为音频处理程序创建抽象，可以传递到实时客户端以录制和播放音频
-2. 向客户端发送和接收 AudioContent，并让客户端处理音频的录制和播放
+1. Create abstraction in SK for audio handlers, that can be passed into the realtime client to record and play audio
+2. Send and receive AudioContent to the client, and let the client handle the audio recording and playing
 
-### 1. 在 SK 中为音频处理程序创建抽象，可以传递到实时客户端来录制和播放音频
-这意味着客户端将具有注册音频处理程序的机制，并且集成将在接收或需要发送音频时调用这些处理程序。必须在 Semantic Kernel 中创建额外的抽象（或者可能从标准中获取）。
+### 1. Create abstraction in SK for audio handlers, that can be passed into the realtime client to record and play audio
+This would mean that the client would have a mechanism to register audio handlers, and the integration would call these handlers when audio is received or needs to be sent. A additional abstraction for this would have to be created in Semantic Kernel (or potentially taken from a standard).
 
-- 优点：
-  - 简单/本地音频处理程序可以与 SK 一起提供，使其易于使用
-  - 可由第三方扩展以集成到其他系统（如 Azure 通信服务）中
-  - 可以通过优先处理发送到处理程序的音频内容来缓解缓冲区问题
-- 缺点：
-  - SK 中需要维护的额外代码，可能依赖于第三方代码
-  - 音频驱动程序可以是特定于平台的，因此这可能不适用于所有平台
+- Pro:
+  - simple/local audio handlers can be shipped with SK making it easy to use
+  - extensible by third parties to integrate into other systems (like Azure Communications Service)
+  - could mitigate buffer issues by prioritizing audio content being sent to the handlers
+- Con:
+  - extra code in SK that needs to be maintained, potentially relying on third party code
+  - audio drivers can be platform specific, so this might not work well or at all on all platforms
 
-### 2. 向客户端发送和接收 AudioContent，并让客户端处理音频的录制和播放
-这意味着客户端将收到 AudioContent 项，并且必须自行处理它们，包括录制和播放音频。
+### 2. Send and receive AudioContent to the client, and let the client handle the audio recording and playing
+This would mean that the client would receive AudioContent items, and would have to deal with them itself, including recording and playing the audio.
 
-- 优点：
-  - SK 中没有需要维护的额外代码
-- 缺点：
-  - 开发人员处理音频的额外负担 
-  - 更难上手
+- Pro:
+  - no extra code in SK that needs to be maintained
+- Con:
+  - extra burden on the developer to deal with the audio 
+  - harder to get started with
 
-## 决策结果 - 音频扬声器/麦克风处理
+## Decision Outcome - Audio speaker/microphone handling
 
-选择的选项：选项 2：音频格式、帧持续时间、采样率和其他音频设置存在巨大差异，始终有效的默认值 ** 可能不可行，无论如何开发人员都必须处理这个问题，所以最好让他们从头开始处理，我们将向样本添加样本音频处理程序，以仍然让人们轻松上手。 
+Chosen option: Option 2: there are vast difference in audio format, frame duration, sample rate and other audio settings, that a default that works *always* is likely not feasible, and the developer will have to deal with this anyway, so it's better to let them deal with it from the start, we will add sample audio handlers to the samples to still allow people to get started with ease. 
 
-# 界面设计
+# Interface design
 
-需要支持以下功能：
-- 创建会话
-- 更新会话
-- 关闭会话
-- 侦听/接收事件
-- 发送事件
+The following functionalities will need to be supported:
+- create session
+- update session
+- close session
+- listen for/receive events
+- send events
 
-## 考虑的选项 - 界面设计
+## Considered Options - Interface design
 
-1. 对所有内容使用单个类
-2. 将服务类与 session 类分开。
+1. Use a single class for everything
+2. Split the service class from a session class.
 
-### 1. 对所有事情使用单个类
+### 1. Use a single class for everything
 
-每个 implementation 都必须实现上述所有方法。这意味着非协议特定元素与协议特定元素位于同一类中，并将导致它们之间的代码重复。
+Each implementation would have to implements all of the above methods. This means that non-protocol specific elements are in the same class as the protocol specific elements and will lead to code duplication between them.
 
-### 2. 将服务类与会话类分开。
+### 2. Split the service class from a session class.
 
-将创建两个接口：
-- 服务：创建会话、更新会话、删除会话，也许是列出会话？
-- 会话：侦听/接收事件、发送事件、更新会话、关闭会话
+Two interfaces are created:
+- Service: create session, update session, delete session, maybe list sessions?
+- Session: listen for/receive events, send events, update session, close session
 
-目前 google 和 openai api 都不支持重启会话，因此拆分的优势主要是一个实现问题，但不会给开发人员增加任何好处。这意味着生成的拆分实际上要简单得多：
-- 服务：create session
-- 会话：侦听/接收事件、发送事件、更新会话、关闭会话
+Currently neither the google or the openai api's support restarting sessions, so the advantage of splitting is mostly a implementation question but will not add any benefits to the developer. This means that the resultant split will actually be far simpler:
+- Service: create session
+- Session: listen for/receive events, send events, update session, close session
 
-## 命名
+## Naming
 
-send 和 listen/receive 方法的命名方式需要清晰，这在处理这些 api 时可能会变得令人困惑。考虑以下选项：
+The send and listen/receive methods need to be clear in the way their are named and this can become confusing when dealing with these api's. The following options are considered:
 
-用于从代码向服务发送事件的选项：
-- Google 在其客户端中使用 .send。
-- OpenAI 也在他们的客户端中使用 .send
-- send 或 send_message 在其他客户端（如 Azure 通信服务）中使用
+Options for sending events to the service from your code:
+- google uses .send in their client.
+- OpenAI uses .send in their client as well
+- send or send_message is used in other clients, like Azure Communication Services
 
-用于在代码中侦听来自服务的事件的选项：
-- Google 在其客户端中使用 .receive。
-- OpenAI 在其客户端中使用 .recv。
-- 其他人在他们的 Client 中使用 Receive 或 receive_messages。
+Options for listening for events from the service in your code:
+- google uses .receive in their client.
+- openai uses .recv in their client.
+- others use receive or receive_messages in their clients.
 
-### 决策结果 - 界面设计
+### Decision Outcome - Interface design
 
-已选择选项：对所有内容使用单个类
-选择作为动词发送和接收。
+Chosen option: Use a single class for everything
+Chosen for send and receive as verbs.
 
-这意味着界面将如下所示：
+This means that the interface will look like this:
 ```python
 
 class RealtimeClient:
@@ -383,33 +393,34 @@ class RealtimeClient:
         ...
 ```
 
-在大多数情况下，`create_session`应该使用相同的参数进行调用 `update_session` ，因为 update session 也可以在以后使用相同的 inputs单独完成。
+In most cases, `create_session` should call `update_session` with the same parameters, since update session can also be done separately later on with the same inputs.
 
-对于 Python，应该将 default `__aenter__` 和 `__aexit__` method 添加到类中，以便它可以在`async with`分别调用 create_session 和 close_session 的语句中使用。
+For Python a default `__aenter__` and `__aexit__` method should be added to the class, so it can be used in a `async with` statement, which calls create_session and close_session respectively.
 
-建议（但不是必需的）通过缓冲区/队列实现 send 方法，以便可以在建立会话之前“发送”事件而不会丢失它们或引发异常，因为会话创建可能需要几秒钟，并且在这段时间内，单个 send 调用将阻止应用程序或引发异常。
+It is advisable, but not required, to implement the send method through a buffer/queue so that events can be 'sent' before the sessions has been established without losing them or raising exceptions, since the session creation might take a few seconds and in that time a single send call would either block the application or throw an exception.
 
-send 方法应该处理所有事件类型，但它可能必须以两种方式处理相同的事情，例如（对于 OpenAI API）：
+The send method should handle all events types, but it might have to handle the same thing in two ways, for instance (for the OpenAI API):
 ```python
 audio = AudioContent(...)
 
 await client.send(AudioEvent(audio=audio))
 ```
 
-应等效于：
+should be equivalent to:
 ```python
 audio = AudioContent(...)
 
 await client.send(ServiceEvent(service_event_type='input_audio_buffer.append', service_event=audio))
 ```
 
-第一个版本允许所有服务使用完全相同的代码，而第二个版本也是正确的，也应该正确处理，当需要使用不同的事件类型发送音频时，这再次提供了灵活性和简单性，这仍然可以通过第二种方式进行， 虽然第一个为该特定服务使用“默认”事件类型，但这可以用于例如使用来自先前会话的完整音频片段来种子对话，而不仅仅是转录本，完成的音频需要为 OpenAI 的事件类型“conversation.item.create”，而流式音频的“帧”将是“input_audio_buffer.append”，这将是使用的默认值。
+The first version allows one to have the exact same code for all services, while the second version is also correct and should be handled correctly as well, this once again allows for flexibility and simplicity, when audio needs to be sent to with a different event type, that is still possible in the second way, while the first uses the "default" event type for that particular service, this can for instance be used to seed the conversation with completed audio snippets from a previous session, rather then just the transcripts, the completed audio, needs to be of event type 'conversation.item.create' for OpenAI, while a streamed 'frame' of audio would be 'input_audio_buffer.append' and that would be the default to use.
 
-开发人员应记录默认情况下用于非 ServiceEvents 的服务事件类型。
+The developer should document which service event types are used by default for the non-ServiceEvents.
 
-## 背景信息
+## Background info
 
-与 OpenAI 实时对话几秒钟后产生的事件示例：<details>
+Example of events coming from a few seconds of conversation with the OpenAI Realtime:
+<details>
 
 ```json
 [
@@ -1755,5 +1766,5 @@ await client.send(ServiceEvent(service_event_type='input_audio_buffer.append', s
 
 
 
-[openai-实时-api]: https://platform.openai.com/docs/guides/realtime
-[谷歌-双子座]: https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/multimodal-live
+[openai-realtime-api]: https://platform.openai.com/docs/guides/realtime
+[google-gemini]: https://cloud.google.com/vertex-ai/generative-ai/docs/model-reference/multimodal-live

@@ -1,21 +1,29 @@
-# Java 文件夹结构
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+date: 2013-06-19
+deciders: shawncal,johnoliver
+consulted: 
+informed:
+---
+# Java Folder Structure
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-该分支正在开发 Semantic Kernel 到 Java 的移植 `experimental-java` 。使用的文件夹结构与 .Net 实现不同。
-此 ADR 的目的是记录 Java 端口将使用的文件夹结构，以便开发人员清楚地了解如何在 .Net 和 Java 实现之间导航。
+A port of the Semantic Kernel to Java is under development in the `experimental-java` branch. The folder structure being used has diverged from the .Net implementation.
+The purpose of this ADR is to document the folder structure that will be used by the Java port to make it clear to developers how to navigate between the .Net and Java implementations.
 
-## 决策驱动因素
+## Decision Drivers
 
-* 目标是学习已经拥有出色多语言支持的 SDK，例如 [Azure SDK](https://github.com/Azure/azure-sdk/)
-* Java SK 应遵循 Java 的一般设计准则和约定。对于 Java 开发人员来说，这应该感觉很自然。
-* 不同的语言版本应与 .Net 实现一致。在发生冲突的情况下，与 Java 约定的一致性是最高优先级。
-* SK for Java 和 .Net 应该感觉像是由单个团队开发的单个产品。
-* Java 和 .Net 之间应该具有同等功能。必须在 FEATURE_MATRIX 中跟踪功能状态 [](../../FEATURE_MATRIX.md)
+* Goal is to learn for SDKs that already have excellent multiple language support e.g., [Azure SDK](https://github.com/Azure/azure-sdk/)
+* The Java SK should follow the general design guidelines and conventions of Java. It should feel natural to a Java developer.
+* Different language versions should be consistent with the .Net implementation. In cases of conflict, consistency with Java conventions is the highest priority.
+* The SK for Java and .Net should feel like a single product developed by a single team.
+* There should be feature parity between Java and .Net. Feature status must be tracked in the [FEATURE_MATRIX](../../FEATURE_MATRIX.md)
 
-## 考虑的选项
+## Considered Options
 
-以下是 .Net 和 Java 文件夹结构的比较
+Below is a comparison of .Net and Java Folder structures
 
 ```bash
 dotnet/src
@@ -30,22 +38,22 @@ dotnet/src
            Skills
 ```
 
-| 文件夹                         | 描述 |
+| Folder                         | Description |
 |--------------------------------|-------------|
-| 连接                     | 各种 Connector 实现的父文件夹，例如 AI 或内存服务 |
-| 扩展                     | SK 扩展的父文件夹，例如 planner 实现 |
-| 集成测试               | 集成测试 |
-| 内部实用程序              | 内部工具，即共享代码 |
-| SemanticKernel.Abstractions    | SK API 定义 |
-| SemanticKernel.MetaPackage     | SK common 包集合 |
-| SemanticKernel.UnitTests       | 单元测试 |
-| SemanticKernel 内核                 | SK 实现 |
-| 技能                         | 各种技能实现的父文件夹，例如 Core、MS Graph、GRPC、OpenAI 等 |
+| Connectors                     | Parent folder for various Connector implementations e.g., AI or Memory services |
+| Extensions                     | Parent folder for SK extensions e.g., planner implementations |
+| IntegrationTests               | Integration tests |
+| InternalUtilities              | Internal utilities i.e., shared code |
+| SemanticKernel.Abstractions    | SK API definitions |
+| SemanticKernel.MetaPackage     | SK common package collection |
+| SemanticKernel.UnitTests       | Unit tests |
+| SemanticKernel                 | SK implementation |
+| Skills                         | Parent folder for various Skills implementations e.g., Core, MS Graph, GRPC, OpenAI, ... |
 
-一些观察：
+Some observations:
 
-* 文件夹 `src` 位于文件夹结构的最开头，这会降低灵活性
-* 该术语的使用 `Skills` 是由于变化
+* The `src` folder is at the very start of the folder structure, which reduces flexibility
+* The use of the `Skills` term is due to change
 
 ```bash
 java
@@ -59,40 +67,40 @@ java
      semantickernel-extensions-parent
 ```
 
-| 文件夹                              | 描述 |
+| Folder                              | Description |
 |-------------------------------------|-------------|
-| `api-test`                          | 集成测试和 API 使用示例 |
-| `samples`                           | SK 样本 |
-| `semantickernel-api`                | SK API 定义 |
-| `semantickernel-bom`                | SK 物料清单 |
-| `semantickernel-connectors-parent`  | 各种 Connector 实现的父文件夹 |
-| `semantickernel-core-skills`        | SK 核心技能（在 .Net 中，这些是核心实现的一部分） |
-| `semantickernel-core`               | SK core 实现 |
-| `semantickernel-extensions-parent`  | SK 扩展的父文件夹，例如 planner implementation |
+| `api-test`                          | Integration tests and API usage example |
+| `samples`                           | SK samples |
+| `semantickernel-api`                | SK API definitions |
+| `semantickernel-bom`                | SK Bill Of Materials |
+| `semantickernel-connectors-parent`  | Parent folder for various Connector implementations |
+| `semantickernel-core-skills`        | SK core skills (in .Net these are part of the core implementation) |
+| `semantickernel-core`               | SK core implementation |
+| `semantickernel-extensions-parent`  | Parent folder for SK extensions e.g., planner implementation |
 
-一些观察：
+Some observations:
 
-* 将小写文件夹名称与分隔符一起使用 `-` 是惯用的 Java
-* 这些 `src` 文件夹的位置尽可能靠近源文件，例如， `semantickernel-api/src/main/java`这是惯用的 Java
-* 单元测试与实现一起包含
-* 样品位于 `java` 文件夹中，每个样品都独立运行
+* Using lowercase folder name with the `-` delimiter is idiomatic Java
+* The `src` folders are located as close as possible to the source files e.g., `semantickernel-api/src/main/java`, this is idiomatic Java
+* Unit tests are contained together with the implementation
+* The samples are located within the `java` folder and each sample runs standalone
 
-## 决策结果
+## Decision Outcome
 
-请遵循以下准则：
+Follow these guidelines:
 
-* 文件夹名称将与使用的名称（或计划用于 .Net）的文件夹名称匹配，但符合惯用的 Java 文件夹命名约定
-* 使用 `bom` 而不是 `MetaPackage` 后者，因为后者以 .Net 为中心
-* 使用 `api` 而不是 `Abstractions` 后者，因为后者以 .Net 为中心
-*  `semantickernel-core-skills` 移动到新 `plugins` 文件夹并重命名为 `plugins-core`
-* 使用术语 `plugins` instead of `skills` and avoid introduce technical debt
+* The folder names will match those used (or planned for .Net) but in the idiomatic Java folder naming convention
+* Use `bom` instead of `MetaPackage` as the latter is .Net centric
+* Use `api` instead of `Abstractions` as the latter is .Net centric
+* Move `semantickernel-core-skills` to a new `plugins` folder and rename to `plugins-core`
+* Use the term `plugins` instead of `skills` and avoid introducing technical debt
 
-| 文件夹                           | 描述 |
+| Folder                           | Description |
 |----------------------------------|-------------|
-| `connectors`                     | 包含： `semantickernel-connectors-ai-openai`， `semantickernel-connectors-ai-huggingface`， `semantickernel-connectors-memory-qadrant`， ...  |
-| `extensions`                     | 包含： `semantickernel-planning-action-planner`， `semantickernel-planning-sequential-planner` |
-| `integration-tests`              | 集成测试 |
-| `semantickernel-api`             | SK API 定义 |
-| `semantickernel-bom`             | SK common 包集合 |
-| `semantickernel-core`            | SK core 实现 |
-| `plugins`                        | 包含： `semantickernel-plugins-core`， `semantickernel-plugins-document`， `semantickernel-plugins-msgraph`， ... |
+| `connectors`                     | Containing: `semantickernel-connectors-ai-openai`, `semantickernel-connectors-ai-huggingface`, `semantickernel-connectors-memory-qadrant`, ...  |
+| `extensions`                     | Containing: `semantickernel-planning-action-planner`, `semantickernel-planning-sequential-planner` |
+| `integration-tests`              | Integration tests |
+| `semantickernel-api`             | SK API definitions |
+| `semantickernel-bom`             | SK common package collection |
+| `semantickernel-core`            | SK core implementation |
+| `plugins`                        | Containing: `semantickernel-plugins-core`, `semantickernel-plugins-document`, `semantickernel-plugins-msgraph`, ... |

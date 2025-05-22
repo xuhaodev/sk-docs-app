@@ -1,29 +1,38 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+contact: westey-m
+date: 2024-06-05
+deciders: sergeymenshykh, markwallace, rbarreto, dmytrostruk, westey-m, matthewbolanos, eavanvalkenburg
+consulted: stephentoub, dluc, ajcvickers, roji
+informed: 
+---
 
-# 更新的内存连接器设计
+# Updated Memory Connector Design
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-Semantic Kernel 具有一组指向常用 Vector 数据库的连接器，例如 Azure AI Search、Chroma、Milvus 等
-每个内存连接器都实现了由 Semantic Kernel 定义的内存抽象，并允许开发人员轻松地将 Vector 数据库集成到他们的应用程序中。
-当前的抽象是实验性的，此 ADR 的目的是推进抽象的设计，以便它们可以升级到非实验状态。
+Semantic Kernel has a collection of connectors to popular Vector databases e.g. Azure AI Search, Chroma, Milvus, ...
+Each Memory connector implements a memory abstraction defined by Semantic Kernel and allows developers to easily integrate Vector databases into their applications.
+The current abstractions are experimental and the purpose of this ADR is to progress the design of the abstractions so that they can graduate to non experimental status.
 
-### 当前设计的问题
+### Problems with current design
 
-1. 该 `IMemoryStore` 接口有四个具有不同基数的职责。有些是架构感知的，有些是架构无关的。
-2. 该 `IMemoryStore` 接口仅支持用于数据存储、检索和搜索的固定架构，这限制了客户对现有数据集的可用性。
-2. 这些 `IMemoryStore` 实施是围绕密钥编码/解码和集合名称清理而固执己见的，这限制了客户对现有数据集的可用性。
+1. The `IMemoryStore` interface has four responsibilities with different cardinalities. Some are schema aware and others schema agnostic.
+2. The `IMemoryStore` interface only supports a fixed schema for data storage, retrieval and search, which limits its usability by customers with existing data sets.
+2. The `IMemoryStore` implementations are opinionated around key encoding / decoding and collection name sanitization, which limits its usability by customers with existing data sets.
 
-责任：
+Responsibilities:
 
-|功能范围|基数|对 Semantic Kernel 的意义|
+|Functional Area|Cardinality|Significance to Semantic Kernel|
 |-|-|-|
-|集合/索引创建|每个商店类型和模型的实现|在构建商店和添加数据时很有价值|
-|集合/索引列表名称、exists 和 delete|每个商店类型的实现|在构建商店和添加数据时很有价值|
-|数据存储和检索|每个商店类型的实现|在构建商店和添加数据时很有价值|
-|向量搜索|每个商店类型、模型和搜索类型的实现|对于许多场景都有价值，包括 RAG、根据用户输入查找矛盾的事实、查找要合并的相似记忆等。|
+|Collection/Index create|An implementation per store type and model|Valuable when building a store and adding data|
+|Collection/Index list names, exists and delete|An implementation per store type|Valuable when building a store and adding data|
+|Data Storage and Retrieval|An implementation per store type|Valuable when building a store and adding data|
+|Vector Search|An implementation per store type, model and search type|Valuable for many scenarios including RAG, finding contradictory facts based on user input, finding similar memories to merge, etc.|
 
 
-### 今天的内存存储
+### Memory Store Today
 ```cs
 interface IMemoryStore
 {
@@ -59,27 +68,30 @@ interface IMemoryStore
 }
 ```
 
-### 行动
+### Actions
 
-1.  `IMemoryStore` 应将其拆分为不同的接口，以便将架构感知作和架构不可知作分开。
-2.  **Data Storage and Retrieval** 和 **Vector Search** 区域应允许对数据进行键入访问，并支持客户数据存储中当前可用的任何架构。
-3. 集合/索引创建功能应允许开发人员使用作为抽象一部分的通用定义来创建集合。
-4. 集合/索引列表/存在/删除功能应允许管理任何集合，而不管架构如何。
-5. 从连接器中删除固执己见的行为。固执己见的行为限制了这些连接器与预先存在的矢量数据库一起使用的能力。这些行为应该尽可能地移动到装饰器中或可注入。 固执己见的行为示例：
-    1. AzureAISearch 连接器在存储密钥之前对密钥进行编码，在检索后对密钥进行解码，因为 Azure AI 搜索中的密钥支持一组有限的字符。
-    2. AzureAISearch 连接器在使用集合名称之前会对其进行清理，因为 Azure AI 搜索支持一组有限的字符。
-    3. Redis 连接器在存储记录之前将集合名称添加到键的前面，并将集合名称注册为要由索引索引的记录的前缀。
+1. The `IMemoryStore` should be split into different interfaces, so that schema aware and schema agnostic operations are separated.
+2. The **Data Storage and Retrieval** and **Vector Search** areas should allow typed access to data and support any schema that is currently available in the customer's data store.
+3. The collection / index create functionality should allow developers to use a common definition that is part of the abstraction to create collections.
+4. The collection / index list/exists/delete functionality should allow management of any collection regardless of schema.
+5. Remove opinionated behaviors from connectors. The opinionated behavior limits the ability of these connectors to be used with pre-existing vector databases. As far as possible these behaviors should be moved into decorators or be injectable.  Examples of opinionated behaviors:
+    1. The AzureAISearch connector encodes keys before storing and decodes them after retrieval since keys in Azure AI Search supports a limited set of characters.
+    2. The AzureAISearch connector sanitizes collection names before using them, since Azure AI Search supports a limited set of characters.
+    3. The Redis connector prepends the collection name on to the front of keys before storing records and also registers the collection name as a prefix for records to be indexed by the index.
 
-### 新连接器的非功能性要求
-1. 确保所有连接器都一致地引发相同的异常，并以一致的方式提供有关所发出请求的数据。
-2. 为所有连接器添加一致的遥测数据。
-3. 集成测试应尽可能可在 build server 上运行。
+### Non-functional requirements for new connectors
+1. Ensure all connectors are throwing the same exceptions consistently with data about the request made provided in a consistent manner.
+2. Add consistent telemetry for all connectors.
+3. As far as possible integration tests should be runnable on build server.
 
-### 新设计
+### New Designs
 
-集合/索引管理和记录管理之间的分离。
+The separation between collection/index management and record management.
 
 ```mermaid
+---
+title: SK Collection/Index and record management
+---
 classDiagram
     note for IVectorRecordStore "Can manage records for any scenario"
     note for IVectorCollectionCreate "Can create collections and\nindexes"
@@ -140,9 +152,12 @@ classDiagram
     IVectorRecordStore <|-- RedisVectorRecordStore
 ```
 
-如何将自己的架构与核心 sk 功能一起使用。
+How to use your own schema with core sk functionality.
 
 ```mermaid
+---
+title: Chat History Break Glass
+---
 classDiagram
     note for IVectorRecordStore "Can manage records\nfor any scenario"
     note for IVectorCollectionCreate "Can create collections\nan dindexes"
@@ -232,91 +247,91 @@ classDiagram
     ISemanticTextMemory <.. ChatHistoryPlugin
 ```
 
-### Vector Store Cross Store 支持 - 一般功能
+### Vector Store Cross Store support - General Features
 
-商店实施存储功能以帮助推动决策的不同方式的比较：
+A comparison of the different ways in which stores implement storage capabilities to help drive decisions:
 
-|特征|Azure AI 搜索|维维亚特|雷迪斯|色度|费斯|松果|LLamaIndex的|PostgreSQL 的|Qdrant|米尔沃斯|
+|Feature|Azure AI Search|Weaviate|Redis|Chroma|FAISS|Pinecone|LLamaIndex|PostgreSql|Qdrant|Milvus|
 |-|-|-|-|-|-|-|-|-|-|-|
-|获取项目支持|Y|Y|Y|Y||Y||Y|Y|Y|
-|批量作支持|Y|Y|Y|Y||Y||||Y|
-|批量作的每项结果|Y|Y|Y|N||N|||||
-|更新插入记录的 Key|Y|Y|注<sup>3</sup>|注<sup>3</sup>||注<sup>3</sup>||||Y|
-|已删除记录的键|Y||注<sup>3</sup>|N||N||||注<sup>3</sup>|
-|获取的检索字段选择|Y||Y<sup>4 号<sup>|第<sup>2 页</sup>||N||Y|Y|Y|
-|包含/排除 get 的嵌入|第<sup>1 页</sup>|Y|Y<sup>4,1 号<sup>|Y||N||第<sup>1 页</sup>|Y|N|
-|批处理部分失败时的失败原因|Y|Y|Y|N||N|||||
-|Key 是否独立于数据|N|Y|Y|Y||Y||N|Y|N|
-|可以生成 ID|N|Y|N|N||Y||Y|N|Y|
-|可以生成嵌入|尚无法通过 API 使用|Y|N|客户端抽象|||||N||
+|Get Item Support|Y|Y|Y|Y||Y||Y|Y|Y|
+|Batch Operation Support|Y|Y|Y|Y||Y||||Y|
+|Per Item Results for Batch Operations|Y|Y|Y|N||N|||||
+|Keys of upserted records|Y|Y|N<sup>3</sup>|N<sup>3</sup>||N<sup>3</sup>||||Y|
+|Keys of removed records|Y||N<sup>3</sup>|N||N||||N<sup>3</sup>|
+|Retrieval field selection for gets|Y||Y<sup>4<sup>|P<sup>2</sup>||N||Y|Y|Y|
+|Include/Exclude Embeddings for gets|P<sup>1</sup>|Y|Y<sup>4,1<sup>|Y||N||P<sup>1</sup>|Y|N|
+|Failure reasons when batch partially fails|Y|Y|Y|N||N|||||
+|Is Key separate from data|N|Y|Y|Y||Y||N|Y|N|
+|Can Generate Ids|N|Y|N|N||Y||Y|N|Y|
+|Can Generate Embedding|Not Available Via API yet|Y|N|Client Side Abstraction|||||N||
 
-脚注：
-- P = 部分支撑
-- <sup>1</sup> 仅当您有架构时，才能选择相应的字段。
-- <sup>2</sup> 仅支持广泛的字段类别。
-- <sup>3</sup> 请求中需要 ID，因此可以在需要时返回。
-- <sup>4</sup> 指定字段列表时不支持强类型。
+Footnotes:
+- P = Partial Support
+- <sup>1</sup> Only if you have the schema, to select the appropriate fields.
+- <sup>2</sup> Supports broad categories of fields only.
+- <sup>3</sup> Id is required in request, so can be returned if needed.
+- <sup>4</sup> No strong typed support when specifying field list.
 
-### Vector Store Cross Store 支持 - 字段、类型和索引
+### Vector Store Cross Store support - Fields, types and indexing
 
-|特征|Azure AI 搜索|维维亚特|雷迪斯|色度|费斯|松果|LLamaIndex的|PostgreSQL 的|Qdrant|米尔沃斯|
+|Feature|Azure AI Search|Weaviate|Redis|Chroma|FAISS|Pinecone|LLamaIndex|PostgreSql|Qdrant|Milvus|
 |-|-|-|-|-|-|-|-|-|-|-|
-|字段差异化|领域|键、props、向量|键、字段|键、文档、元数据、向量||键、元数据、SparseValues、向量||领域|键、props（payload）、向量|领域|
-|每个记录支持多个向量|Y|Y|Y|N||[N](https://docs.pinecone.io/guides/data/upsert-data#upsert-records-with-metadata)||Y|Y|Y|
-|集合索引|1 比 1|1 比 1|1 对多|1 比 1|-|1 比 1|-|1 比 1|1 比 1|1 比 1|
-|ID 类型|字符串|UUID 的|带有集合名称前缀的字符串|字符串||字符串|UUID 的|64 位 Int / UUID / ULID|64 位无符号 Int / UUID|Int64 / varchar|
-|支持的向量类型|[集合（Edm.Byte） / 集合（Edm.Single） / 集合（Edm.Half） / 集合（Edm.Int16） / 集合（Edm.SByte）](https://learn.microsoft.com/en-us/rest/api/searchservice/supported-data-types)|浮点数32|FLOAT32 和 FLOAT64|||[锈 f32](https://docs.pinecone.io/troubleshooting/embedding-values-changed-when-upserted)||[单精度（4 字节浮点数）/ 半精度（2 字节浮点数）/ 二进制（1 位）/ 稀疏向量（4 字节）](https://github.com/pgvector/pgvector?tab=readme-ov-file#pgvector)|UInt8 / 浮点数 32|二进制 / Float32 / Float16 / BFloat16 / SparseFloat|
-|支持的距离函数|[余弦 / 点 prod / 欧几里得距离 （l2 范数）](https://learn.microsoft.com/en-us/azure/search/vector-search-ranking#similarity-metrics-used-to-measure-nearness)|[余弦距离 / 点积 / 平方 L2 距离 / 汉明（差值数） / 曼哈顿距离](https://weaviate.io/developers/weaviate/config-refs/distances#available-distance-metrics)|[欧几里得距离 （L2） / 内积 （IP） / 余弦距离](https://redis.io/docs/latest/develop/interact/search-and-query/advanced-concepts/vectors/)|[平方 L2 / 内积 / 余弦相似度](https://docs.trychroma.com/guides#changing-the-distance-function)||[余弦 sim / 欧几里得 dist / dot prod](https://docs.pinecone.io/reference/api/control-plane/create_index)||[L2 dist / inner prod / cosine dist / L1 dist / Hamming dist / Jaccard dist （注意：在查询时指定，而不是在索引创建时指定）](https://github.com/pgvector/pgvector?tab=readme-ov-file#pgvector)|[点 prod / 余弦 sim / 欧几里得 dist （L2） / Manhattan dist](https://qdrant.tech/documentation/concepts/search/)|[余弦模拟 / 欧几里得距离 / 内积](https://milvus.io/docs/index-vector-fields.md)|
-|支持的索引类型|[穷举式 KNN （FLAT） / HNSW](https://learn.microsoft.com/en-us/azure/search/vector-search-ranking#algorithms-used-in-vector-search)|[HNSW / 平面 / 动态](https://weaviate.io/developers/weaviate/config-refs/schema/vector-index)|[HNSW / FLAT](https://redis.io/docs/latest/develop/interact/search-and-query/advanced-concepts/vectors/#create-a-vector-field)|[HNSW 不可配置](https://cookbook.chromadb.dev/core/concepts/#vector-index-hnsw-index)||[美国职业高尔夫球协会](https://www.pinecone.io/blog/hnsw-not-enough/)||[HNSW / IVFFlat](https://github.com/pgvector/pgvector?tab=readme-ov-file#indexing)|[HNSW 表示密集](https://qdrant.tech/documentation/concepts/indexing/#vector-index)|<p>[内存中：FLAT / IVF_FLAT / IVF_SQ8 / IVF_PQ / HNSW / SCANN](https://milvus.io/docs/index.md)</p><p>[磁盘上：DiskANN](https://milvus.io/docs/disk_index.md)</p><p>[GPU：GPU_CAGRA / GPU_IVF_FLAT / GPU_IVF_PQ / GPU_BRUTE_FORCE](https://milvus.io/docs/gpu_index.md)</p>|
+|Field Differentiation|Fields|Key, Props, Vectors|Key, Fields|Key, Document, Metadata, Vector||Key, Metadata, SparseValues, Vector||Fields|Key, Props(Payload), Vectors|Fields|
+|Multiple Vector per record support|Y|Y|Y|N||[N](https://docs.pinecone.io/guides/data/upsert-data#upsert-records-with-metadata)||Y|Y|Y|
+|Index to Collection|1 to 1|1 to 1|1 to many|1 to 1|-|1 to 1|-|1 to 1|1 to 1|1 to 1|
+|Id Type|String|UUID|string with collection name prefix|string||string|UUID|64Bit Int / UUID / ULID|64Bit Unsigned Int / UUID|Int64 / varchar|
+|Supported Vector Types|[Collection(Edm.Byte) / Collection(Edm.Single) / Collection(Edm.Half) / Collection(Edm.Int16) / Collection(Edm.SByte)](https://learn.microsoft.com/en-us/rest/api/searchservice/supported-data-types)|float32|FLOAT32 and FLOAT64|||[Rust f32](https://docs.pinecone.io/troubleshooting/embedding-values-changed-when-upserted)||[single-precision (4 byte float) / half-precision (2 byte float) / binary (1bit) / sparse vectors (4 bytes)](https://github.com/pgvector/pgvector?tab=readme-ov-file#pgvector)|UInt8 / Float32|Binary / Float32 / Float16 / BFloat16 / SparseFloat|
+|Supported Distance Functions|[Cosine / dot prod / euclidean dist (l2 norm)](https://learn.microsoft.com/en-us/azure/search/vector-search-ranking#similarity-metrics-used-to-measure-nearness)|[Cosine dist / dot prod / Squared L2 dist / hamming (num of diffs) / manhattan dist](https://weaviate.io/developers/weaviate/config-refs/distances#available-distance-metrics)|[Euclidean dist (L2) / Inner prod (IP) / Cosine dist](https://redis.io/docs/latest/develop/interact/search-and-query/advanced-concepts/vectors/)|[Squared L2 / Inner prod / Cosine similarity](https://docs.trychroma.com/guides#changing-the-distance-function)||[cosine sim / euclidean dist / dot prod](https://docs.pinecone.io/reference/api/control-plane/create_index)||[L2 dist / inner prod / cosine dist / L1 dist / Hamming dist / Jaccard dist (NB: Specified at query time, not index creation time)](https://github.com/pgvector/pgvector?tab=readme-ov-file#pgvector)|[Dot prod / Cosine sim / Euclidean dist (L2) / Manhattan dist](https://qdrant.tech/documentation/concepts/search/)|[Cosine sim / Euclidean dist / Inner Prod](https://milvus.io/docs/index-vector-fields.md)|
+|Supported index types|[Exhaustive KNN (FLAT) / HNSW](https://learn.microsoft.com/en-us/azure/search/vector-search-ranking#algorithms-used-in-vector-search)|[HNSW / Flat / Dynamic](https://weaviate.io/developers/weaviate/config-refs/schema/vector-index)|[HNSW / FLAT](https://redis.io/docs/latest/develop/interact/search-and-query/advanced-concepts/vectors/#create-a-vector-field)|[HNSW not configurable](https://cookbook.chromadb.dev/core/concepts/#vector-index-hnsw-index)||[PGA](https://www.pinecone.io/blog/hnsw-not-enough/)||[HNSW / IVFFlat](https://github.com/pgvector/pgvector?tab=readme-ov-file#indexing)|[HNSW for dense](https://qdrant.tech/documentation/concepts/indexing/#vector-index)|<p>[In Memory: FLAT / IVF_FLAT / IVF_SQ8 / IVF_PQ / HNSW / SCANN](https://milvus.io/docs/index.md)</p><p>[On Disk: DiskANN](https://milvus.io/docs/disk_index.md)</p><p>[GPU: GPU_CAGRA / GPU_IVF_FLAT / GPU_IVF_PQ / GPU_BRUTE_FORCE](https://milvus.io/docs/gpu_index.md)</p>|
 
-脚注：
-- HNSW = 分层可导航小世界（HNSW 执行 [近似最近邻 （ANN）](https://learn.microsoft.com/en-us/azure/search/vector-search-overview#approximate-nearest-neighbors) 搜索）
-- KNN = k-最近邻（执行扫描整个向量空间的暴力搜索）
-- IVFFlat = 平面压缩的倒排文件（此索引类型使用近似最近邻搜索 （ANNS） 来提供快速搜索）
-- Weaviate Dynamic = 从平坦开始，如果对象数量超过限制，则切换到 HNSW
-- PGA = [松果图算法](https://www.pinecone.io/blog/hnsw-not-enough/)
+Footnotes:
+- HNSW = Hierarchical Navigable Small World (HNSW performs an [approximate nearest neighbor (ANN)](https://learn.microsoft.com/en-us/azure/search/vector-search-overview#approximate-nearest-neighbors) search)
+- KNN = k-nearest neighbors (performs a brute-force search that scans the entire vector space)
+- IVFFlat = Inverted File with Flat Compression (This index type uses approximate nearest neighbor search (ANNS) to provide fast searches)
+- Weaviate Dynamic = Starts as flat and switches to HNSW if the number of objects exceed a limit
+- PGA = [Pinecone Graph Algorithm](https://www.pinecone.io/blog/hnsw-not-enough/)
 
-### Vector Store Cross Store 支持 - 搜索和筛选
+### Vector Store Cross Store support - Search and filtering
 
-|特征|Azure AI 搜索|维维亚特|雷迪斯|色度|费斯|松果|LLamaIndex的|PostgreSQL 的|Qdrant|米尔沃斯|
+|Feature|Azure AI Search|Weaviate|Redis|Chroma|FAISS|Pinecone|LLamaIndex|PostgreSql|Qdrant|Milvus|
 |-|-|-|-|-|-|-|-|-|-|-|
-|Index 允许文本搜索|Y|Y|Y|Y（默认为 On Metadata）||[仅与 Vector 结合使用](https://docs.pinecone.io/guides/data/understanding-hybrid-search)||Y （带 TSVECTOR 字段）|Y|Y|
-|文本搜索查询格式|[简单或完整 Lucene](https://learn.microsoft.com/en-us/azure/search/search-query-create?tabs=portal-text-query#choose-a-query-type-simple--full)|[通配符](https://weaviate.io/developers/weaviate/search/filters#filter-text-on-partial-matches)|通配符 & 模糊|[包含 & 不包含](https://docs.trychroma.com/guides#filtering-by-document-contents)||纯文本||[通配符和二进制运算符](https://www.postgresql.org/docs/16/textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES)|[纯文本](https://qdrant.tech/documentation/concepts/filtering/#full-text-match)|[通配符](https://milvus.io/docs/single-vector-search.md#Filtered-search)|
-|多字段向量搜索支持|Y|[N](https://weaviate.io/developers/weaviate/search/similarity)||N（不支持多向量）||N||[由于 order by 语法而不清楚](https://github.com/pgvector/pgvector?tab=readme-ov-file#querying)|[N](https://qdrant.tech/documentation/concepts/search/)|[Y]（https://milvus.io/api-reference/restful/v2.4.x/v2/Vector%20（v2）/Hybrid%20Search.md）|
-|目标多字段文本搜索支持|Y|[Y](https://weaviate.io/developers/weaviate/search/hybrid#set-weights-on-property-values)|[Y](https://redis.io/docs/latest/develop/interact/search-and-query/advanced-concepts/query_syntax/#field-modifiers)|N（仅在文档上）||N||Y|Y|Y|
-|用于搜索的每个向量字段的向量|Y|不适用||不适用|||不适用||不适用|不适用|[Y](https://milvus.io/docs/multi-vector-search.md#Step-1-Create-Multiple-AnnSearchRequest-Instances)|
-|将文本搜索查询与向量分开|Y|[Y](https://weaviate.io/developers/weaviate/search/hybrid#specify-a-search-vector)|Y|Y||Y||Y|Y|[Y]（https://milvus.io/api-reference/restful/v2.4.x/v2/Vector%20（v2）/Hybrid%20Search.md）|
-|允许筛选|Y|Y|Y （在 TAG 上）|Y（默认为 On Metadata）||[Y](https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes#selective-metadata-indexing)||Y|Y|Y|
-|允许筛选条件分组|Y （Odata）|[Y](https://weaviate.io/developers/weaviate/search/filters#nested-filters)||[Y](https://docs.trychroma.com/guides#using-logical-operators)||Y||Y|[Y](https://qdrant.tech/documentation/concepts/filtering/#clauses-combination)|[Y](https://milvus.io/docs/get-and-scalar-query.md#Use-Basic-Operators)|
-|允许设置标量索引字段|Y|Y|Y|N||Y||Y|Y|Y|
-|需要设置标量索引字段以进行筛选|Y|Y|Y|N||N（默认情况下对 all 启用）||N|N|N（可以在没有索引的情况下进行筛选）|
+|Index allows text search|Y|Y|Y|Y (On Metadata by default)||[Only in combination with Vector](https://docs.pinecone.io/guides/data/understanding-hybrid-search)||Y (with TSVECTOR field)|Y|Y|
+|Text search query format|[Simple or Full Lucene](https://learn.microsoft.com/en-us/azure/search/search-query-create?tabs=portal-text-query#choose-a-query-type-simple--full)|[wildcard](https://weaviate.io/developers/weaviate/search/filters#filter-text-on-partial-matches)|wildcard & fuzzy|[contains & not contains](https://docs.trychroma.com/guides#filtering-by-document-contents)||Text only||[wildcard & binary operators](https://www.postgresql.org/docs/16/textsearch-controls.html#TEXTSEARCH-PARSING-QUERIES)|[Text only](https://qdrant.tech/documentation/concepts/filtering/#full-text-match)|[wildcard](https://milvus.io/docs/single-vector-search.md#Filtered-search)|
+|Multi Field Vector Search Support|Y|[N](https://weaviate.io/developers/weaviate/search/similarity)||N (no multi vector support)||N||[Unclear due to order by syntax](https://github.com/pgvector/pgvector?tab=readme-ov-file#querying)|[N](https://qdrant.tech/documentation/concepts/search/)|[Y](https://milvus.io/api-reference/restful/v2.4.x/v2/Vector%20(v2)/Hybrid%20Search.md)|
+|Targeted Multi Field Text Search Support|Y|[Y](https://weaviate.io/developers/weaviate/search/hybrid#set-weights-on-property-values)|[Y](https://redis.io/docs/latest/develop/interact/search-and-query/advanced-concepts/query_syntax/#field-modifiers)|N (only on document)||N||Y|Y|Y|
+|Vector per Vector Field for Search|Y|N/A||N/A|||N/A||N/A|N/A|[Y](https://milvus.io/docs/multi-vector-search.md#Step-1-Create-Multiple-AnnSearchRequest-Instances)|
+|Separate text search query from vectors|Y|[Y](https://weaviate.io/developers/weaviate/search/hybrid#specify-a-search-vector)|Y|Y||Y||Y|Y|[Y](https://milvus.io/api-reference/restful/v2.4.x/v2/Vector%20(v2)/Hybrid%20Search.md)|
+|Allows filtering|Y|Y|Y (on TAG)|Y (On Metadata by default)||[Y](https://docs.pinecone.io/guides/indexes/configure-pod-based-indexes#selective-metadata-indexing)||Y|Y|Y|
+|Allows filter grouping|Y (Odata)|[Y](https://weaviate.io/developers/weaviate/search/filters#nested-filters)||[Y](https://docs.trychroma.com/guides#using-logical-operators)||Y||Y|[Y](https://qdrant.tech/documentation/concepts/filtering/#clauses-combination)|[Y](https://milvus.io/docs/get-and-scalar-query.md#Use-Basic-Operators)|
+|Allows scalar index field setup|Y|Y|Y|N||Y||Y|Y|Y|
+|Requires scalar index field setup to filter|Y|Y|Y|N||N (on by default for all)||N|N|N (can filter without index)|
 
-### 支持不同的映射器
+### Support for different mappers
 
-数据模型和存储模型之间的映射也可能需要自定义逻辑，具体取决于所涉及的数据模型和存储模型的类型。
+Mapping between data models and the storage models can also require custom logic depending on the type of data model and storage model involved.
 
-因此，我建议我们允许每个实例都可以注入 mapper `VectorStoreCollection` 。这些的接口会有所不同
-在每个向量存储使用的存储模型以及每个向量存储可能具有的任何独特功能上，例如 qdrant 可以在  或`single`
-`multiple named vector` modes，这意味着映射器需要知道是设置单个向量还是填充向量映射。
+I'm therefore proposing that we allow mappers to be injectable for each `VectorStoreCollection` instance. The interfaces for these would vary depending
+on the storage models used by each vector store and any unique capabilities that each vector store may have, e.g. qdrant can operate in `single` or
+`multiple named vector` modes, which means the mapper needs to know whether to set a single vector or fill a vector map.
 
-除此之外，我们还应该为每个向量存储构建第一方映射器，这将满足内置的通用模型或使用元数据来执行映射。
+In addition to this, we should build first party mappers for each of the vector stores, which will cater for built in, generic models or use metadata to perform the mapping.
 
-### 支持不同的存储架构
+### Support for different storage schemas
 
-不同的存储在数据组织方式方面在许多方面有所不同。
-- 有些只存储带有字段的记录，其中字段可以是键、数据字段或向量，它们的类型在集合创建时确定。
-- 其他方法在与 api 交互时按类型分隔字段，例如，您必须显式指定一个键，将元数据放入元数据字典中，并将向量放入向量数组中。
+The different stores vary in many ways around how data is organized.
+- Some just store a record with fields on it, where fields can be a key or a data field or a vector and their type is determined at collection creation time.
+- Others separate fields by type when interacting with the api, e.g. you have to specify a key explicitly, put metadata into a metadata dictionary and put vectors into a vector array.
 
-我建议我们允许两种方式来提供在消费者数据模型和存储数据模型之间映射数据所需的信息。
-首先是一组用于捕获每个字段类型的配置对象。第二个是一组可用于装饰模型本身的属性
-并且可以转换为 Configuration 对象，从而允许单个执行路径。
-可以根据需要为每种类型的字段轻松添加其他配置属性，例如 IsFilterable 或 IsFullTextSearchable，从而允许我们还从提供的配置创建索引。
+I'm proposing that we allow two ways in which to provide the information required to map data between the consumer data model and storage data model.
+First is a set of configuration objects that capture the types of each field. Second would be a set of attributes that can be used to decorate the model itself
+and can be converted to the configuration objects, allowing a single execution path.
+Additional configuration properties can easily be added for each type of field as required, e.g. IsFilterable or IsFullTextSearchable, allowing us to also create an index from the provided configuration.
 
-我还建议，即使其他系统中已经存在类似的属性，例如 System.ComponentModel.DataAnnotations.KeyAttribute，我们也要创建自己的属性。
-我们可能需要对现有属性当前不支持的所有这些属性添加其他属性，例如字段是 或
-应该是可过滤的。要求用户稍后切换到新属性将造成中断。
+I'm also proposing that even though similar attributes already exist in other systems, e.g. System.ComponentModel.DataAnnotations.KeyAttribute, we create our own.
+We will likely require additional properties on all these attributes that are not currently supported on the existing attributes, e.g. whether a field is or
+should be filterable. Requiring users to switch to new attributes later will be disruptive.
 
-以下是属性的外观以及示例用例。
+Here is what the attributes would look like, plus a sample use case.
 
 ```cs
 sealed class VectorStoreRecordKeyAttribute : Attribute
@@ -338,7 +353,7 @@ public record HotelInfo(
     [property: VectorStoreRecordVector, JsonPropertyName("description-embeddings")] ReadOnlyMemory<float>? DescriptionEmbeddings);
 ```
 
-以下是配置对象的外观。
+Here is what the configuration objects would look like.
 
 ```cs
 abstract class VectorStoreRecordProperty(string propertyName);
@@ -361,51 +376,51 @@ sealed class VectorStoreRecordDefinition
 }
 ```
 
-### 与现有接口相比，方法签名发生了显著变化
+### Notable method signature changes from existing interface
 
-IMemoryStore 上当前存在的所有方法都将移植到新接口中，但在某些地方，我建议我们进行更改以改进
-一致性和可扩展性。
+All methods currently existing on IMemoryStore will be ported to new interfaces, but in places I am proposing that we make changes to improve
+consistency and scalability.
 
-1. `RemoveAsync` 并 `RemoveBatchAsync` 重命名为 `DeleteAsync` 和 `DeleteBatchAsync`，因为 record 实际上已被删除，这也与用于 collections 的动词匹配。
-2. `GetCollectionsAsync` 重命名为 `GetCollectionNamesAsync`，因为我们只检索名称，而不检索有关集合的其他信息。
-3. `DoesCollectionExistAsync` 重命名为 `CollectionExistsAsync` ，因为它更短，并且更常用于其他 API。
+1. `RemoveAsync` and `RemoveBatchAsync` renamed to `DeleteAsync` and `DeleteBatchAsync`, since record are actually deleted, and this also matches the verb used for collections.
+2. `GetCollectionsAsync` renamed to `GetCollectionNamesAsync`, since we are only retrieving names and no other information about collections.
+3. `DoesCollectionExistAsync` renamed to `CollectionExistsAsync` since this is shorter and is more commonly used in other apis.
 
-### 与其他 AI 框架的比较
+### Comparison with other AI frameworks
 
-|标准|当前的 SK 实现|建议的 SK 实施|Spring AI|骆驼指数|Langchain 语言链|
+|Criteria|Current SK Implementation|Proposed SK Implementation|Spring AI|LlamaIndex|Langchain|
 |-|-|-|-|-|-|
-|支持自定义架构|N|Y|N|N|N|
-|商店命名|内存存储|VectorStore、VectorStoreCollection|矢量存储|矢量存储|矢量存储|
-|MultiVector 支持|N|Y|N|N|N|
-|通过 SDK 参数支持多个集合|Y|Y|N（通过应用程序配置）|Y|Y|
+|Support for Custom Schemas|N|Y|N|N|N|
+|Naming of store|MemoryStore|VectorStore, VectorStoreCollection|VectorStore|VectorStore|VectorStore|
+|MultiVector support|N|Y|N|N|N|
+|Support Multiple Collections via SDK params|Y|Y|N (via app config)|Y|Y|
 
-## 决策驱动因素
+## Decision Drivers
 
-来自 GitHub Issue：
-- API 界面必须易于使用和直观
-- 与 SK 中的其他模式对齐
-- - 设计必须允许 Memory Plugins 使用任何连接器轻松实例化
-- 设计必须支持所有 Kernel 内容类型
-- 设计必须允许数据库特定的配置
-- 所有要做好生产准备的 NFR 都已实现（有关详细信息，请参阅路线图）
-- 必须支持基本的 CRUD作，以便可以多态方式使用连接器
-- 必须在可用的情况下使用官方数据库客户端
-- 必须支持动态数据库架构
-- 必须支持依赖关系注入
-- 必须支持 Azure-ML YAML 格式
-- 必须支持破窗场景
+From GitHub Issue:
+- API surface must be easy to use and intuitive
+- Alignment with other patterns in the SK
+- - Design must allow Memory Plugins to be easily instantiated with any connector
+- Design must support all Kernel content types
+- Design must allow for database specific configuration
+- All NFR's to be production ready are implemented (see Roadmap for more detail)
+- Basic CRUD operations must be supported so that connectors can be used in a polymorphic manner
+- Official Database Clients must be used where available
+- Dynamic database schema must be supported
+- Dependency injection must be supported
+- Azure-ML YAML format must be supported
+- Breaking glass scenarios must be supported
 
-## 考虑的问题
+## Considered Questions
 
-1. 组合收集和记录管理与分离。
-2. 装饰器或主类中的集合名称和键值规范化。
-3. 集合名称作为方法 param 或构造函数 param。
-4. 如何在支持不同类型的不同向量存储中规范化 ID。
-5. Store 接口/类命名
+1. Combined collection and record management vs separated.
+2. Collection name and key value normalization in decorator or main class.
+3. Collection name as method param or constructor param.
+4. How to normalize ids across different vector stores where different types are supported.
+5. Store Interface/Class Naming
 
-### 问题 1：收集和记录管理相结合与分离。
+### Question 1: Combined collection and record management vs separated.
 
-#### 选项 1 - 组合收集和记录管理
+#### Option 1 - Combined collection and record management
 
 ```cs
 interface IVectorRecordStore<TRecord>
@@ -436,7 +451,7 @@ class RedisVectorRecordStore<TRecord>(
     Schema schema): IVectorRecordStore<TRecord>;
 ```
 
-#### 选项 2 - 使用固执己见的创建实现将收集和记录管理分开
+#### Option 2 - Separated collection and record management with opinionated create implementations
 
 ```cs
 
@@ -470,9 +485,9 @@ interface IVectorRecordStore<TRecord>
 class AzureAISearchVectorRecordStore<TRecord>(): IVectorRecordStore<TRecord>;
 ```
 
-#### 选项 3 - 将集合和记录管理分开，将集合创建与其他作分开。
+#### Option 3 - Separated collection and record management with collection create separate from other operations.
 
-向量存储与选项 2 相同，因此为简洁起见，无需重复。
+Vector store same as option 2 so not repeated for brevity.
 
 ```cs
 
@@ -504,9 +519,9 @@ class WeaviateVectorCollectionNonSchema: IVectorCollectionNonSchema;
 
 ```
 
-#### 选项 4 - 将集合和记录管理分开，将集合创建与其他作分开，集合管理聚合类位于顶部。
+#### Option 4 - Separated collection and record management with collection create separate from other operations, with collection management aggregation class on top.
 
-选项 3 的变体。 
+Variation on option 3. 
 
 ```cs
 
@@ -548,9 +563,9 @@ class ContosoProductsVectorCollectionStore(AzureAISearchVectorCollectionNonSchem
 
 ```
 
-#### 选项 5 - 将集合和记录管理分开，将集合创建与其他作分开，将整体聚合类置于顶部。
+#### Option 5 - Separated collection and record management with collection create separate from other operations, with overall aggregation class on top.
 
-与选项 3 / 4 相同，加上：
+Same as option 3 / 4, plus:
 
 ```cs
 
@@ -565,9 +580,9 @@ internal class VectorStore<TRecord>(IVectorCollectionCreate create, IVectorColle
 
 ```
 
-#### 选项 6 - 集合存储充当记录存储的工厂。
+#### Option 6 - Collection store acts as factory for record store.
 
-`IVectorStore` 充当 的工厂 `IVectorStoreCollection`，并且任何与模式无关的多集合作都保留在 上 `IVectorStore`。
+`IVectorStore` acts as a factory for `IVectorStoreCollection`, and any schema agnostic multi-collection operations are kept on `IVectorStore`.
 
 
 ```cs
@@ -598,34 +613,34 @@ public interface IVectorStoreCollection<TKey, TRecord>
 ```
 
 
-#### 决策结果
+#### Decision Outcome
 
-选项 1 本身就有问题，因为我们必须允许使用者为 break glass 场景创建 collection create 的自定义实现。跟
-像这样的单个接口，它将要求他们实现许多他们不想改变的方法。选项4和5，给了我们更多的灵活性，同时
-仍然保留选项 1 中所述的聚合接口的易用性。
+Option 1 is problematic on its own, since we have to allow consumers to create custom implementations of collection create for break glass scenarios. With
+a single interface like this, it will require them to implement many methods that they do not want to change. Options 4 & 5, gives us more flexibility while
+still preserving the ease of use of an aggregated interface as described in Option 1.
 
-选项 2 没有为我们提供破窗场景所需的灵活性，因为它只允许创建某些类型的集合。它还意味着
-每次需要新的集合类型时，它都会引入一个重大更改，因此这不是一个可行的选择。
+Option 2 doesn't give us the flexibility we need for break glass scenarios, since it only allows certain types of collections to be created. It also means
+that each time a new collection type is required it introduces a breaking change, so it is not a viable option.
 
-由于集合创建和配置以及可能的选项在不同数据库类型中差异很大，因此我们需要支持一个简单的
-使用 Break Glass 方案创建集合。虽然我们能够开发一个基本的可配置创建选项，但对于复杂的创建场景
-用户将需要实现自己的。我们还需要支持多个开箱即用的创建实现，例如使用
-我们自己的配置，创建重新创建当前模型以实现向后兼容性的实现，创建使用其他配置的实现
-作为输入，例如 Azure-ML YAML。因此，将 create（可能有许多实现）与 exists、list 和 delete（每个数据库类型只需要一个实现）分开是有用的。
-选项 3 为我们提供了这种分离，但选项 4 + 5 建立在此之上，并允许我们将不同的实现组合在一起以简化
-消费。
+Since collection create and configuration and the possible options vary considerable across different database types, we will need to support an easy
+to use break glass scenario for collection creation. While we would be able to develop a basic configurable create option, for complex create scenarios
+users will need to implement their own. We will also need to support multiple create implementations out of the box, e.g. a configuration based option using
+our own configuration, create implementations that re-create the current model for backward compatibility, create implementations that use other configuration
+as input, e.g. Azure-ML YAML. Therefore separating create, which may have many implementations, from exists, list and delete, which requires only a single implementation per database type is useful.
+Option 3 provides us this separation, but Option 4 + 5 builds on top of this, and allows us to combine different implementations together for simpler
+consumption.
 
-选项： 6
+Chosen option: 6
 
-- 易于使用，并且类似于许多 SDk 实现。
-- 可以传递单个对象以进行集合和记录访问。
+- Easy to use, and similar to many SDk implementations.
+- Can pass a single object around for both collection and record access.
 
-###  问题 2：在 store、decorator 或通过注入实现集合名称和键值规范化。
+###  Question 2: Collection name and key value normalization in store, decorator or via injection.
 
-#### 选项 1 - 主记录存储中的规范化
+#### Option 1 - Normalization in main record store
 
-- 优点： 简单
-- 缺点： 规范化需要与记录存储分开，因此这是行不通的
+- Pros: Simple
+- Cons: The normalization needs to vary separately from the record store, so this will not work
 
 ```cs
     public class AzureAISearchVectorStoreCollection<TRecord> : IVectorStoreCollection<TRecord>
@@ -645,14 +660,14 @@ public interface IVectorStoreCollection<TKey, TRecord>
     }
 ```
 
-#### 选项 2 - 装饰器中的规范化
+#### Option 2 - Normalization in decorator
 
-- 优点：允许规范化与记录存储分开变化。
-- 优点：当不需要规范化时，不执行代码。
-- 优点： 易于将匹配的编码器/解码器打包在一起。
-- 优点： 编码/规范化作为一个概念更容易过时。
-- 缺点：不是一个主要的缺点，但需要实现完整的 VectorStoreCollection 接口，而不是例如，如果我们选择选项 3，则只提供两个转换函数。
-- 缺点：很难有一个可以与任何模型一起使用的通用实现，而无需在 upsert 上更改所提供对象中的数据或以昂贵的方式进行克隆。
+- Pros: Allows normalization to vary separately from the record store.
+- Pros: No code executed when no normalization required.
+- Pros: Easy to package matching encoders/decoders together.
+- Pros: Easier to obsolete encoding/normalization as a concept.
+- Cons: Not a major con, but need to implement the full VectorStoreCollection interface, instead of e.g. just providing the two translation functions, if we go with option 3.
+- Cons: Hard to have a generic implementation that can work with any model, without either changing the data in the provided object on upsert or doing cloning in an expensive way.
 
 ```cs
     new KeyNormalizingAISearchVectorStoreCollection<MyModel>(
@@ -660,12 +675,12 @@ public interface IVectorStoreCollection<TKey, TRecord>
          new AzureAISearchVectorStoreCollection<MyModel>(...));
 ```
 
-#### 选项 3 - 通过可选函数参数对 record store 构造函数进行规范化
+#### Option 3 - Normalization via optional function parameters to record store constructor
 
-- 优点：允许规范化与记录存储分开变化。
-- 优点：无需实现完整的 VectorStoreCollection 接口。
-- 优点：可以在 序列化时修改值，而无需更改传入记录（如果 DB SDK 支持）。
-- 缺点： 更难将匹配的编码器/解码器打包在一起。
+- Pros: Allows normalization to vary separately from the record store.
+- Pros: No need to implement the full VectorStoreCollection interface.
+- Pros: Can modify values on serialization without changing the incoming record, if supported by DB SDK.
+- Cons: Harder to package matching encoders/decoders together.
 
 ```cs
 public class AzureAISearchVectorStoreCollection<TRecord>(StoreOptions options);
@@ -678,26 +693,26 @@ public class StoreOptions
 }
 ```
 
-#### 选项 4 - 通过自定义映射器进行归一化
+#### Option 4 - Normalization via custom mapper
 
-如果开发人员想要更改任何值，他们可以通过创建自定义映射器来实现。
+If developer wants to change any values they can do so by creating a custom mapper.
 
-- 缺点： 如果开发人员想要进行规范化，则需要实现 mapper。
-- 缺点：开发人员无法在映射过程中更改集合名称。
-- 优点：不需要新的扩展点来支持规范化。
-- 优点：开发人员可以更改记录中的任何字段。
+- Cons: Developer needs to implement a mapper if they want to do normalization.
+- Cons: Developer cannot change collection name as part of the mapping.
+- Pros: No new extension points required to support normalization.
+- Pros: Developer can change any field in the record.
 
-#### 决策结果
+#### Decision Outcome
 
-选择选项 3，因为它类似于我们进行 mapper 注入的方式，并且在 python 中也能很好地工作。
+Chosen option 3, since it is similar to how we are doing mapper injection and would also work well in python.
 
-选项 1 不起作用，因为例如，如果数据是使用其他工具写入的，则不太可能使用与此处支持的相同机制对其进行编码
-因此，此功能可能不合适。开发人员应该有能力不使用此功能或
-提供自己的编码/解码行为。
+Option 1 won't work because if e.g. the data was written using another tool, it may be unlikely that it was encoded using the same mechanism as supported here
+and therefore this functionality may not be appropriate. The developer should have the ability to not use this functionality or
+provide their own encoding / decoding behavior.
 
-###  问题 3：集合名称为方法 param 或通过构造函数，或者
+###  Question 3: Collection name as method param or via constructor or either
 
-#### 选项 1 - 集合名称作为方法 param
+#### Option 1 - Collection name as method param
 
 ```cs
 public class MyVectorStoreCollection()
@@ -706,7 +721,7 @@ public class MyVectorStoreCollection()
 }
 ```
 
-#### 选项 2 - 通过构造函数创建集合名称
+#### Option 2 - Collection name via constructor
 
 ```cs
 public class MyVectorStoreCollection(string defaultCollectionName)
@@ -715,7 +730,7 @@ public class MyVectorStoreCollection(string defaultCollectionName)
 }
 ```
 
-#### 选项 3 - 通过任一集合名称
+#### Option 3 - Collection name via either
 
 ```cs
 public class MyVectorStoreCollection(string defaultCollectionName)
@@ -729,13 +744,13 @@ public class GetRecordOptions
 }
 ```
 
-#### 决策结果
+#### Decision Outcome
 
-选择选项 2.其他选项都不适用于问题 1 的决策结果，因为该设计需要 `VectorStoreCollection` 将 绑定到单个集合实例。
+Chosen option 2. None of the other options work with the decision outcome of Question 1, since that design requires the `VectorStoreCollection` to be tied to a single collection instance.
 
-### 问题 4：如何在支持不同类型的不同向量存储中规范化 ID。
+### Question 4: How to normalize ids across different vector stores where different types are supported.
 
-#### 选项 1 - 获取字符串并转换为在构造函数上指定的类型
+#### Option 1 - Take a string and convert to a type that was specified on the constructor
 
 ```cs
 public async Task<TRecord?> GetAsync(string key, GetRecordOptions? options = default, CancellationToken cancellationToken = default)
@@ -750,10 +765,10 @@ public async Task<TRecord?> GetAsync(string key, GetRecordOptions? options = def
 }
 ```
 
-- 随着时间的推移，不需要额外的重载，因此没有中断性变更。
-- 大多数数据类型都可以轻松地以字符串形式表示，并相互转换。
+- No additional overloads are required over time so no breaking changes.
+- Most data types can easily be represented in string form and converted to/from it.
 
-#### 选项 2 - 获取对象并强制转换为在构造函数上指定的类型。
+#### Option 2 - Take an object and cast to a type that was specified on the constructor.
 
 ```cs
 public async Task<TRecord?> GetAsync(object key, GetRecordOptions? options = default, CancellationToken cancellationToken = default)
@@ -774,10 +789,10 @@ public async Task<TRecord?> GetAsync(object key, GetRecordOptions? options = def
 
 ```
 
-- 随着时间的推移，不需要额外的重载，因此没有中断性变更。
-- 任何数据类型都可以表示为 object。
+- No additional overloads are required over time so no breaking changes.
+- Any data types can be represented as object.
 
-#### 选项 3 - 多个重载，我们在可能的情况下进行转换，在不可能时引发。
+#### Option 3 - Multiple overloads where we convert where possible, throw when not possible.
 
 ```cs
 public async Task<TRecord?> GetAsync(string key, GetRecordOptions? options = default, CancellationToken cancellationToken = default)
@@ -809,10 +824,10 @@ public async Task<TRecord?> GetAsync(GUID key, GetRecordOptions? options = defau
 }
 ```
 
-- 如果在新连接器上发现新的密钥类型，则随着时间的推移需要额外的重载，从而导致中断性变更。
-- 当类型不受支持时，您仍然可以调用导致运行时错误的方法。
+- Additional overloads are required over time if new key types are found on new connectors, causing breaking changes.
+- You can still call a method that causes a runtime error, when the type isn't supported.
 
-#### 选项 4 - 将密钥类型添加为接口的通用
+#### Option 4 - Add key type as generic to interface
 
 ```cs
 interface IVectorRecordStore<TRecord, TKey>
@@ -831,17 +846,17 @@ class AzureAISearchVectorRecordStore<TRecord, TKey>: IVectorRecordStore<TRecord,
 
 ```
 
-- 构建后没有运行时问题。
-- 更繁琐的界面。
+- No runtime issues after construction.
+- More cumbersome interface.
 
-#### 决策结果
+#### Decision Outcome
 
-选择选项 4，因为它向前兼容我们可能需要支持的任何复杂密钥类型，但仍允许
-如果矢量数据库仅支持某些密钥类型，则每个实现都会对允许的密钥类型进行硬编码。
+Chosen option 4, since it is forwards compatible with any complex key types we may need to support but still allows
+each implementation to hardcode allowed key types if the vector db only supports certain key types.
 
-### 问题 5：存储接口/类命名。
+### Question 5: Store Interface/Class Naming.
 
-#### 选项 1 - VectorDB
+#### Option 1 - VectorDB
 
 ```cs
 interface IVectorDBRecordService {}
@@ -849,7 +864,7 @@ interface IVectorDBCollectionUpdateService {}
 interface IVectorDBCollectionCreateService {}
 ```
 
-#### 选项 2 - 内存
+#### Option 2 - Memory
 
 ```cs
 interface IMemoryRecordService {}
@@ -857,7 +872,7 @@ interface IMemoryCollectionUpdateService {}
 interface IMemoryCollectionCreateService {}
 ```
 
-### 选项 3 - VectorStore
+### Option 3 - VectorStore
 
 ```cs
 interface IVectorRecordStore<TRecord> {}
@@ -867,7 +882,7 @@ interface IVectorCollectionStore {}: IVectorCollectionCreate, IVectorCollectionN
 interface IVectorStore<TRecord> {}: IVectorCollectionStore, IVectorRecordStore<TRecord>
 ```
 
-### 选项 4 - VectorStore + VectorStoreCollection
+### Option 4 - VectorStore + VectorStoreCollection
 
 ```cs
 interface IVectorStore
@@ -882,14 +897,14 @@ interface IVectorStoreCollection
 }
 ```
 
-#### 决策结果
+#### Decision Outcome
 
-已选择选项 4.memory 这个词足够宽泛，可以包含任何数据，因此使用它似乎很随意。所有竞争对手都在使用术语 vector store，因此使用类似的东西有利于识别。
-选项 4 也符合我们在问题 1 中选择的设计。
+Chosen option 4. The word memory is broad enough to encompass any data, so using it seems arbitrary. All competitors are using the term vector store, so using something similar is good for recognition.
+Option 4 also matches our design as chosen in question 1.
 
-## 使用示例
+## Usage Examples
 
-### DI 框架：.net 8 键控服务
+### DI Framework: .net 8 Keyed Services
 
 ```cs
 class CacheEntryModel(string prompt, string result, ReadOnlyMemory<float> promptEmbedding);
@@ -932,49 +947,49 @@ builder.Services.AddTransient<IPromptRenderFilter, CacheGetPromptFilter>();
 builder.Services.AddTransient<IFunctionInvocationFilter, CacheSetFunctionFilter>();
 ```
 
-## 路线图
+## Roadmap
 
-### 记录管理
+### Record Management
 
-1. 发布适用于 Azure AI 搜索、Qdrant 和 Redis 的 VectorStoreCollection 公共接口和实现。
-2. 添加了对向 SK 容器注册记录存储的支持，以允许自动依赖项注入。
-3. 为其余存储添加 VectorStoreCollection 实现。
+1. Release VectorStoreCollection public interface and implementations for Azure AI Search, Qdrant and Redis.
+2. Add support for registering record stores with SK container to allow automatic dependency injection.
+3. Add VectorStoreCollection implementations for remaining stores.
 
-### 集合管理
+### Collection Management
 
-4. 适用于 Azure AI 搜索、Qdrant 和 Redis 的发布集合管理公共接口和实现。
-5. 添加了对向 SK 容器注册集合管理的支持，以允许自动依赖项注入。
-6. 为其余商店添加 Collection Management 实现。
+4. Release Collection Management public interface and implementations for Azure AI Search, Qdrant and Redis.
+5. Add support for registering collection management with SK container to allow automatic dependency injection.
+6. Add Collection Management implementations for remaining stores.
 
-### 集合创建
+### Collection Creation
 
-7. 发布集合创建公共接口。
-8. 创建支持常见功能的跨数据库集合创建配置，并按支持此配置的数据库实现创建配置。
-9. 添加了对向 SK 容器注册集合创建的支持，以允许自动依赖项注入。
+7. Release Collection Creation public interface.
+8. Create cross db collection creation config that supports common functionality, and per database implementation that supports this configuration.
+9. Add support for registering collection creation with SK container to allow automatic dependency injection.
 
-### 第一方内存功能和众所周知的模型支持
+### First Party Memory Features and well known model support
 
-10. 为旧版 SK MemoryStore 接口添加模型和映射器，以便使用它的使用者可以升级到新的内存存储堆栈。
-11. 为流行的加载程序系统（如 Kernel Memory 或 LlamaIndex）添加模型和映射器。
-11. 探索为常见场景添加第一方实现，例如语义缓存。具体待定。
+10. Add model and mappers for legacy SK MemoryStore interface, so that consumers using this has an upgrade path to the new memory storage stack.
+11. Add model and mappers for popular loader systems, like Kernel Memory or LlamaIndex.
+11. Explore adding first party implementations for common scenarios, e.g. semantic caching. Specifics TBD.
 
-### 横切要求
+### Cross Cutting Requirements
 
-所有功能都需要满足以下条件：
+Need the following for all features:
 
-- 单元测试
-- 集成测试
-- 日志记录 / 遥测
-- 常见异常处理
-- 示例，包括：
-  - 使用自定义模型和配置的集合创建进行集合和记录管理的使用方案。
-  - 一个简单的使用示例，如语义缓存，具体 TBD。
-  - 添加您自己的集合创建实现。
-  - 添加您自己的自定义模型映射器。
-- 文档，包括：
-  - 如何创建模型并注释/描述它们以用于存储系统。
-  - 如何定义使用通用 create 实现创建集合的配置。
-  - 如何使用记录和集合管理 API。
-  - 如何实现自己的集合创建实现 break glass 场景。
-  - 如何实现自己的 mapper。
-  - 如何从当前存储系统升级到新存储系统。
+- Unit tests
+- Integration tests
+- Logging / Telemetry
+- Common Exception Handling
+- Samples, including:
+  - Usage scenario for collection and record management using custom model and configured collection creation.
+  - A simple consumption example like semantic caching, specifics TBD.
+  - Adding your own collection creation implementation.
+  - Adding your own custom model mapper.
+- Documentation, including:
+  - How to create models and annotate/describe them to use with the storage system.
+  - How to define configuration for creating collections using common create implementation.
+  - How to use record and collection management apis.
+  - How to implement your own collection create implementation for break glass scenario.
+  - How to implement your own mapper.
+  - How to upgrade from the current storage system to the new one.

@@ -1,8 +1,8 @@
-## 建议
+## Proposal
 
 ### IChatCompletion
 
-以前：
+Before:
 
 ```csharp
 public interface IChatCompletion : IAIService
@@ -22,7 +22,7 @@ public static class ChatCompletionExtensions
 }
 ```
 
-后：
+After:
 
 ```csharp
 public interface IChatCompletion : IAIService
@@ -46,7 +46,7 @@ public static class ChatCompletionExtensions
 
 ### ITextCompletion
 
-以前：
+Before:
 
 ```csharp
 public interface ITextCompletion : IAIService
@@ -64,7 +64,7 @@ public static class TextCompletionExtensions
 }
 ```
 
-后：
+After:
 
 ```csharp
 public interface ITextCompletion : IAIService
@@ -80,30 +80,30 @@ public static class TextCompletionExtensions
 }
 ```
 
-## 内容抽象
+## Content Abstractions
 
-### 型号比较
+### Model Comparisons
 
-#### 当前的流式抽象
+#### Current Streaming Abstractions
 
-| 流式 （Current）                         | Specialized\* 流媒体 （current）                               |
+| Streaming (Current)                         | Specialized\* Streaming (Current)                               |
 | ------------------------------------------- | --------------------------------------------------------------- |
-| `StreamingChatContent` ： `StreamingContent` | `OpenAIStreamingChatContent`                                    |
-| `StreamingTextContent` ： `StreamingContent` | `OpenAIStreamingTextContent`、 `HuggingFaceStreamingTextContent` |
+| `StreamingChatContent` : `StreamingContent` | `OpenAIStreamingChatContent`                                    |
+| `StreamingTextContent` : `StreamingContent` | `OpenAIStreamingTextContent`, `HuggingFaceStreamingTextContent` |
 
-#### 非流式抽象 （Before 和 After）
+#### Non-Streaming Abstractions (Before and After)
 
-| Non-Streaming （Before） （非流式处理 （之前））        | 非流式处理 （之后）          | Specialized\* 非流式处理 （After）           |
+| Non-Streaming (Before)        | Non-Streaming (After)          | Specialized\* Non-Streaming (After)           |
 | ----------------------------- | ------------------------------ | --------------------------------------------- |
-| `IChatResult` ： `IResultBase` | `ChatContent` ： `ModelContent` | `OpenAIChatContent`                           |
-| `ITextResult` ： `IResultBase` | `TextContent` ： `ModelContent` | `OpenAITextContent`、 `HuggingFaceTextContent` |
-| `ChatMessage`                 | `ChatContent` ： `ModelContent` | `OpenAIChatContent`                           |
+| `IChatResult` : `IResultBase` | `ChatContent` : `ModelContent` | `OpenAIChatContent`                           |
+| `ITextResult` : `IResultBase` | `TextContent` : `ModelContent` | `OpenAITextContent`, `HuggingFaceTextContent` |
+| `ChatMessage`                 | `ChatContent` : `ModelContent` | `OpenAIChatContent`                           |
 
-_\*Specialized：特定于单个 AI 服务的连接器实现。_
+_\*Specialized: Connector implementations that are specific to a single AI Service._
 
-### 新的非流式抽象：
+### New Non-Streaming Abstractions:
 
-`ModelContent` 被选中来表示 `non-streaming content` 最顶层的抽象，该抽象可以是专用的，并包含 AI 服务返回的所有信息。（元数据、原始内容等）
+`ModelContent` was chosen to represent a `non-streaming content` top-most abstraction which can be specialized and contains all the information that the AI Service returned. (Metadata, Raw Content, etc.)
 
 ```csharp
 /// <summary>
@@ -187,14 +187,14 @@ public class TextContent : ModelContent
 }
 ```
 
-### 最终用户体验
+### End-User Experience
 
-- 使用  或  时`Function.InvokeAsync`，最终用户体验不会发生变化 `Kernel.InvokeAsync`
-- 仅在直接使用连接器 API 时进行更改
+- No changes to the end-user experience when using `Function.InvokeAsync` or `Kernel.InvokeAsync`
+- Changes only when using Connector APIs directly
 
-#### 示例 16 - 自定义 LLMS
+#### Example 16 - Custom LLMS
 
-以前
+Before
 
 ```csharp
 await foreach (var message in textCompletion.GetStreamingContentAsync(prompt, executionSettings))
@@ -203,7 +203,7 @@ await foreach (var message in textCompletion.GetStreamingContentAsync(prompt, ex
 }
 ```
 
-后
+After
 
 ```csharp
 await foreach (var message in textCompletion.GetStreamingTextContentAsync(prompt, executionSettings))
@@ -212,16 +212,16 @@ await foreach (var message in textCompletion.GetStreamingTextContentAsync(prompt
 }
 ```
 
-#### 示例 17 - ChatGPT
+#### Example 17 - ChatGPT
 
-以前
+Before
 
 ```csharp
 string reply = await chatGPT.GenerateMessageAsync(chatHistory);
 chatHistory.AddAssistantMessage(reply);
 ```
 
-后
+After
 
 ```csharp
 var reply = await chatGPT.GetChatContentAsync(chatHistory);
@@ -231,6 +231,6 @@ chatHistory.AddMessage(reply);
 chatHistory.AddAssistantMessage(reply.Content);
 ```
 
-### 清理
+### Clean-up
 
-所有旧的接口和类都将被删除，以支持新的接口和类。
+All old interfaces and classes will be removed in favor of the new ones.

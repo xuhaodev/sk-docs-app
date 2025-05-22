@@ -1,58 +1,64 @@
+---
+status: proposed
+contact: rogerbarreto
+date: 2025-03-07
+deciders: rogerbarreto, markwallace, dmytrostruk, westey-m, sergeymenshykh
+---
 
-# Semantic Kernel 中的结构化数据插件实现
+# Structured Data Plugin Implementation in Semantic Kernel
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-现代 AI 应用程序通常需要在利用 LLM 功能的同时与数据库中的结构化数据进行交互。由于 Semantic Kernel 的核心侧重于 AI 编排，因此我们需要一种标准化的方法将数据库作与 AI 功能集成。该 ADR 提出了一个实验性的 StructuredDataConnector 作为数据库-AI 集成的初始解决方案，专注于基本的 CRUD作和简单的查询。
+Modern AI applications often need to interact with structured data in databases while leveraging LLM capabilities. As Semantic Kernel's core focuses on AI orchestration, we need a standardized approach to integrate database operations with AI capabilities. This ADR proposes an experimental StructuredDataConnector as an initial solution for database-AI integration, focusing on basic CRUD operations and simple querying.
 
-## 决策驱动因素
+## Decision Drivers
 
-- 需要与 SK 进行初始数据库集成模式
-- 基本可组合 AI 和数据库作的要求
-- 与 SK 的插件架构保持一致
-- 能够通过实际使用来验证方法
-- 支持强类型架构验证
-- 用于 AI 交互的一致 JSON 格式
+- Need for initial database integration pattern with SK
+- Requirement for basic composable AI and database operations
+- Alignment with SK's plugin architecture
+- Ability to validate the approach through real-world usage
+- Support for strongly-typed schema validation
+- Consistent JSON formatting for AI interactions
 
-## 主要优点
+## Key Benefits
 
-1. **基于插件的架构**
+1. **Plugin-Based Architecture**
 
-   - 与 SK 的插件架构保持一致
-   - 支持常见作的扩展方法
-   - 利用 KernelJsonSchema 实现类型安全
+   - Aligns with SK's plugin architecture
+   - Supports extension methods for common operations
+   - Leverages KernelJsonSchema for type safety
 
-2. **结构化数据作**
+2. **Structured Data Operations**
 
-   - 使用架构验证的 CRUD作
-   - 基于 JSON 的交互，格式正确
-   - 类型安全的数据库作
+   - CRUD operations with schema validation
+   - JSON-based interactions with proper formatting
+   - Type-safe database operations
 
-3. **集成功能**
+3. **Integration Features**
 
-   - 内置 JSON 架构生成
-   - 自动类型转换
-   - 打印精美的 JSON，实现更好的 AI 交互
+   - Built-in JSON schema generation
+   - Automatic type conversion
+   - Pretty-printed JSON for better AI interactions
 
-## 实现细节
+## Implementation Details
 
-实现包括：
+The implementation includes:
 
-1. 核心组件：
+1. Core Components:
 
-   - `StructuredDataService<TContext>`：用于数据库作的基本服务
-   - `StructuredDataServiceExtensions`：CRUD作的扩展方法
-   - `StructuredDataPluginFactory`：用于创建 SK 插件的工厂
-   - 集成 `KernelJsonSchema` for 类型验证
+   - `StructuredDataService<TContext>`: Base service for database operations
+   - `StructuredDataServiceExtensions`: Extension methods for CRUD operations
+   - `StructuredDataPluginFactory`: Factory for creating SK plugins
+   - Integration with `KernelJsonSchema` for type validation
 
-2. 主要特点：
+2. Key Features:
 
-   - 从实体类型自动生成架构
-   - 格式正确的 JSON 响应
-   - 基于扩展的架构，可实现可维护性
-   - 对 Entity Framework Core 的支持
+   - Automatic schema generation from entity types
+   - Properly formatted JSON responses
+   - Extension-based architecture for maintainability
+   - Support for Entity Framework Core
 
-3. 使用示例：
+3. Usage Example:
 
 ```csharp
 var service = new StructuredDataService<ApplicationDbContext>(dbContext);
@@ -61,16 +67,16 @@ var plugin = StructuredDataPluginFactory.CreateStructuredDataPlugin<ApplicationD
     operations: StructuredDataOperation.Default);
 ```
 
-## 决策结果
+## Decision Outcome
 
-选项： 待定：
+Chosen option: TBD:
 
-1. 提供标准化的数据库集成
-2. 利用 SK 的 schema 验证功能
-3. 支持为 AI 交互提供正确的 JSON 格式
-4. 通过生成的架构维护类型安全
-5. 遵循既定的 SK 模式和原则
+1. Provides standardized database integration
+2. Leverages SK's schema validation capabilities
+3. Supports proper JSON formatting for AI interactions
+4. Maintains type safety through generated schemas
+5. Follows established SK patterns and principles
 
-## 更多信息
+## More Information
 
-这是一种实验性方法，将根据社区反馈进行改进。
+This is an experimental approach that will evolve based on community feedback.

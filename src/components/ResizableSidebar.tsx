@@ -14,12 +14,12 @@ export default function ResizableSidebar({ docs }: ResizableSidebarProps) {
       <div className="flex-1 p-6 overflow-y-auto min-w-[200px]">
         <h2 className="text-xl font-semibold mb-6 text-[var(--foreground)]">Documentation</h2>
         <nav>
-          <ul className="space-y-1">
+          <ul className="space-y-0.5">
             {docs.map(({ id, title }) => (
               <li key={id}>
                 <Link
                   href={`/${id}`}
-                  className="block px-3 py-2 rounded-md text-[var(--foreground)]/80 
+                  className="block px-3 py-1.5 rounded-md text-[var(--foreground)]/80 
                            hover:bg-[var(--hover-bg)] hover:text-[var(--link-color)]
                            transition-all duration-150 ease-in-out"
                 >

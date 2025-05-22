@@ -1,35 +1,44 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: { accepted }
+contact: { rogerbarreto, taochen }
+date: { 2024-06-20 }
+deciders: { alliscode, moonbox3, eavanvalkenburg }
+consulted: {}
+informed: {}
+---
 
-# SK 中对 Azure 模型即服务的支持
+# Support for Azure Model-as-a-Service in SK
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-客户要求在 SK 中实施模型即服务 （MaaS），MaaS（也称为[无服务器 API](https://learn.microsoft.com/en-us/azure/ai-studio/how-to/model-catalog-overview#model-deployment-managed-compute-and-serverless-api-pay-as-you-go)）在 [Azure AI Studio](https://learn.microsoft.com/en-us/azure/ai-studio/what-is-ai-studio) 中提供。这种消费模式采用即用即付模式，通常使用 Token 进行计费。客户端可以通过 [Azure AI Model Inference API](https://learn.microsoft.com/en-us/azure/ai-studio/reference/reference-model-inference-api?tabs=azure-studio) 或客户端 SDK 访问该服务。
+There has been a demand from customers for the implementation of Model-as-a-Service (MaaS) in SK. MaaS, which is also referred to as [serverless API](https://learn.microsoft.com/en-us/azure/ai-studio/how-to/model-catalog-overview#model-deployment-managed-compute-and-serverless-api-pay-as-you-go), is available in [Azure AI Studio](https://learn.microsoft.com/en-us/azure/ai-studio/what-is-ai-studio). This mode of consumption operates on a pay-as-you-go basis, typically using tokens for billing purposes. Clients can access the service via the [Azure AI Model Inference API](https://learn.microsoft.com/en-us/azure/ai-studio/reference/reference-model-inference-api?tabs=azure-studio) or client SDKs.
 
-目前，SK 中没有官方对 MaaS 的支持。此 ADR 的目的是检查服务的约束并探索潜在的解决方案，以便通过开发新的 AI 连接器来支持 SK 中的服务。
+At present, there is no official support for MaaS in SK. The purpose of this ADR is to examine the constraints of the service and explore potential solutions to enable support for the service in SK via the development of a new AI connector.
 
-## 客户端 SDK
+## Client SDK
 
-Azure 团队将提供一个新的客户端库，即 `Azure.AI.Inference` .Net 和 Python 库 `azure-ai-inference` ，用于与服务进行有效交互。虽然服务 API 与 OpenAI 兼容，但不允许使用 OpenAI 和 Azure OpenAI 客户端库与服务交互，因为它们在模型及其提供程序方面并不独立。这是因为 Azure AI Studio 具有除 OpenAI 模型之外的各种开源模型。
+The Azure team will be providing a new client library, namely `Azure.AI.Inference` in .Net and `azure-ai-inference` in Python, for effectively interacting with the service. While the service API is OpenAI-compatible, it is not permissible to use the OpenAI and the Azure OpenAI client libraries for interacting with the service as they are not independent with respect to both the models and their providers. This is because Azure AI Studio features a diverse range of open-source models, other than OpenAI models.
 
-### 局限性
+### Limitations
 
-客户端 SDK 的初始版本将仅支持聊天完成和文本/图像嵌入生成，稍后将添加图像生成。
+The initial release of the client SDK will only support chat completion and text/image embedding generation, with image generation to be added later.
 
-目前尚不清楚支持文本完成的计划，并且 SDK 不太可能包含对文本完成的支持。因此，新的 AI 连接器在初始版本中**将不支持**文本补全，直到我们获得更多客户信号或客户端 SDK 添加支持。
+Plans to support for text completion are currently unclear, and it is highly unlikely that the SDK will ever include support for text completion. As a result, the new AI connector will **NOT** support text completions in the initial version until we get more customer signals or the client SDK adds support.
 
-## AI 连接器
+## AI Connector
 
-### 命名选项
+### Naming options
 
-- 天蓝色
+- Azure
 - AzureAI
 - AzureAIInference
 - AzureAIModelInference
 
-  决定： `AzureAIInference`
+  Decision: `AzureAIInference`
 
-### 支持特定于模型的参数
+### Support for model-specific parameters
 
-模型可以拥有不属于默认 API 的补充参数。服务 API 和客户端 SDK 支持提供特定于模型的参数。用户可以通过专用参数以及其他设置（如 `temperature` 和 `top_p`等）提供特定于模型的设置。
+Models can possess supplementary parameters that are not part of the default API. The service API and the client SDK enable the provision of model-specific parameters. Users can provide model-specific settings via a dedicated argument along with other settings, such as `temperature` and `top_p`, among others.
 
-在 SK 的上下文中，执行参数被归类到 `PromptExecutionSettings`，它由所有特定于连接器的设置类继承。新连接器的设置将包含一个 类型的 成员 `dictionary`，该成员将特定于模型的参数组合在一起。
+In the context of SK, execution parameters are categorized under `PromptExecutionSettings`, which is inherited by all connector-specific setting classes. The settings of the new connector will contain a member of type `dictionary`, which will group together the model-specific parameters.

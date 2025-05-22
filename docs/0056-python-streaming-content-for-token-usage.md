@@ -1,13 +1,22 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: { accepted }
+contact: { Tao Chen }
+date: { 2024-09-18 }
+deciders: { Tao Chen }
+consulted: { Eduard van Valkenburg, Evan Mattson }
+informed: { Eduard van Valkenburg, Evan Mattson, Ben Thomas }
+---
 
-# 令牌使用信息的流式处理内容 （Semantic Kernel Python）
+# Streaming Contents for Token Usage Information (Semantic Kernel Python)
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-目前，  Semantic Kernel 中的 `StreamingChatMessageContent` （inherits from `StreamingContentMixin`） 需要指定 choice 索引。这会产生限制，因为来自 **OpenAI 的流式聊天完成** API 的令牌使用信息将在最后一个块中返回，其中 choices 字段为空，这会导致该块的选择索引未知。有关更多信息，请参阅 [OpenAI API 文档](https://platform.openai.com/docs/api-reference/chat/create)并查找该 `stream_options` 字段。
+Currently, `StreamingChatMessageContent` (inherits from `StreamingContentMixin`) in Semantic Kernel requires a choice index to be specified. This creates a limitation since the token usage information from **OpenAI's streaming chat completion** API will be returned in the last chunk where the choices field will be empty, which leads to an unknown choice index for the chunk. For more information, please refer to the [OpenAI API documentation](https://platform.openai.com/docs/api-reference/chat/create) and look for the `stream_options` field.
 
-> 最后一个区块中返回的令牌使用信息是 **** 聊天完成请求的总令牌使用量，与指定的选项数量无关。话虽如此，即使请求了多个选项，流式响应中也只有一个包含令牌使用信息的块。
+> The token usage information returned in the last chunk is the **total** token usage for the chat completion request regardless of the number of choices specified. That being said, there will be only one chunk containing the token usage information in the streaming response even when multiple choices are requested.
 
-我们目前的数据结构 `StreamingChatMessageContent`：
+Our current data structure for `StreamingChatMessageContent`:
 
 ```Python
 # semantic_kernel/content/streaming_chat_message_content.py
@@ -34,19 +43,19 @@ class KernelContent(KernelBaseModel, ABC):
     metadata: dict[str, Any] = Field(default_factory=dict)
 ```
 
-## 提案 1
+## Proposal 1
 
-在非流式处理响应中，令牌使用情况作为模型响应的一部分以及可以有多个选项返回。然后，我们将选择解析为单独的 `ChatMessageContent`s，每个 s 都包含令牌使用信息，即使令牌使用是针对整个响应的，而不仅仅是单个选择。
+In non-streaming responses, the token usage is returned as part of the response from the model along with the choices that can be more than one. We then parse the choices into individual `ChatMessageContent`s, with each containing the token usage information, even though the token usage is for the entire response, not just the individual choice.
 
-考虑到相同的策略，当流响应中的所有选项最终由其  .`choice_index`由于我们知道请求的选择数量，因此我们可以执行以下步骤：
+Considering the same strategy, all choices from the streaming response should contain the token usage information when they are eventually concatenated by their `choice_index`. Since we know the number of choices requested, we can perform the following steps:
 
-1. 复制请求的每个选项的最后一个块，以创建 s 列表 `StreamingChatMessageContent`，其中令牌使用信息包含在元数据中。
-2. 为每个复制的块分配一个 choice 索引，从 0 开始。
-3. 将列表中的复制块流式传输回客户端。
+1. Replicate the last chunk for each choice requested to create a list of `StreamingChatMessageContent`s, with the token usage information included in the metadata.
+2. Assign a choice index to each replicated chunk, starting from 0.
+3. Stream the replicated chunks in a list back to the client.
 
-### 其他注意事项
+### Additional considerations
 
-目前，当两个 `StreamingChatMessageContent`s“添加”在一起时，元数据不会合并。我们需要确保在连接块时合并元数据。当存在冲突的元数据键时，第二个 chunk 中的元数据应覆盖第一个 chunk 中的元数据：
+Currently, when two `StreamingChatMessageContent`s are "added" together, the metadata is not merged. We need to ensure that the metadata is merged when the chunks are concatenated. When there are conflicting metadata keys, the metadata from the second chunk should overwrite the metadata from the first chunk:
 
 ```Python
 class StreamingChatMessageContent(ChatMessageContent, StreamingContentMixin):
@@ -64,13 +73,13 @@ class StreamingChatMessageContent(ChatMessageContent, StreamingContentMixin):
     ...
 ```
 
-### 风险
+### Risks
 
-没有与此提案相关的重大更改和已知风险。
+There are no breaking changes and known risks associated with this proposal.
 
-## 提案 2
+## Proposal 2
 
-我们允许 choice 索引在 class 中是可选的 `StreamingContentMixin` 。这将允许选择索引在 `None` 最后一个块中返回令牌使用信息时。选择索引将设置 `None` 在最后一个 chunk 中，客户端可以相应地处理 token 使用信息。
+We allow the choice index to be optional in the `StreamingContentMixin` class. This will allow the choice index to be `None` when the token usage information is returned in the last chunk. The choice index will be set to `None` in the last chunk, and the client can handle the token usage information accordingly.
 
 ```Python
 # semantic_kernel/content/streaming_content_mixin.py
@@ -78,17 +87,17 @@ class StreamingContentMixin(KernelBaseModel, ABC):
     choice_index: int | None
 ```
 
-与提案 1 相比，这是一个更简单的解决方案，并且更符合 OpenAI API 返回的内容，即令牌使用与任何特定选择无关。
+This is a simpler solution compared to Proposal 1, and it is more in line with what the OpenAI API returns, that is the token usage is not associated with any specific choice.
 
-### 风险
+### Risks
 
-这可能是一个重大更改，因为该 `choice_index` 字段当前是必需的。此方法还使流内容串联更加复杂，因为当 choice index 时需要以不同的方式处理它`None`。
+This is potentially a breaking change since the `choice_index` field is currently required. This approach also makes streaming content concatenation more complex since the choice index will need to be handled differently when it is `None`.
 
-## 提案 3
+## Proposal 3
 
-我们将 和 合并 `ChatMessageContent` `StreamingChatMessageContent` 为单个类 `ChatMessageContent`，并将 标记为 `StreamingChatMessageContent` 已弃用。该 `StreamingChatMessageContent` 类将在将来的发行版中删除。然后，我们将 [Proposal 1](#proposal-1) 或 [Proposal 2](#proposal-2) 应用于 `ChatMessageContent` 该类，以处理令牌使用信息。
+We will merge `ChatMessageContent` and `StreamingChatMessageContent` into a single class, `ChatMessageContent`, and mark `StreamingChatMessageContent` as deprecated. The `StreamingChatMessageContent` class will be removed in a future release. Then we apply the either [Proposal 1](#proposal-1) or [Proposal 2](#proposal-2) to the `ChatMessageContent` class to handle the token usage information.
 
-这种方法通过消除对用于流式处理聊天消息的单独类的需求来简化代码库。该 `ChatMessageContent` 类将能够处理流式和非流式聊天消息。
+This approach simplifies the codebase by removing the need for a separate class for streaming chat messages. The `ChatMessageContent` class will be able to handle both streaming and non-streaming chat messages.
 
 ```Python
 # semantic_kernel/content/streaming_chat_message_content.py
@@ -117,15 +126,15 @@ class ChatMessageContent(KernelContent):
         ...
 ```
 
-### 风险
+### Risks
 
-我们正在统一流式和非流式聊天消息的返回数据结构，这可能会导致开发人员最初感到困惑，特别是如果他们不知道该类已弃用 `StreamingChatMessageContent` ，或者他们来自 SK .Net。如果开发人员从 Python 开始，但后来转向 .Net 进行生产，它也可能会产生更清晰的学习曲线。这种方法还引入了对 AI 连接器的重大更改，因为返回的数据类型会有所不同。
+We are unifying the returned data structure for streaming and non-streaming chat messages, which may lead to confusion for developers initially, especially if they are not aware of the deprecation of the `StreamingChatMessageContent` class, or they came from SK .Net. It may also create a sharper learning curve if developers started with Python but later move to .Net for production. This approach also introduces breaking changes to our AI connectors as the returned data type will be different.
 
-> 我们还需要 `StreamingTextContent` 以类似的方式更新此提案的`TextContent` and。
+> We will also need to update the `StreamingTextContent` and `TextContent` in a similar way too for this proposal.
 
-## 提案 4
+## Proposal 4
 
-与[提案 3 类似](#proposal-3)，我们将 和 合并 `ChatMessageContent` `StreamingChatMessageContent` 为单个类 `ChatMessageContent`，并将 标记为 `StreamingChatMessageContent` 已弃用。此外，我们还将引入另一个名为 的新 mixin `ChatMessageContentConcatenationMixin` ，用于处理两个实例的串联 `ChatMessageContent` 。然后，我们将 [Proposal 1](#proposal-1) 或 [Proposal 2](#proposal-2) 应用于 `ChatMessageContent` 该类，以处理令牌使用信息。
+Similar to [Proposal 3](#proposal-3), we will merge `ChatMessageContent` and `StreamingChatMessageContent` into a single class, `ChatMessageContent`, and mark `StreamingChatMessageContent` as deprecated. In addition, we will introduce another a new mixin called `ChatMessageContentConcatenationMixin` to handle the concatenation of two `ChatMessageContent` instances. Then we apply the either [Proposal 1](#proposal-1) or [Proposal 2](#proposal-2) to the `ChatMessageContent` class to handle the token usage information.
 
 ```Python
 # semantic_kernel/content/streaming_chat_message_content.py
@@ -148,14 +157,14 @@ class ChatMessageContentConcatenationMixin(KernelBaseModel, ABC):
         ...
 ```
 
-这种方法将 `ChatMessageContent` 类和串联逻辑的关注点分为两个单独的类。这有助于保持代码库的整洁和可维护性。
+This approach separates the concerns of the `ChatMessageContent` class and the concatenation logic into two separate classes. This can help to keep the codebase clean and maintainable.
 
-### 风险
+### Risks
 
-与[提案 3 相同](#proposal-3)。
+Same as [Proposal 3](#proposal-3).
 
-## 决策结果
+## Decision Outcome
 
-为了最大限度地减少对客户和现有代码库的影响，我们将使用 [提案 1](#proposal-1) 来处理 OpenAI 流式响应中的代币使用信息。此提案向后兼容，并与当前非流式响应的数据结构保持一致。我们还将确保在连接两个实例时正确合并元数据 `StreamingChatMessageContent` 。此方法还确保令牌使用信息将与流响应中的所有选项相关联。
+To minimize the impact on customers and the existing codebase, we will go with [Proposal 1](#proposal-1) to handle the token usage information in the OpenAI streaming responses. This proposal is backward compatible and aligns with the current data structure for non-streaming responses. We will also ensure that the metadata is merged correctly when two `StreamingChatMessageContent` instances are concatenated. This approach also makes sure the token usage information will be associated to all choices in the streaming response.
 
-[提案 3](#proposal-3) 和 [提案 4](#proposal-4) 仍然有效，但在这个阶段可能还为时过早，因为大多数服务仍然为流式和非流式响应返回不同类型的对象。我们将在未来的重构工作中牢记它们。
+[Proposal 3](#proposal-3) and [Proposal 4](#proposal-4) are still valid but perhaps premature at this stage as most services still return objects of different types for streaming and non-streaming responses. We will keep them in mind for future refactoring efforts.

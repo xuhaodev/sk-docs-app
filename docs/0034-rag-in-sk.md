@@ -1,29 +1,36 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+contact: dmytrostruk
+date: 2023-01-29
+deciders: sergeymenshykh, markwallace, rbarreto, dmytrostruk
+---
 
-# 语义内核中的检索增强生成 （RAG）
+# Retrieval-Augmented Generation (RAG) in Semantic Kernel
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-### 一般信息
+### General information
 
-在 Semantic Kernel （SK） 中使用 RAG 模式有几种方法。SK 中已经存在一些方法，将来可能会添加其中一些方法以获得不同的开发体验。
+There are several ways how to use RAG pattern in Semantic Kernel (SK). Some of the approaches already exist in SK, and some of them could be added in the future for diverse development experience.
 
-本 ADR 的目的是描述 SK 中具有内存相关功能的问题位置，演示如何在当前版本的 SK 中实现 RAG，并为 RAG 提出公共 API 的新设计。
+The purpose of this ADR is to describe problematic places with memory-related functionality in SK, demonstrate how to achieve RAG in current version of SK and propose new design of public API for RAG.
 
-本 ADR 中提供的考虑选项不会相互矛盾，并且可以同时得到支持。支持哪个选项的决定将基于不同的因素，包括优先级、特定功能的实际要求和一般反馈。
+Considered options, that are presented in this ADR, do not contradict each other and can be supported all at the same time. The decision which option to support will be based on different factors including priority, actual requirement for specific functionality and general feedback.
 
-### Vector DB 集成 - 连接器
+### Vector DB integrations - Connectors
 
-目前实现了 12 [ 个 vector DB 连接器](https://github.com/microsoft/semantic-kernel/tree/main/dotnet/src/Connectors)（也称为 `memory connectors`），开发人员可能不清楚如何使用它们。可以直接调用连接器方法，也可以通过 `TextMemoryPlugin` [Plugins.Memory](https://www.nuget.org/packages/Microsoft.SemanticKernel.Plugins.Memory) NuGet 包（提示示例：`{{recall 'company budget by year'}} What is my budget for 2024?`）使用它
+There are 12 [vector DB connectors](https://github.com/microsoft/semantic-kernel/tree/main/dotnet/src/Connectors) (also known as `memory connectors`) implemented at the moment, and it may be unclear for developers how to use them. It's possible to call connector methods directly or use it via `TextMemoryPlugin` from [Plugins.Memory](https://www.nuget.org/packages/Microsoft.SemanticKernel.Plugins.Memory) NuGet package (prompt example: `{{recall 'company budget by year'}} What is my budget for 2024?`)
 
-每个连接器都有独特的实现，其中一些连接器依赖于来自特定矢量数据库提供商的现有 .NET SDK，而另一些连接器则实现了使用矢量数据库提供商的 REST API 的功能。
+Each connector has unique implementation, some of them rely on already existing .NET SDK from specific vector DB provider, and some of them have implemented functionality to use REST API of vector DB provider.
 
-理想情况下，每个连接器都应该始终是最新的并支持新功能。对于某些连接器，维护成本很低，因为新功能中没有包含重大更改，或者 vector DB 提供相对容易重用的 .NET SDK。对于其他连接器，维护成本较高，由于其中一些连接器仍处于 `alpha` 开发 `beta` 阶段，可能会包含重大更改或未提供 .NET SDK，这使得更新更加困难。
+Ideally, each connector should be always up-to-date and support new functionality. For some connectors maintenance cost is low, since there are no breaking changes included in new features or vector DB provides .NET SDK which is relatively easy to re-use. For other connectors maintenance cost is high, since some of them are still in `alpha` or `beta` development stage, breaking changes can be included or .NET SDK is not provided, which makes it harder to update.
 
-### IMemoryStore 接口
+### IMemoryStore interface
 
-每个内存连接器都使用 `IMemoryStore`等 `CreateCollectionAsync` 方法实现接口 `GetNearestMatchesAsync` ，因此它可以用作 `TextMemoryPlugin`的一部分。
+Each memory connector implements `IMemoryStore` interface with methods like `CreateCollectionAsync`, `GetNearestMatchesAsync` etc., so it can be used as part of `TextMemoryPlugin`.
 
-通过实现相同的接口，每个集成都是一致的，这使得在运行时使用不同的矢量数据库成为可能。同时，这也是缺点，因为每个向量数据库的工作方式可能不同，并且更难将所有集成适应已经存在的抽象。例如， `CreateCollectionAsync` `IMemoryStore` 当应用程序尝试将新记录添加到向量 DB 到集合时，会使用方法 from，而该集合不存在，因此在 insert作之前，它会创建新的集合。对于 [Pinecone](https://www.pinecone.io/) 矢量 DB，不支持此方案，因为 Pinecone 索引创建是一个异步过程 - API 服务将返回 201 Created HTTP 响应，并在响应正文中使用以下属性（索引尚未准备好使用）：
+By implementing the same interface, each integration is aligned, which makes it possible to use different vector DBs at runtime. At the same time it is disadvantage, because each vector DB can work differently, and it becomes harder to fit all integrations into already existing abstraction. For example, method `CreateCollectionAsync` from `IMemoryStore` is used when application tries to add new record to vector DB to the collection, which doesn't exist, so before insert operation, it creates new collection. In case of [Pinecone](https://www.pinecone.io/) vector DB, this scenario is not supported, because Pinecone index creation is an asynchronous process - API service will return 201 Created HTTP response with following property in response body (index is not ready for usage):
 
 ```json
 {
@@ -35,70 +42,70 @@
 }
 ```
 
-在这种情况下，不可能立即将记录插入数据库，因此应实施 HTTP 轮询或类似机制来涵盖此方案。
+In this case, it's impossible to insert a record to database immediately, so HTTP polling or similar mechanism should be implemented to cover this scenario.
 
-### MemoryRecord 作为存储架构
+### MemoryRecord as storage schema
 
-`IMemoryStore` interface 使用 `MemoryRecord` 类作为矢量 DB 中的存储架构。这意味着 `MemoryRecord` 属性应与所有可能的连接器对齐。一旦开发人员在其数据库中使用此架构，对架构的任何更改都可能会中断应用程序，这不是一种灵活的方法。
+`IMemoryStore` interface uses `MemoryRecord` class as storage schema in vector DB. This means that `MemoryRecord` properties should be aligned to all possible connectors. As soon as developers will use this schema in their databases, any changes to schema may break the application, which is not a flexible approach.
 
-`MemoryRecord` contains 属性 `ReadOnlyMemory<float> Embedding` 。 `MemoryRecordMetadata Metadata` `MemoryRecordMetadata` 包含如下属性：
+`MemoryRecord` contains property `ReadOnlyMemory<float> Embedding` for embeddings and `MemoryRecordMetadata Metadata` for embeddings metadata. `MemoryRecordMetadata` contains properties like:
 
-- `string Id` - 唯一标识符。
-- `string Text` - 与数据相关的文本。
-- `string Description` - 描述内容的可选标题。
-- `string AdditionalMetadata` - 字段，用于将自定义元数据与记录一起保存。
+- `string Id` - unique identifier.
+- `string Text` - data-related text.
+- `string Description` - optional title describing the content.
+- `string AdditionalMetadata` - field for saving custom metadata with a record.
 
-由于 `MemoryRecord` 和 `MemoryRecordMetadata` 不是密封类，因此应该可以根据需要扩展它们并添加更多属性。尽管如此，当前方法仍然迫使开发人员在其矢量数据库中拥有特定的基本架构，理想情况下应该避免这种情况。开发人员应该能够使用他们选择的任何架构，这些架构将涵盖他们的业务场景（类似于实体框架中的 Code First 方法）。
+Since `MemoryRecord` and `MemoryRecordMetadata` are not sealed classes, it should be possible to extend them and add more properties as needed. Although, current approach still forces developers to have specific base schema in their vector DBs, which ideally should be avoided. Developers should have the ability to work with any schema of their choice, which will cover their business scenarios (similarly to Code First approach in Entity Framework).
 
-### TextMemory插件
+### TextMemoryPlugin
 
-TextMemoryPlugin 包含 4 个 Kernel 函数：
+TextMemoryPlugin contains 4 Kernel functions:
 
-- `Retrieve` - 按键返回 DB 中的具体记录。
-- `Recall` - 执行向量搜索并根据相关性返回多条记录。
-- `Save` - 将记录保存在 Vector DB 中。
-- `Remove` - 从矢量 DB 中删除记录。
+- `Retrieve` - returns concrete record from DB by key.
+- `Recall` - performs vector search and returns multiple records based on relevance.
+- `Save` - saves record in vector DB.
+- `Remove` - removes record from vector DB.
 
-所有函数都可以直接从 prompt 调用。此外，一旦这些函数在 Kernel 中注册并启用了函数调用，LLM 就可以决定调用特定函数来实现提供的目标。
+All functions can be called directly from prompt. Moreover, as soon as these functions are registered in Kernel and Function Calling is enabled, LLM may decide to call specific function to achieve provided goal.
 
-`Retrieve` 和 `Recall` functions 可用于为 LLM 提供一些上下文并根据数据提出问题，但 functions `Save` 并 `Remove` 对向量 DB 中的数据执行一些作，这可能是不可预测的，有时甚至是危险的（LLM 决定删除一些记录时，不应该出现任何情况，这些记录不应该被删除）。
+`Retrieve` and `Recall` functions are useful to provide some context to LLM and ask a question based on data, but functions `Save` and `Remove` perform some manipulations with data in vector DB, which could be unpredicted or sometimes even dangerous (there should be no situations when LLM decides to remove some records, which shouldn't be deleted).
 
-## 决策驱动因素
+## Decision Drivers
 
-1. 对 Semantic Kernel 中数据的所有作都应该是安全的。
-2. 应该有一个明确的方法如何在 Semantic Kernel 中使用 RAG 模式。
-3. 抽象不应阻止开发人员使用他们选择的矢量数据库，其功能无法通过提供的接口或数据类型实现。
+1. All manipulations with data in Semantic Kernel should be safe.
+2. There should be a clear way(s) how to use RAG pattern in Semantic Kernel.
+3. Abstractions should not block developers from using vector DB of their choice with functionality, that cannot be achieved with provided interfaces or data types.
 
-## 超出范围
+## Out of scope
 
-一些与 RAG 相关的框架包含支持 RAG 模式完整周期的功能：
+Some of the RAG-related frameworks contain functionality to support full cycle of RAG pattern:
 
-1. **** 从特定资源（例如 Wikipedia、OneDrive、本地 PDF 文件）读取数据。
-2. **** 使用特定逻辑将数据拆分为多个块。
-3. **** 从数据生成嵌入。
-4. **将** 数据存储到首选向量 DB。
-5. **** 根据用户查询在首选向量数据库中搜索数据。
-6. **** 根据提供的数据向 LLM 提问。
+1. **Read** data from specific resource (e.g. Wikipedia, OneDrive, local PDF file).
+2. **Split** data in multiple chunks using specific logic.
+3. **Generate** embeddings from data.
+4. **Store** data to preferred vector DB.
+5. **Search** data in preferred vector DB based on user query.
+6. **Ask** LLM a question based on provided data.
 
-目前，Semantic Kernel 有以下实验性功能：
+As for now, Semantic Kernel has following experimental features:
 
-- `TextChunker` 类将数据 **拆分** 为块。
-- `ITextEmbeddingGenerationService` 抽象和实现来 **使用** OpenAI 和 HuggingFace 模型生成嵌入。
-- 用于存储和****搜索**数据的**内存连接器。
+- `TextChunker` class to **split** data in chunks.
+- `ITextEmbeddingGenerationService` abstraction and implementations to **generate** embeddings using OpenAI and HuggingFace models.
+- Memory connectors to **store** and **search** data.
 
-由于这些功能是实验性的，如果 RAG 模式的决策不需要在 Semantic Kernel 中提供和维护列出的抽象、类和连接器，那么它们将来可能会被弃用。
+Since these features are experimental, they may be deprecated in the future if the decisions for RAG pattern won't require to provide and maintain listed abstractions, classes and connectors in Semantic Kernel.
 
-目前，数据**读取**工具不在范围之内。
+Tools for data **reading** is out of scope as for now.
 
-## 考虑的选项
+## Considered Options
 
-### 选项 1 [支持] - 提示串联
+### Option 1 [Supported] - Prompt concatenation
 
-此选项允许使用数据手动构建提示，以便 LLM 可以根据提供的上下文响应查询。可以通过使用手动字符串连接或使用提示模板和 Kernel 参数来实现。开发人员负责与他们选择的矢量数据库集成、数据搜索和提示构建以将其发送到 LLM。
+This option allows to manually construct a prompt with data, so LLM can respond to query based on provided context. It can be achieved by using manual string concatenation or by using prompt template and Kernel arguments. Developers are responsible for integration with vector DB of their choice, data search and prompt construction to send it to LLM.
 
-这种方法在 Semantic Kernel 中不包含任何开箱即用的内存连接器，但同时它为开发人员提供了以最适合他们的方式处理数据的机会。
+This approach doesn't include any memory connectors in Semantic Kernel out-of-the-box, but at the same time it gives an opportunity for developers to handle their data in the way that works for them the best.
 
-字符串连接：
+String concatenation:
 
 ```csharp
 var kernel = Kernel.CreateBuilder()
@@ -116,7 +123,7 @@ builder.AppendLine("What is my budget for 2024?");
 var result = await kernel.InvokePromptAsync(builder.ToString());
 ```
 
-提示模板和 Kernel 参数：
+Prompt template and Kernel arguments:
 
 ```csharp
 var kernel = Kernel.CreateBuilder()
@@ -131,15 +138,15 @@ var arguments = new KernelArguments { ["budgetByYear"] = data };
 var result = await kernel.InvokePromptAsync("{{budgetByYear}} What is my budget for 2024?", arguments);
 ```
 
-### 选项 2 [支持] - 内存作为插件
+### Option 2 [Supported] - Memory as Plugin
 
-此方法类似于选项 1，但数据搜索步骤是提示呈现过程的一部分。以下列表包含可用于数据搜索的插件：
+This approach is similar to Option 1, but data search step is part of prompt rendering process. Following list contains possible plugins to use for data search:
 
-- [ChatGPT Retrieval Plugin](https://github.com/openai/chatgpt-retrieval-plugin) - 此插件应作为单独的服务托管。它与各种[矢量数据库集成](https://github.com/openai/chatgpt-retrieval-plugin?tab=readme-ov-file#choosing-a-vector-database)。
-- [SemanticKernel.Plugins.Memory.TextMemoryPlugin](https://www.nuget.org/packages/Microsoft.SemanticKernel.Plugins.Memory) - 语义内核解决方案，支持各种向量数据库。
-- 自定义用户插件。
+- [ChatGPT Retrieval Plugin](https://github.com/openai/chatgpt-retrieval-plugin) - this plugin should be hosted as a separate service. It has integration with various [vector databases](https://github.com/openai/chatgpt-retrieval-plugin?tab=readme-ov-file#choosing-a-vector-database).
+- [SemanticKernel.Plugins.Memory.TextMemoryPlugin](https://www.nuget.org/packages/Microsoft.SemanticKernel.Plugins.Memory) - Semantic Kernel solution, which supports various vector databases.
+- Custom user plugin.
 
-ChatGPT 检索插件：
+ChatGPT Retrieval Plugin:
 
 ```csharp
 var kernel = Kernel.CreateBuilder()
@@ -165,7 +172,7 @@ var arguments = new KernelArguments
 var result = await kernel.InvokePromptAsync(Prompt, arguments);
 ```
 
-TextMemory插件：
+TextMemoryPlugin:
 
 ```csharp
 var kernel = Kernel.CreateBuilder()
@@ -185,7 +192,7 @@ kernel.ImportPluginFromObject(new TextMemoryPlugin(memory));
 var result = await kernel.InvokePromptAsync("{{recall 'Company budget by year'}} What is my budget for 2024?");
 ```
 
-自定义用户插件：
+Custom user plugin:
 
 ```csharp
 public class MyDataPlugin
@@ -209,13 +216,13 @@ kernel.ImportPluginFromType<MyDataPlugin>();
 var result = await kernel.InvokePromptAsync("{{search 'Company budget by year'}} What is my budget for 2024?");
 ```
 
-自定义用户插件之所以比 IS 更灵活 `TextMemoryPlugin` ，是因为 `TextMemoryPlugin` 需要所有矢量 DB 实现 `IMemoryStore` 上述缺点的接口，而自定义用户插件可以通过开发人员选择的方式实现。对 DB 记录架构或实现特定接口的要求不会有任何限制。
+The reason why custom user plugin is more flexible than `TextMemoryPlugin` is because `TextMemoryPlugin` requires all vector DBs to implement `IMemoryStore` interface with disadvantages described above, while custom user plugin can be implemented in a way of developer's choice. There won't be any restrictions on DB record schema or requirement to implement specific interface.
 
-### 选项 3 [部分支持] - 使用提示筛选器进行提示串联
+### Option 3 [Partially supported] - Prompt concatenation using Prompt Filter
 
-此选项类似于选项 1，但提示串联将在 Prompt Filter 级别进行：
+This option is similar to Option 1, but prompt concatenation will happen on Prompt Filter level:
 
-提示过滤器：
+Prompt filter:
 
 ```csharp
 public sealed class MyPromptFilter : IPromptFilter
@@ -239,7 +246,7 @@ public sealed class MyPromptFilter : IPromptFilter
 }
 ```
 
-用法：
+Usage:
 
 ```csharp
 var kernel = Kernel.CreateBuilder()
@@ -251,15 +258,15 @@ kernel.PromptFilters.Add(new MyPromptFilter());
 var result = await kernel.InvokePromptAsync("What is my budget for 2024?");
 ```
 
-从使用角度来看，prompt 将仅包含用户查询，不包含其他数据。数据将在后台添加到提示中。
+From the usage perspective, prompt will contain just user query without additional data. The data will be added to the prompt behind the scenes.
 
-部分支持**此方法的原因是 ** ，对矢量 DB 的调用很可能是异步的，但当前的内核筛选器不支持异步方案。因此，为了支持异步调用，应该向 Kernel： 和 . `IAsyncFunctionFilter` `IAsyncPromptFilter`它们将与 current 相同 `IFunctionFilter` ， `IPromptFilter` 但使用 async 方法。
+The reason why this approach is **partially supported** is because a call to vector DB most probably will be an asynchronous, but current Kernel filters don't support asynchronous scenarios. So, in order to support asynchronous calls, new type of filters should be added to Kernel: `IAsyncFunctionFilter` and `IAsyncPromptFilter`. They will be the same as current `IFunctionFilter` and `IPromptFilter` but with async methods.
 
-### 选项 4 [建议] - 内存作为 PromptExecutionSettings 的一部分
+### Option 4 [Proposal] - Memory as part of PromptExecutionSettings
 
-该提案是在上述现有方法之上，在 SK 中实现 RAG 模式的另一种可能方法。与 `TextMemoryPlugin`类似，这种方法需要抽象层，并且每个矢量数据库集成都需要实现特定的接口（可以是现有的 `IMemoryStore` 或全新的接口）才能与 SK 兼容。如 _Context and Problem Statement_ 部分所述，抽象层有其优点和缺点。
+This proposal is another possible way how to implement RAG pattern in SK, on top of already existing approaches described above. Similarly to `TextMemoryPlugin`, this approach will require abstraction layer and each vector DB integration will be required to implement specific interface (it could be existing `IMemoryStore` or completely new one) to be compatible with SK. As described in _Context and Problem Statement_ section, the abstraction layer has its advantages and disadvantages.
 
-用户代码将如下所示：
+User code will look like this:
 
 ```csharp
 var kernel = Kernel.CreateBuilder()
@@ -283,10 +290,10 @@ var function = KernelFunctionFactory.CreateFromPrompt("What is my budget for 202
 var result = await kernel.InvokePromptAsync("What is my budget for 2024?");
 ```
 
-数据搜索和提示连接将在课堂的幕后进行 `KernelFunctionFromPrompt` 。
+Data search and prompt concatenation will happen behind the scenes in `KernelFunctionFromPrompt` class.
 
-## 决策结果
+## Decision Outcome
 
-临时决定提供更多示例，如何将 Semantic Kernel 中的内存作为插件使用。
+Temporary decision is to provide more examples how to use memory in Semantic Kernel as Plugin.
 
-最终决定将根据下一个与内存相关的要求做好准备。
+The final decision will be ready based on next memory-related requirements.

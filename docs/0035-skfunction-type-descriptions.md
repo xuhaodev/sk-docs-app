@@ -1,11 +1,20 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+date: 2023-11-8
+contact: alliscode
+deciders: markwallace, mabolan
+consulted: SergeyMenshykh
+informed:
+---
 
-# 向 SKFunctions 和 Planners 提供更多类型信息
+# Providing more type information to SKFunctions and Planners
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-目前，Semantic Kernel 只保留少量有关 SKFunctions 参数的信息，而完全没有关于 SKFunction 输出的信息。这对我们的规划器的效率有很大的负面影响，因为无法充分描述插件函数的输入和输出的模式。
+Today, Semantic Kernel only retains a small amount of information about the parameters of SKFunctions, and no information at all about the output of an SKFunction. This has a large negative impact on the effectiveness of our planners because it is not possible to adequately describe the schema of the the plugin function's inputs and outputs.
 
-规划师依赖于对可用插件的描述，我们称之为 功能手册。将此视为提供给 LLM 的用户手册，旨在向 LLM 解释其可用的功能以及如何使用它们。我们的 Sequential 计划器中的当前 Functions Manual 示例如下所示：
+Planners depend on a description of the plugins available to it, which we refer to as a Functions Manual. Think of this as the user manual that is provided to the LLM and is intended to explain to the LLM the functions that are available to it and how they can be used. An example of a current Functions Manual from our Sequential planner looks like this:
 
 ```
 DatePluginSimpleComplex.GetDate1:
@@ -19,7 +28,7 @@ WeatherPluginSimpleComplex.GetWeatherForecast1:
     - date: The date for the forecast
 ```
 
-本函数手册介绍了 LLM 可用的两个插件函数，一个用于获取当前日期（以天为单位）偏移量，另一个用于获取给定日期的天气预报。我们的客户可能希望我们的规划人员能够使用这些插件功能回答一个简单的问题是“明天的天气预报是什么？创建并执行回答此问题的计划需要调用第一个函数，然后将其结果作为参数传递给第二个函数的调用。如果用伪代码编写，则计划将如下所示：
+This Functions Manual describes two plugin functions that are available to the LLM, one to get the current date with an offset in days, and one to get the weather forecast for a given date. A simple question that our customer might want our planners to be able to answer with these plugin functions would be "What is the weather forecast for tomorrow?". Creating and executing a plan to answer this question would require invoking the first function, and then passing the result of that as a parameter to the invocation of the second function. If written in pseudo code, the plan would look something like this:
 
 ```csharp
 var dateResponse = DatePluginSimpleComplex.GetDate1(1);
@@ -27,9 +36,9 @@ var forecastResponse = WeatherPluginSimpleComplex.GetWeatherForecast1(dateRespon
 return forecastResponse;
 ```
 
-这似乎是一个合理的计划，这确实与 Sequential planner 提出的计划相当。只要第一个函数的未知返回类型恰好与第二个函数的未知参数类型匹配，这也可能有效。但是，我们提供给 LLM 的函数手册并未指定了解这些类型是否匹配的必要信息。
+This seems like a reasonable plan, and this is indeed comparable to what out Sequential planner would come up with. This might also work, as long as the unknown return type of the first function happens to match the unknown parameter type of the second function. The Functions Manual that we are providing to the LLM however, does not specify the necessary information to know if these types will match up.
 
-我们提供缺失类型信息的一种方法是使用 Json Schema。这也恰好与 OpenAPI 规范为输入和输出提供类型信息的方式相同，这为本地和远程插件提供了一个有凝聚力的解决方案。如果我们使用 Json Schema，那么我们的函数手册可以看起来更像这样：
+One way that we could provide the missing type information is to use Json Schema. This also happens to be the same way that OpenAPI specs provide type information for inputs and outputs, and this provides a cohesive solution for local and remote plugins. If we utilize Json Schema, then our Functions Manual can look more like this:
 
 ```json
 [
@@ -89,7 +98,7 @@ return forecastResponse;
 ]
 ```
 
-本函数手册提供了有关 LLM 有权访问的函数的输入和输出的更多信息。它允许看到第一个函数的输出是一个复杂的对象，其中包含第二个函数所需的信息。这也伴随着使用的令牌数量的增加，但是派生类型信息的功能增加超过了这笔费用。有了这些信息，我们现在可以期待 LLM 生成一个计划，其中包括了解如何从输出中提取值并将其传递给输入。我们在测试中使用的一种有效方法是要求 LLM 将输入指定为相应输出的 Json 路径。伪代码中显示的等效计划如下所示：
+This Functions Manual provides much more information about the the inputs and outputs of the functions that the LLM has access to. It allows to see that the output of the first functions is a complex objects that contain the information required by the second function. This also comes with an increase in the amount of tokens used, however the increase in functionality derived the type information outweighs this expense. With this information we can now expect the LLM to generate a plan that includes an understanding of how values should be extracted from outputs and passed to inputs. One effective method that we've used in testing is to ask the LLM to specify inputs as a Json Path into the appropriate output. An equivalent plan shown in pseudo code would look like this:
 
 ```csharp
 var dateResponse = DatePluginSimpleComplex.GetDate1(1);
@@ -97,9 +106,9 @@ var forecastResponse = WeatherPluginSimpleComplex.GetWeatherForecast1(dateRespon
 return forecastResponse.degreesFahrenheit;
 ```
 
-## 建议
+## Proposal
 
-为了能够生成完整的函数手册（如上面基于 Json 架构的示例），SKFunctions 及其关联的函数视图需要维护有关其参数类型和返回类型的更多信息。函数视图当前具有以下定义：
+In order to be able to generate complete Function Manuals such as the Json Schema based examples above, SKFunctions and their associated Function Views will need to maintain more information about their parameter types and return types. Function Views currently have the following definition:
 
 ```csharp
 public sealed record FunctionView(
@@ -115,7 +124,7 @@ public sealed record FunctionView(
 }
 ```
 
-函数参数由 `ParameterView` 包含语义描述的对象集合描述，并提供添加更多类型信息的位置。但是，没有存在放置函数输出的类型信息和语义描述的位置。为了解决这个问题，我们将添加一个名为 `ReturnParameterView` `FunctionView`：
+The function parameters are described by the collection of `ParameterView` objects which contain a semantic description, and provide a place to add more type information. There is however no existing place to put the type information and semantic description of the function output. To fix this we will add a new property called `ReturnParameterView` to the `FunctionView`:
 
 ```csharp
 public sealed record FunctionView(
@@ -137,16 +146,16 @@ public sealed record FunctionView(
 }
 ```
 
-`ParameterView` 对象当前包含一个 `ParameterViewType` 属性，该属性包含有关参数类型的一些信息，但仅限于 JSON 类型 （[字符串、数字、布尔值、null、对象、数组]），并且无法描述对象的结构。要添加所需的额外类型信息，我们可以添加 native `System.Type` 属性。这适用于本地函数，因为在导入 SKFunction 时，参数 Type 始终可以访问。从 LLM 响应中激活原生类型也需要它。但是，对于远程插件，对象的本机类型将是未知的，甚至可能不存在，因此没有 `System.Type` 帮助。对于这种情况，我们需要从 OpenAPI 规范中提取类型信息，并将其存储在允许以前未知架构的属性中。此属性类型的选项包括 `JsonSchema` OSS 库（如 JsonSchema.Net 或 NJsonSchema）、 `JsonDocument` System.Text.Json 或 `string` 包含 Json 序列化架构的选项。
+`ParameterView` objects currently contain a `ParameterViewType` property which contains some information about the type of the parameter but is limited to JSON types ([string, number, boolean, null, object, array]) and has no way of describing the structure of an object. To add the extra type information that is needed, we can add a native `System.Type` property. This would work well for local functions as the parameter Type would always be accessible when importing the SKFunction. It will also be required for hydrating native types from LLM responses. For remote plugins however, the native type for objects will not be known and may not even exist so the `System.Type` doesn't help. For this case we need to extract the type information from the OpenAPI specification and store it in a property that allows for previously unknown schemas. Options for this property type include `JsonSchema` from an OSS library such as JsonSchema.Net or NJsonSchema, `JsonDocument` from System.Text.Json, or a `string` containing the Json serialized schema.
 
-| 类型                      | 优点                                                         | 缺点                                                       |
+| Type                      | Pros                                                         | Cons                                                       |
 | ------------------------- | ------------------------------------------------------------ | ---------------------------------------------------------- |
-| JsonSchema.Net.JsonSchema | 受欢迎且更新频繁，建立在 System.Net 之上 | 依赖于 SK Core 中的 OSS                       |
-| NJsonShema.JsonSchema     | 非常受欢迎，更新频繁，长期项目            | 建立在 Json.Net 之上 （Newtonsoft）                      |
-| Json文档              | 原生 C# 类型，快速灵活                            | 不是 Json Schema，而是 Schema 的 Json DOM 容器 |
-| 字符串                    | 本机 C# 类型                                               | 不是 Json 架构或 Json DOM，类型提示非常糟糕      |
+| JsonSchema.Net.JsonSchema | Popular and has frequent updates, built on top of System.Net | Takes a dependency on OSS in SK core                       |
+| NJsonShema.JsonSchema     | Very popular, frequent updates, long term project            | Built on top of Json.Net (Newtonsoft)                      |
+| JsonDocument              | Native C# type, fast and flexible                            | Not a Json Schema, but a Json DOM container for the schema |
+| String                    | Native C# type                                               | Not a Json Schema or Json DOM, very poor type hinting      |
 
-为避免在核心抽象项目中依赖第三方库，我们将使用一个 `JsonDocument` 类型来保存加载远程插件时创建的 Json Schemas。创建或提取这些架构所需的库可以包含在需要它们的包中，即 Functions.OpenAPI、Planners.Core 和 Connectors.AI.OpenAI。该 `NativeType` 属性将在加载本机函数时填充，并在需要时用于生成 Json Schema，以及用于从 planners 和语义函数中的 LLM 响应中激活本机类型。
+To avoid taking a dependency on 3rd party libraries in the core abstractions project, we will use a `JsonDocument` type to hold the Json Schemas that are created when loading remote plugins. The libraries needed to create or extract these schemas can be included in the packages that require them, namely Functions.OpenAPI, Planners.Core, and Connectors.AI.OpenAI. The `NativeType` property will be populated when loading native functions and will be used to generate a Json Schema when needed, as well as for hydrating native types from LLM responses in planners and semantic functions.
 
 ```csharp
 public sealed record ParameterView(

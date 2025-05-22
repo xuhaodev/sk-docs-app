@@ -1,39 +1,48 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: approved
+contact: markwallace-microsoft
+date: 2023-10-26
+deciders: markwallace-microsoft, SergeyMenshykh, rogerbarreto
+consulted: matthewbolanos, dmytrostruk
+informed:
+---
 
-# 语义函数的多模型支持
+# Multiple Model Support for Semantic Functions
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-开发人员需要能够同时使用多个模型，例如，将 GPT4 用于某些提示，将 GPT3.5 用于其他提示以降低成本。
+Developers need to be able to use multiple models simultaneously e.g., using GPT4 for certain prompts and GPT3.5 for others to reduce cost.
 
-## 使用案例
+## Use Cases
 
-Semantic Kernel V1.0 的范围内提供了选择 AI 服务和模型请求设置的功能：
+In scope for Semantic Kernel V1.0 is the ability to select AI Service and Model Request Settings:
 
-1. 按服务 ID 显示。
-   - 服务 ID 唯一标识已注册的 AI 服务，通常在应用程序范围内定义。
-1. 由开发人员定义的策略。
-   -  _开发人员定义的策略_ 是一种代码优先的方法，其中开发人员提供逻辑。
-1. 按模型 ID 显示。
-   - 模型 ID 唯一标识大型语言模型。多个 AI 服务提供商可以支持同一个 LLM。
-1. 按任意 AI 服务属性
-   - 例如，AI 服务可以定义唯一标识 AI 提供商的提供商 ID，例如“Azure OpenAI”、“OpenAI”、“Hugging Face”
+1. By service id.
+   - A Service id uniquely identifies a registered AI Service and is typically defined in the scope of an application.
+1. By developer defined strategy.
+   - A _developer defined strategy_ is a code first approach where a developer provides the logic.
+1. By model id.
+   - A model id uniquely identifies a Large Language Model. Multiple AI service providers can support the same LLM.
+1. By arbitrary AI service attributes
+   - E.g. an AI service can define a provider id which uniquely identifies an AI provider e.g. "Azure OpenAI", "OpenAI", "Hugging Face"
 
-**此ADR侧重于上述列表中的第1项和第2项。为了实现 3 和 4，我们需要提供存储元数据的能力 `AIService` 。**
+**This ADR focuses on items 1 & 2 in the above list. To implement 3 & 4 we need to provide the ability to store `AIService` metadata.**
 
-## 决策结果
+## Decision Outcome
 
-支持此ADR中列出的用例1和2，并创建单独的ADR以增加对AI服务元数据的支持。
+Support use cases 1 & 2 listed in this ADR and create separate ADR to add support for AI service metadata.
 
-## 使用案例描述
+## Descriptions of the Use Cases
 
-**注意：所有代码都是伪代码，并不能准确反映最终实现的外观。**
+**Note: All code is pseudo code and does not accurately reflect what the final implementations will look like.**
 
-### 按 Service ID 选择 Model Request Settings
+### Select Model Request Settings by Service Id
 
-_作为使用 Semantic Kernel 的开发人员，我可以为语义函数配置多个请求设置，并将每个设置与一个服务 ID 相关联，以便在使用不同的服务执行我的语义函数时使用正确的请求设置。_
+_As a developer using the Semantic Kernel I can configure multiple request settings for a semantic function and associate each one with a service id so that the correct request settings are used when different services are used to execute my semantic function._
 
-语义函数模板配置允许配置多个模型请求设置。在这种情况下，开发人员根据用于执行语义函数的服务 ID 配置不同的设置。
-在下面的示例中，语义函数是使用 “AzureText” 执行的， `max_tokens=60` 因为 “AzureText” 是为提示配置的模型列表中的第一个服务 ID。
+The semantic function template configuration allows multiple model request settings to be configured. In this case the developer configures different settings based on the service id that is used to execute the semantic function.
+In the example below the semantic function is executed with "AzureText" using `max_tokens=60` because "AzureText" is the first service id in the list of models configured for the prompt.
 
 ```csharp
 // Configure a Kernel with multiple LLM's
@@ -65,8 +74,8 @@ var func = kernel.CreateSemanticFunction(prompt, config: promptTemplateConfig, "
 result = await kernel.RunAsync(func);
 ```
 
-其工作原理是使用 `IAIServiceSelector` 接口作为策略，在调用语义函数时向用户选择 AI 服务和请求设置。
-接口定义如下：
+This works by using the `IAIServiceSelector` interface as the strategy for selecting the AI service and request settings to user when invoking a semantic function.
+The interface is defined as follows:
 
 ```csharp
 public interface IAIServiceSelector
@@ -78,19 +87,19 @@ public interface IAIServiceSelector
 }
 ```
 
-提供了一个默认 `OrderedIAIServiceSelector` 实现，该实现根据为语义函数定义的模型请求设置的顺序选择 AI 服务。
+A default `OrderedIAIServiceSelector` implementation is provided which selects the AI service based on the order of the model request settings defined for the semantic function.
 
-- 该实现会检查服务是否存在、相应的服务 ID，如果存在，并且将使用关联的模型请求设置。
-- 如果未定义模型请求设置，则使用默认文本完成服务。
-- 可以通过将服务 ID 保留为未定义或为空来指定一组默认请求设置，将使用第一个此类默认值。
-- 如果没有 default（如果指定了），并且没有任何指定的服务可用，则作将失败。
+- The implementation checks if a service exists which the corresponding service id and if it does it and the associated model request settings will be used.
+- In no model request settings are defined then the default text completion service is used.
+- A default set of request settings can be specified by leaving the service id undefined or empty, the first such default will be used.
+- If no default if specified and none of the specified services are available the operation will fail.
 
-### 按 Developer Defined Strategy 选择 AI 服务和模型请求设置
+### Select AI Service and Model Request Settings By Developer Defined Strategy
 
-_作为使用 Semantic Kernel 的开发人员，我可以提供一个实现，用于选择用于执行我的函数的 AI 服务和请求设置，以便我可以动态控制用于执行我的语义函数的 AI 服务和设置。_
+_As a developer using the Semantic Kernel I can provide an implementation which selects the AI service and request settings used to execute my function so that I can dynamically control which AI service and settings are used to execute my semantic function._
 
-在这种情况下，开发人员根据服务 ID 配置不同的设置，并提供一个 AI 服务选择器，用于确定在执行语义函数时将使用哪个 AI 服务。
-在下面的示例中，语义函数使用 AI 服务和 AI 请求设置返回的任何结果执行，`MyAIServiceSelector`例如，可以创建一个 AI 服务选择器，该选择器计算呈现的提示的令牌计数，并使用它来确定要使用的服务。
+In this case the developer configures different settings based on the service id and provides an AI Service Selector which determines which AI Service will be used when the semantic function is executed.
+In the example below the semantic function is executed with whatever AI Service and AI Request Settings `MyAIServiceSelector` returns e.g. it will be possible to create an AI Service Selector that computes the token count of the rendered prompt and uses that to determine which service to use.
 
 ```csharp
 // Configure a Kernel with multiple LLM's
@@ -123,11 +132,11 @@ var func = kernel.CreateSemanticFunction(prompt, config: promptTemplateConfig, "
 result = await kernel.RunAsync(func, funcVariables);
 ```
 
-## 更多信息
+## More Information
 
-### 按 Service ID 选择 AI 服务
+### Select AI Service by Service Id
 
-支持以下使用案例。开发人员可以创建具有多个命名 AI 服务的“内核”实例。调用语义函数时，可以指定服务 ID（以及要使用的可选请求设置）。命名的 AI 服务将用于执行提示。
+The following use case is supported. Developers can create a `Kernel`` instance with multiple named AI services. When invoking a semantic function the service id (and optionally request settings to be used) can be specified. The named AI service will be used to execute the prompt.
 
 ```csharp
 var aoai = TestConfiguration.AzureOpenAI;

@@ -1,21 +1,30 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: superseded by [ADR-0038](0038-completion-service-selection.md)
+contact: SergeyMenshykh
+date: 2023-10-25
+deciders: markwallace-microsoft, matthewbolanos
+consulted:
+informed:
+---
 
-# 完井服务类型选择策略
+# Completion service type selection strategy
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-如今，SK 使用文本完成服务运行所有文本提示。随着新的聊天完成提示和可能的其他提示类型（如图像）的添加，我们需要一种方法来选择完成服务类型来运行这些提示。
+Today, SK runs all text prompts using the text completion service. With the addition of a new chat completion prompts and potentially other prompt types, such as image, on the horizon, we need a way to select a completion service type to run these prompts.
 
 <!-- This is an optional element. Feel free to remove. -->
 
-## 决策驱动因素
+## Decision Drivers
 
-- Semantic Function 应该能够识别在处理文本、聊天或图像提示时要使用的完成服务类型。
+- Semantic function should be able to identify a completion service type to use when processing text, chat, or image prompts.
 
-## 考虑的选项
+## Considered Options
 
-**1. 由 “prompt_type” 属性标识的完成服务类型。** 此选项假定将 'prompt_type' 属性添加到提示模板配置模型类 'PromptTemplateConfig' 中。该属性将由提示开发人员指定一次，并将由 'SemanticFunction' 类用于决定在解析该特定完成服务类型的实例时要使用的完成服务类型（而不是实例）。
+**1. Completion service type identified by the "prompt_type" property.** This option presumes adding the 'prompt_type' property to the prompt template config model class, 'PromptTemplateConfig.' The property will be specified once by a prompt developer and will be used by the 'SemanticFunction' class to decide which completion service type (not instance) to use when resolving an instance of that particular completion service type.
 
-**提示模板**
+**Prompt template**
 
 ```json
 {
@@ -26,7 +35,7 @@
 }
 ```
 
-**语义函数伪代码**
+**Semantic function pseudocode**
 
 ```csharp
 if(string.IsNullOrEmpty(promptTemplateConfig.PromptType) || promptTemplateConfig.PromptType == "text")
@@ -46,7 +55,7 @@ else (promptTemplateConfig.PromptType == "image")
 }
 ```
 
-**例**
+**Example**
 
 ```json
 name: ComicStrip.Create
@@ -66,15 +75,15 @@ config: {
 }
 ```
 
-优点：
+Pros:
 
-- 确定性地指定要使用的完成服务 **类型** ，因此文本完成服务不会呈现图像提示，反之亦然。
+- Deterministically specifies which completion service **type** to use, so image prompts won't be rendered by a text completion service, and vice versa.
 
-缺点：
+Cons:
 
-- 由提示开发人员指定的另一个属性。
+- Another property to specify by a prompt developer.
 
-**2. 由提示内容标识的完成服务类型。** 此选项背后的想法是通过使用正则表达式来检查是否存在与提示类型关联的特定标记来分析呈现的提示。例如， `<message role="*"></message>` 呈现的提示中存在标记可能表示该提示是聊天提示，应由聊天完成服务处理。当我们有两种完成服务类型 - 文本和聊天 - 时，这种方法可能会可靠地工作，因为逻辑很简单：如果在渲染的提示中找到消息标签，则使用聊天完成服务处理它;否则，请使用 Text Completion 服务。但是，当我们开始添加新的提示类型时，此逻辑变得不可靠，并且这些提示缺少特定于其提示类型的标记。例如，如果我们添加图像提示，我们将无法区分文本提示和图像提示，除非图像提示具有唯一标识文本提示和图像提示。
+**2. Completion service type identified by prompt content.** The idea behind this option is to analyze the rendered prompt by using regex to check for the presence of specific markers associated with the prompt type. For example, the presence of the `<message role="*"></message>` tag in the rendered prompt might indicate that the prompt is a chat prompt and should be handled by the chat completion service. This approach may work reliably when we have two completion service types - text and chat - since the logic would be straightforward: if the message tag is found in the rendered prompt, handle it with the chat completion service; otherwise, use the text completion service. However, this logic becomes unreliable when we start adding new prompt types, and those prompts lack markers specific to their prompt type. For example, if we add an image prompt, we won't be able to distinguish between a text prompt and an image prompt unless the image prompt has a unique marker identifying it as such.
 
 ```csharp
 if (Regex.IsMatch(renderedPrompt, @"<message>.*?</message>"))
@@ -89,7 +98,7 @@ else
 }
 ```
 
-**例**
+**Example**
 
 ```json
 name: ComicStrip.Create
@@ -107,14 +116,14 @@ config: {
 }
 ```
 
-优点：
+Pros:
 
-- 无需新属性来标识提示类型。
+- No need for a new property to identify the prompt type.
 
-缺点：
+Cons:
 
-- 除非提示包含专门标识提示类型的唯一标记，否则不可靠。
+- Unreliable unless the prompt contains unique markers specifically identifying the prompt type.
 
-## 决策结果
+## Decision Outcome
 
-我们决定选择 '2.由提示内容选项标识的完成服务类型，当我们遇到此选项不支持的其他完成服务类型时，或者当我们对使用不同的机制来选择完成服务类型有一组可靠的要求时，将重新考虑它。
+We decided to choose the '2. Completion service type identified by prompt content' option and will reconsider it when we encounter another completion service type that cannot be supported by this option or when we have a solid set of requirements for using a different mechanism for selecting the completion service type.

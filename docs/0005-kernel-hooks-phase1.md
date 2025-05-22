@@ -1,111 +1,120 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: rogerbarreto
+date: 2023-05-29
+deciders: rogerbarreto, shawncal, stephentoub
+consulted:
+informed:
+---
 
-# 内核/函数处理程序 - 第 1 阶段
+# Kernel/Function Handlers - Phase 1
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-Kernel 函数调用者需要能够在尝试之前和之后处理/拦截 Kernel 中的任何函数执行。允许它修改提示、中止执行或修改输出和许多其他方案，如下所示：
+A Kernel function caller needs to be able to handle/intercept any function execution in the Kernel before and after it was attempted. Allowing it to modify the prompt, abort the execution, or modify the output and many other scenarios as follows:
 
-- 预执行 / 函数调用
+- Pre-Execution / Function Invoking
 
-  - 获取： SKContext
-  - Set：修改发送到函数的输入参数
-  - Set：Abort/Cancel 管道执行
-  - Set：跳过函数执行
+  - Get: SKContext
+  - Set: Modify input parameters sending to the function
+  - Set: Abort/Cancel pipeline execution
+  - Set: Skip function execution
 
-- 后执行 / 调用的函数
+- Post-Execution / Function Invoked
 
-  - Get：LLM 模型结果（令牌使用、停止序列等）
-  - 获取： SKContext
-  - Get：输出参数
-  - Set：修改输出参数内容（返回输出前）
-  - Set：取消管道执行
-  - Set：重复函数执行
+  - Get: LLM Model Result (Tokens Usage, Stop Sequence, ...)
+  - Get: SKContext
+  - Get: Output parameters
+  - Set: Modify output parameters content (before returning the output)
+  - Set: Cancel pipeline execution
+  - Set: Repeat function execution
 
-## 超出范围（将处于第 2 阶段）
+## Out of Scope (Will be in phase 2)
 
-- 预执行 / 函数调用
+- Pre-Execution / Function Invoking
 
-  - Get：呈现的提示
-  - Get：当前使用的设置
-  - Set：修改渲染的提示
+  - Get: Rendered Prompt
+  - Get: Current settings used
+  - Set: Modify the Rendered Prompt
 
-- 后执行 / 调用的函数
-  - Get：呈现的提示
-  - Get：当前使用的设置
+- Post-Execution / Function Invoked
+  - Get: Rendered Prompt
+  - Get: Current settings used
 
-## 决策驱动因素
+## Decision Drivers
 
-- 架构更改和相关的决策过程应该对社区透明。
-- 决策记录存储在存储库中，涉及各种语言端口的团队可以轻松发现。
-- 简单、可扩展且易于理解。
+- Architecture changes and the associated decision making process should be transparent to the community.
+- Decision records are stored in the repository and are easily discoverable for teams involved in the various language ports.
+- Simple, Extensible and easy to understand.
 
-## 考虑的选项
+## Considered Options
 
-1. 回调注册 + 递归
-2. 单次回调
-3. 基于事件的注册
-4. 中间件
-5. ISKFunction 事件支持接口
+1. Callback Registration + Recursive
+2. Single Callback
+3. Event Based Registration
+4. Middleware
+5. ISKFunction Event Support Interfaces
 
-## 选项的优缺点
+## Pros and Cons of the Options
 
-### 1. 回调注册递归委托 （kernel， plan， function）
+### 1. Callback Registration Recursive Delegate (Kernel, Plan, Function)
 
-- 在 plan 和 function 级别指定为 configuration 时，能够指定将触发的回调 Handlers 是什么。
+- Specified on plan and function level as a configuration be able to specify what are the callback Handlers that will be triggered.
 
-优点：
+Pros:
 
-- 用于观察和将作为参数公开的数据更改为 （Get/Set） 方案的委托签名的常见模式
-- 注册回调会返回可用于在将来取消函数执行的注册对象。
-- 递归方法，允许为同一事件注册多个回调，还允许在预先存在的回调之上注册回调。
+- Common pattern for observing and also changing data exposed as parameter into the delegate signature for (Get/Set) scenarios
+- Registering a callback gives back the registration object that can be used to cancel the execution of the function in the future.
+- Recursive approach, allows to register multiple callbacks for the same event, and also allows to register callbacks on top of pre existing callbacks.
 
-缺点：
+Cons:
 
-- 注册可能会使用更多内存，并且可能不会在递归方法中进行垃圾回收，只有在释放函数或计划时才会进行。
+- Registrations may use more memory and might not be garbage collected in the recursive approach, only when the function or the plan is disposed.
 
-### 2. 单个回调委托 （Kernel， Plan， Function）
+### 2. Single Callback Delegate (Kernel, Plan, Function)
 
-- 在内核级别指定为 configuration ，能够指定将触发的回调 Handlers 是什么。
-  - 在函数创建时指定：作为函数构造函数的一部分，能够指定将触发的回调处理程序是什么。
-  - 在函数调用时指定：作为函数调用的一部分，能够指定什么是回调处理程序作为将触发的参数。
+- Specified on kernel level as a configuration be able to specify what are the callback Handlers that will be triggered.
+  - Specified on function creation: As part of the function constructor be able to specify what are the callback Handlers that will be triggered.
+  - Specified on function invocation: As part of the function invoke be able to specify what are the callback Handlers as a parameter that will be triggered.
 
-优点：
+Pros:
 
-- 用于观察和将作为参数公开的数据更改为 （Get/Set） 方案的委托签名的常见模式
+- Common pattern for observing and also changing data exposed as parameter into the delegate signature for (Get/Set) scenarios
 
-缺点：
+Cons:
 
-- 仅限于一种观察特定事件的方法（Pre Post 和 InExecution）。- 函数 用作参数时，需要三个新参数作为函数的一部分。（在函数调用时指定）- 额外 Cons on
+- Limited to only one method observing a specific event (Pre Post and InExecution). - Function When used as parameter, three new parameters would be needed as part of the function. (Specified on function invocation) - Extra Cons on
 
-### 3. 事件基础注册（仅限 Kernel）
+### 3. Event Base Registration (Kernel only)
 
-在 IKernel 和 ISKFunction 上公开调用可以观察交互的事件。
+Expose events on both IKernel and ISKFunction that the call can can be observing to interact.
 
-优点：
+Pros:
 
-- 多个侦听器可以为同一事件注册
-- 监听器可以随意注册和注销
-- 用于观察和将作为参数公开的数据更改为 （Get/Set） 方案的事件签名的常见模式 （EventArgs）
+- Multiple Listeners can registered for the same event
+- Listeners can be registered and unregistered at will
+- Common pattern (EventArgs) for observing and also changing data exposed as parameter into the event signature for (Get/Set) scenarios
 
-缺点：
+Cons:
 
-- 事件处理程序是 void 的，这使得 EventArgs by reference 成为修改数据的唯一方法。
-- 不清楚这种方法对异步模式/多线程的支持程度
-- 不支持 `ISKFunction.InvokeAsync`
+- Event handlers are void, making the EventArgs by reference the only way to modify the data.
+- Not clear how supportive is this approach for asynchronous pattern/multi threading
+- Won't support `ISKFunction.InvokeAsync`
 
-### 4. 中间件（仅限内核）
+### 4. Middleware (Kernel Only)
 
-在内核级别指定，并且只能通过 IKernel.RunAsync作使用，此模式类似于 asp.net 核心中间件，使用上下文和 requestdelegate next 运行管道以控制（Pre/Post 条件）
+Specified on Kernel level, and would only be used using IKernel.RunAsync operation, this pattern would be similar to asp.net core middlewares, running the pipelines with a context and a requestdelegate next for controlling (Pre/Post conditions)
 
-优点：
+Pros:
 
-- 处理 Pre/Post Setting/Filtering 数据的通用模式
+- Common pattern for handling Pre/Post Setting/Filtering data
 
-缺点：
+Cons:
 
-- 函数可以在自己的实例上运行，中间件意味着更多的复杂性，并且存在外部容器/管理器（内核）来拦截/观察函数调用。
+- Functions can run on their own instance, middlewares suggest more complexity and the existence of an external container/manager (Kernel) to intercept/observe function calls.
 
-### 5. ISKFunction 事件支持接口
+### 5. ISKFunction Event Support Interfaces
 
     ```csharp
     class Kernel : IKernel
@@ -193,43 +202,43 @@ Kernel 函数调用者需要能够在尝试之前和之后处理/拦截 Kernel �
     }
     ```
 
-### 优点和缺点
+### Pros and Cons
 
-优点：
+Pros:
 
-- `Kernel` 不知道 `SemanticFunction` 实现细节或任何其他 `ISKFunction` 实现
-- 可扩展以显示每个自定义实现的专用 EventArgs `ISKFunctions` ，包括语义函数的提示
-- 可扩展以支持内核上的未来事件 `ISKFunctionEventSupport<NewEvent>` 
-- 函数可以有自己的 EventArgs 特化。
-- interface 是可选的，因此 custom `ISKFunctions` 可以选择是否实现它
+- `Kernel` is not aware of `SemanticFunction` implementation details or any other `ISKFunction` implementation
+- Extensible to show dedicated EventArgs per custom `ISKFunctions` implementation, including prompts for semantic functions
+- Extensible to support future events on the Kernel thru the `ISKFunctionEventSupport<NewEvent>` interface
+- Functions can have their own EventArgs specialization.
+- Interface is optional, so custom `ISKFunctions` can choose to implement it or not
 
-缺点：
+Cons:
 
-- 如果任何自定义函数 `ISKFunctionEventSupport` 现在想要支持事件，则必须负责实现接口。
-- `Kernel` 将不得不检查该函数是否实现了该接口，如果没有，则必须抛出异常或忽略该事件。
-- 曾经仅限于 InvokeAsync 的函数实现现在需要分散在多个位置，并处理与需要在调用开始或结束时获取的内容相关的执行状态。
+- Any custom functions now will have to responsibility implement the `ISKFunctionEventSupport` interface if they want to support events.
+- `Kernel` will have to check if the function implements the interface or not, and if not, it will have to throw an exception or ignore the event.
+- Functions implementations that once were limited to InvokeAsync now need to be scattered across multiple places and handle the state of the execution related to content that needs to be get at the beginning or at the end of the invocation.
 
-## 主要问题
+## Main Questions
 
-- 问：执行后处理程序应该在 LLM 结果之后还是在函数执行本身结束之前立即执行？
-  A：目前 post execution Handler 是在函数执行后执行的。
+- Q: Post Execution Handlers should execute right after the LLM result or before the end of the function execution itself?
+  A: Currently post execution Handlers are executed after function execution.
 
-- 问：前/后处理程序是否应该很多 （pub/sub） 允许注册/注销？
-  答：通过使用标准 .NET 事件实现，这已经支持由调用方管理的多个注册和注销。
+- Q: Should Pre/Post Handlers be many (pub/sub) allowing registration/deregistration?
+  A: By using the standard .NET event implementation, this already supports multiple registrations as well as deregistrations managed by the caller.
 
-- 问：应该允许在预先存在的 Handlers 之上设置 Handlers，否则会引发错误？
-  答：通过使用标准 .NET 事件实现，标准行为不会引发错误，并且会执行所有已注册的处理程序。
+- Q: Setting Handlers on top of pre existing Handlers should be allowed or throw an error?
+  A: By using the standard .NET event implementation, the standard behavior will not throw an error and will execute all the registered handlers.
 
-- 问：在计划上设置 Handlers 应该自动为所有内部步骤 + 覆盖流程中的现有步骤级联此 Handlers？
-  答：处理程序将在执行每个步骤之前和之后触发，其方式与 Kernel RunAsync 管道的工作方式相同。
+- Q: Setting Handlers on Plans should automatically cascade this Handlers for all the inner steps + overriding existing ones in the process?
+  A: Handlers will be triggered before and after each step is executed the same way the Kernel RunAsync pipeline works.
 
-- 问：当函数执行前处理程序打算取消执行时，是否应该调用链中的其他处理程序？
-  答：目前，标准的 .net 行为是调用所有已注册的处理程序。这样，函数执行将完全取决于调用所有处理程序后 Cancellation Request 的最终状态。
+- Q: When a pre function execution handler intents to cancel the execution, should further handlers in the chain be called or not?
+  A: Currently the standard .net behavior is to call all the registered handlers. This way function execution will solely depends on the final state of the Cancellation Request after all handlers were called.
 
-## 决策结果
+## Decision Outcome
 
-已选选项： **3.事件基础注册（仅限内核）**
+Chosen option: **3. Event Base Registration (Kernel only)**
 
-此方法是最简单的方法，并且利用了标准 .NET 事件实现的优势。
+This approach is the simplest and take the benefits of the standard .NET event implementation.
 
-将实施进一步的更改，以完全支持第 2 阶段中的所有场景。
+Further changes will be implemented to fully support all the scenarios in phase 2.

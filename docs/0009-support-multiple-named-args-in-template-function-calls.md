@@ -1,35 +1,44 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: dmytrostruk
+date: 2013-06-16
+deciders: shawncal, hario90
+consulted: dmytrostruk, matthewbolanos
+informed: lemillermicrosoft
+---
 
-# 在模板函数调用中添加对多个命名参数的支持
+# Add support for multiple named arguments in template function calls
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-本机函数现在支持多个参数，这些参数从具有相同名称的上下文值填充。语义函数目前仅支持调用不超过 1 个参数的原生函数。这些更改的目的是添加对在具有多个命名参数的语义函数中调用本机函数的支持。
+Native functions now support multiple parameters, populated from context values with the same name. Semantic functions currently only support calling native functions with no more than 1 argument. The purpose of these changes is to add support for calling native functions within semantic functions with multiple named arguments.
 
-## 决策驱动因素
+## Decision Drivers
 
-- 与指导对等
-- 可读性
-- 与 SK 开发人员熟悉的语言相似
-- YAML 兼容性
+- Parity with Guidance
+- Readability
+- Similarity to languages familiar to SK developers
+- YAML compatibility
 
-## 考虑的选项
+## Considered Options
 
-### 语法思路 1：使用逗号
+### Syntax idea 1: Using commas
 
 ```handlebars
 {{Skill.MyFunction street: "123 Main St", zip: "98123", city:"Seattle", age: 25}}
 ```
 
-优点：
+Pros:
 
-- 逗号可以使较长的函数调用更易于阅读，尤其是在 arg 分隔符（在本例中为冒号）前后允许使用空格时。
+- Commas could make longer function calls easier to read, especially if spaces before and after the arg separator (a colon in this case) are allowed.
 
-缺点：
+Cons:
 
-- 指南不使用逗号
-- 空格已在其他地方用作分隔符，因此无需增加支持逗号的复杂性
+- Guidance doesn't use commas
+- Spaces are already used as delimiters elsewhere so the added complexity of supporting commas isn't necessary
 
-### 语法构想 2：JavaScript/C# 样式分隔符（冒号）
+### Syntax idea 2: JavaScript/C#-Style delimiter (colon)
 
 ```handlebars
 
@@ -37,65 +46,65 @@
 
 ```
 
-优点：
+Pros:
 
-- 类似于 JavaScript 对象语法和 C# 命名参数语法
+- Resembles JavaScript Object syntax and C# named argument syntax
 
-缺点：
+Cons:
 
-- 与使用等号作为 arg 部分分隔符的 Guidance 语法不一致
-- 如果我们将来支持 YAML 提示符，则与 YAML 键/值对太相似了。可能可以支持冒号作为分隔符，但最好有一个不同于普通 YAML 语法的分隔符。
+- Doesn't align with Guidance syntax which uses equal signs as arg part delimiters
+- Too similar to YAML key/value pairs if we support YAML prompts in the future. It's likely possible to support colons as delimiters but would be better to have a separator that is distinct from normal YAML syntax.
 
-### 语法思路 3：Python/Guidance-Style 分隔符
-
-```handlebars
-{{MyFunction street="123 Main St" zip="98123" city="Seattle"}}
-```
-
-优点：
-
-- 类似于 Python 的关键字参数语法
-- 类似于 Guidance 的命名参数语法
-- 如果我们将来支持 YAML 提示，则与 YAML 键/值对不太相似。
-
-缺点：
-
-- 与 C# 语法不一致
-
-### 语法思路 4：允许 arg 名称/值分隔符之间有空格
+### Syntax idea 3: Python/Guidance-Style delimiter
 
 ```handlebars
 {{MyFunction street="123 Main St" zip="98123" city="Seattle"}}
 ```
 
-优点：
+Pros:
 
-- 遵循许多具有空格灵活性的编程语言所遵循的约定，其中代码中的空格、制表符和换行符不会影响程序的功能
+- Resembles Python's keyword argument syntax
+- Resembles Guidance's named argument syntax
+- Not too similar to YAML key/value pairs if we support YAML prompts in the future.
 
-缺点：
+Cons:
 
-- 提升除非可以使用逗号否则更难阅读的代码（请参见 [使用逗号](#syntax-idea-1-using-commas)）
-- 支持的复杂性更高
-- 与不支持 = 符号前后空格的 Guidance 不一致。
+- Doesn't align with C# syntax
 
-## 决策结果
+### Syntax idea 4: Allow whitespace between arg name/value delimiter
 
-选择的选项：“语法理念 3：Python/Guidance-Style 关键字参数”，因为它与指导方针的语法非常一致，并且与 YAML 最兼容，以及“语法理念 4：允许在参数名称/值分隔符之间使用空格”，以获得更灵活的开发人员体验。
+```handlebars
+{{MyFunction street="123 Main St" zip="98123" city="Seattle"}}
+```
 
-其他决定：
+Pros:
 
-- 继续支持最多 1 个位置参数以实现向后兼容性。目前，传递给函数的参数被假定为 `$input` 上下文变量。
+- Follows the convention followed by many programming languages of whitespace flexibility where spaces, tabs, and newlines within code don't impact a program's functionality
 
-例
+Cons:
+
+- Promotes code that is harder to read unless commas can be used (see [Using Commas](#syntax-idea-1-using-commas))
+- More complexity to support
+- Doesn't align with Guidance which doesn't support spaces before and after the = sign.
+
+## Decision Outcome
+
+Chosen options: "Syntax idea 3: Python/Guidance-Style keyword arguments", because it aligns well with Guidance's syntax and is the most compatible with YAML and "Syntax idea 4: Allow whitespace between arg name/value delimiter" for more flexible developer experience.
+
+Additional decisions:
+
+- Continue supporting up to 1 positional argument for backward compatibility. Currently, the argument passed to a function is assumed to be the `$input` context variable.
+
+Example
 
 ```handlebars
 {{MyFunction "inputVal" street="123 Main St" zip="98123" city="Seattle"}}
 ```
 
-- 仅允许将 arg 值定义为字符串或变量，例如
+- Allow arg values to be defined as strings or variables ONLY, e.g.
 
 ```handlebars
 {{MyFunction street=$street zip="98123" city="Seattle"}}
 ```
 
-如果 function 需要 argument 的 value 不是 string，SDK 将使用相应的 TypeConverter 来解析 Evaluating 表达式时提供的字符串。
+If function expects a value other than a string for an argument, the SDK will use the corresponding TypeConverter to parse the string provided when evaluating the expression.

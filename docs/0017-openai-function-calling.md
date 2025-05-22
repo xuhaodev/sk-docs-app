@@ -1,64 +1,72 @@
+---
+status: accepted
+contact: gitri-ms
+date: 2023-09-21
+deciders: gitri-ms, shawncal
+consulted: lemillermicrosoft, awharrison-28, dmytrostruk, nacharya1
+informed: eavanvalkenburg, kevdome3000
+---
 
-# OpenAI 函数调用支持
+# OpenAI Function Calling Support
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
- [](https://platform.openai.com/docs/guides/gpt/function-calling) OpenAI 的 Chat Completions API 的函数调用功能允许开发人员向模型描述函数，并让模型决定是否输出一个 JSON 对象，指定一个函数和适当的参数来响应给定的提示。此功能由终端节点的两个新 API 参数启用 `/v1/chat/completions` ：
+The [function calling](https://platform.openai.com/docs/guides/gpt/function-calling) capability of OpenAI's Chat Completions API allows developers to describe functions to the model, and have the model decide whether to output a JSON object specifying a function and appropriate arguments to call in response to the given prompt. This capability is enabled by two new API parameters to the `/v1/chat/completions` endpoint:
 
-- `function_call` - auto （默认）、none 或要调用的特定函数
-- `functions` - 模型可用函数的 JSON 描述
+- `function_call` - auto (default), none, or a specific function to call
+- `functions` - JSON descriptions of the functions available to the model
 
-提供给模型的函数作为系统消息的一部分注入，并作为输入令牌计费/计数。
+Functions provided to the model are injected as part of the system message and are billed/counted as input tokens.
 
-我们收到了几个社区请求，希望在将 SK 与支持此功能的 OpenAI 聊天完成模型一起使用时为此功能提供支持。
+We have received several community requests to provide support for this capability when using SK with the OpenAI chat completion models that support it.
 
-## 决策驱动因素
+## Decision Drivers
 
-- 最大限度地减少对 OpenAI 特定功能的核心内核的更改
-- 在请求中包含一长串函数描述的成本问题
-- 自动执行模型返回的函数的安全性和成本问题
+- Minimize changes to the core kernel for OpenAI-specific functionality
+- Cost concerns with including a long list of function descriptions in the request
+- Security and cost concerns with automatically executing functions returned by the model
 
-## 考虑的选项
+## Considered Options
 
-- 支持通过聊天完成端点发送/接收功能，_并_修改界面
-- 支持通过聊天完成端点发送/接收函数， _而无需_ 修改接口
-- 围绕函数调用功能实现 Planner
+- Support sending/receiving functions via chat completions endpoint _with_ modifications to interfaces
+- Support sending/receiving functions via chat completions endpoint _without_ modifications to interfaces
+- Implement a planner around the function calling capability
 
-## 决策结果
+## Decision Outcome
 
-已选择选项：“支持通过聊天完成端点发送/接收功能 _，而无需_ 修改界面”
+Chosen option: "Support sending/receiving functions via chat completions endpoint _without_ modifications to interfaces"
 
-使用此选项，我们利用现有的请求设置对象将函数发送到模型。应用程序开发人员控制包含的函数，并负责验证和执行函数结果。
+With this option, we utilize the existing request settings object to send functions to the model. The app developer controls what functions are included and is responsible for validating and executing the function result.
 
-### 后果
+### Consequences
 
-- 很好，因为避免了对核心内核的破坏性更改
-- 很好，因为 OpenAI 特定的功能包含在 OpenAI 连接器包中
-- 很好，因为允许应用程序控制模型可用的功能（包括非 SK 功能）
-- 很好，因为为将来与规划者集成提供了选项
-- 中性，因为需要应用程序开发人员验证并执行生成的函数
-- 不好，因为如何使用此功能和访问函数结果并不明显
+- Good, because avoids breaking changes to the core kernel
+- Good, because OpenAI-specific functionality is contained to the OpenAI connector package
+- Good, because allows app to control what functions are available to the model (including non-SK functions)
+- Good, because keeps the option open for integrating with planners in the future
+- Neutral, because requires app developer to validate and execute resulting function
+- Bad, because not as obvious how to use this capability and access the function results
 
-## 选项的优缺点
+## Pros and Cons of the Options
 
-### 支持发送/接收功能 _，但_ 修改了聊天补全界面
+### Support sending/receiving functions _with_ modifications to chat completions interfaces
 
-此选项将更新 `IChatCompletion` and `IChatResult` 接口，以公开用于提供和访问函数信息的参数/方法。
+This option would update the `IChatCompletion` and `IChatResult` interfaces to expose parameters/methods for providing and accessing function information.
 
-- 很好，因为为使用函数调用功能提供了清晰的路径
-- 很好，因为允许应用程序控制模型可用的功能（包括非 SK 功能）
-- 中性，因为需要应用程序开发人员验证并执行生成的函数
-- 糟糕，因为引入了对核心内核抽象的重大更改
-- 很糟糕，因为 OpenAI 特定的功能将包含在核心内核抽象中，并且需要被其他模型提供者忽略
+- Good, because provides a clear path for using the function calling capability
+- Good, because allows app to control what functions are available to the model (including non-SK functions)
+- Neutral, because requires app developer to validate and execute resulting function
+- Bad, because introduces breaking changes to core kernel abstractions
+- Bad, because OpenAI-specific functionality would be included in core kernel abstractions and would need to be ignored by other model providers
 
-### 围绕函数调用功能实现 Planner
+### Implement a planner around the function calling capability
 
-编排外部函数调用符合 SK 的规划概念。使用这种方法，我们将实现一个规划器，它将获取函数调用结果并生成应用程序开发人员可以执行的计划（类似于 SK 的 ActionPlanner）。
+Orchestrating external function calls fits within SK's concept of planning. With this approach, we would implement a planner that would take the function calling result and produce a plan that the app developer could execute (similar to SK's ActionPlanner).
 
-- 很好，因为生成计划结果使应用程序开发人员可以轻松执行所选函数
-- 不好，因为函数需要在内核中注册才能执行
-- 不好，因为会造成何时使用哪个规划器的混淆
+- Good, because producing a plan result makes it easy for the app developer to execute the chosen function
+- Bad, because functions would need to be registered with the kernel in order to be executed
+- Bad, because would create confusion about when to use which planner
 
-## 其他说明
+## Additional notes
 
-对于自动调用 OpenAI 模型返回的函数（如果该函数已在内核中注册）的利弊，已经有很多讨论和争论。由于围绕此行为及其影响仍有许多悬而未决的问题，因此我们决定在初始实现中不包含此功能。我们将继续探索此选项，并可能在未来的更新中包括它。
+There has been much discussion and debate over the pros and cons of automatically invoking a function returned by the OpenAI model, if it is registered with the kernel. As there are still many open questions around this behavior and its implications, we have decided to not include this capability in the initial implementation. We will continue to explore this option and may include it in a future update.

@@ -1,37 +1,46 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+contact: markwallace-microsoft
+date: 2023-11-21
+deciders: SergeyMenshykh, markwallace, rbarreto, mabolan, stephentoub
+consulted: 
+informed: 
+---
 
-# 语义内核函数是使用 Interface 或 Abstract Base Class 定义的
+# Semantic Kernel Functions are defined using Interface or Abstract Base Class
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-语义内核必须定义一个抽象来表示一个函数，即一个可以作为 AI 编排的一部分调用的方法。
-目前，这个抽象是 `ISKFunction` interface。
-ADR 的目标是确定这是否是用于满足 Semantic Kernel 长期目标的最佳抽象。
+The Semantic Kernel must define an abstraction to represent a Function i.e. a method that can be called as part of an AI orchestration.
+Currently this abstraction is the `ISKFunction` interface.
+The goal of the ADR is decide if this is the best abstraction to use to meet the long term goals of Semantic Kernel.
 
-## 决策驱动因素
+## Decision Drivers
 
-- 抽象 **必须** 可扩展，以便以后可以添加新功能。
-- 对抽象的更改 **不得** 导致使用者的中断性变更。
-- 目前尚不清楚我们是否需要允许消费者提供他们自己的 `SKFunction` implementation。如果我们这样做，这可能会导致问题，因为我们向 Semantic Kernel 添加新功能，例如，如果我们定义一个新的钩子类型怎么办？
+- The abstraction **must** extensible so that new functionality can be added later.
+- Changes to the abstraction **must not** result in breaking changes for consumers.
+- It is not clear at this time if we need to allow consumers to provide their own `SKFunction` implementations. If we do we this may cause problems as we add new functionality to the Semantic Kernel e.g. what if we define a new hook type?
 
-## 考虑的选项
+## Considered Options
 
-- `ISKFunction` 接口
-- `SKFunction` 基类
+- `ISKFunction` interface
+- `SKFunction` base class
 
-### `ISKFunction` 接口
+### `ISKFunction` Interface
 
-- 很好，因为实现可以扩展任何任意类
-- 不好，因为我们只能更改 implementations 的默认行为，而 customer implementations 可能会变得不兼容。
-- 糟糕，因为我们无法阻止客户实施此接口。
-- 糟糕，因为对界面的更改对使用者来说是破坏性的更改。
+- Good, because implementations can extend any arbitrary class
+- Bad, because we can only change the default behavior of our implementations and customer implementations may become incompatible.
+- Bad, because we cannot prevent customers for implementing this interface.
+- Bad, because changes to the interface are breaking changes for consumers.
 
-### `SKFunction` 案例类
+### `SKFunction` Case Class
 
-- 很好，因为对界面的更改不会 **** 对使用者造成重大影响。
-- 很好，因为可以创建类构造函数 `internal` ，这样我们就可以阻止扩展，直到我们知道有有效的用例。
-- 很好，因为我们将来可以很容易地更改默认实现。
-- 不好，因为 implementations 只能扩展 `SKFunction`.
+- Good, because the changes to the interface are **not** breaking changes for consumers.
+- Good, because class constructor can be made `internal` so we can prevent extensions until we know there are valid use cases.
+- Good, because we can change the default implementation easily in future.
+- Bad, because implementations can only extend `SKFunction`.
 
-## 决策结果
+## Decision Outcome
 
-选择的选项： “`SKFunction` base class”，因为我们可以提供一些默认实现，并且可以限制新 SKFunction 的创建，直到我们更好地理解这些用例。
+Chosen option: "`SKFunction` base class", because we can provide some default implementation and we can restrict creation of new SKFunctions until we better understand those use cases.

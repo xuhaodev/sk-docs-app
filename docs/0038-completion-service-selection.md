@@ -1,19 +1,28 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: markwallace-microsoft
+date: 2024-03-14
+deciders: sergeymenshykh, markwallace, rbarreto, dmytrostruk
+consulted: 
+informed: 
+---
 
-# 完井服务选择策略
+# Completion Service Selection Strategy
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-今天，SK 使用当前 `IAIServiceSelector` 实现来确定在运行文本提示时使用哪种类型的服务。
-该 `IAIServiceSelector` 实现将返回聊天完成服务和文本生成服务，或者可能返回实现两者的服务。
-默认情况下，将使用聊天完成功能运行提示，并回退到文本生成作为替代选项。
+Today, SK uses the current `IAIServiceSelector` implementation to determine which type of service is used when running a text prompt.
+The `IAIServiceSelector` implementation will return either a chat completion service, text generation service or it could return a service that implements both.
+The prompt will be run using chat completion by default and falls back to text generation as the alternate option.
 
-该行为取代[了 ADR-0015 中的该描述](0015-completion-service-selection.md)
+The behavior supersedes that description in [ADR-0015](0015-completion-service-selection.md)
 
-## 决策驱动因素
+## Decision Drivers
 
-- 聊天完成服务在行业中越来越占主导地位，例如 OpenAI 已经弃用了它的大部分文本生成服务。
-- 聊天完成功能通常会提供更好的响应，并能够使用高级功能，例如工具调用。
+- Chat completion services are becoming dominant in the industry e.g. OpenAI has deprecated most of it's text generation services.
+- Chat completion generally provides better responses and the ability to use advanced features e.g. tool calling.
 
-## 决策结果
+## Decision Outcome
 
-Chosen option（所选选项）：保持上述当前行为。
+Chosen option: Keep the current behavior as described above.

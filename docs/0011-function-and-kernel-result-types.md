@@ -1,36 +1,45 @@
-# 将 SKContext 替换为 FunctionResult 和 KernelResult 模型的函数/内核结果类型
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: dmytrostruk
+date: 2023-09-21
+deciders: shawncal, dmytrostruk
+consulted: 
+informed: 
+---
+# Replace SKContext as Function/Kernel result type with FunctionResult and KernelResult models
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-方法 `function.InvokeAsync` 并 `kernel.RunAsync` 返回 `SKContext` 为结果类型。这有几个问题：
+Methods `function.InvokeAsync` and `kernel.RunAsync` return `SKContext` as result type. This has several problems:
 
-1. `SKContext` contains 属性 `Result`，即 `string`。基于此，无法在 Kernel 中返回复杂类型或实现流式处理功能。
-2. `SKContext` contains property `ModelResults`，它与特定于 LLM 的逻辑耦合，因此它仅适用于特定情况下的语义函数。
-3. `SKContext` 作为 pipeline 中函数之间传递信息的机制应该是内部实现。Kernel 的调用者应该提供 input/request 并接收一些结果，但不能。 `SKContext`
-4. `SKContext` 包含与上次执行的函数相关的信息，但无法访问有关 pipeline 中特定函数的信息。
+1. `SKContext` contains property `Result`, which is `string`. Based on that, it's not possible to return complex type or implement streaming capability in Kernel.
+2. `SKContext` contains property `ModelResults`, which is coupled to LLM-specific logic, so it's only applicable to semantic functions in specific cases.
+3. `SKContext` as a mechanism of passing information between functions in pipeline should be internal implementation. Caller of Kernel should provide input/request and receive some result, but not `SKContext`.
+4. `SKContext` contains information related to the last executed function without a way to access information about specific function in pipeline.
 
-## 决策驱动因素
+## Decision Drivers
 
-1. 内核应该能够返回复杂类型并支持流式处理功能。
-2. 当 kernel 未与 AI logic耦合时，它应该能够以某种方式返回与函数执行相关的数据（例如使用的 token 数量）。
-3. `SKContext` 应该作为在函数之间传递信息的内部机制。
-4. 应该有一种方法可以区分函数结果和内核结果，因为这些实体本质上是不同的，将来可能包含不同的属性集。
-5. 在管道中间访问特定功能结果的可能性将为用户提供更多关于其功能如何执行的见解。
+1. Kernel should be able to return complex type as well as support streaming capability.
+2. Kernel should be able to return data related to function execution (e.g. amount of tokens used) in a way, when it's not coupled to AI logic.
+3. `SKContext` should work as internal mechanism of passing information between functions.
+4. There should be a way how to differentiate function result from kernel result, since these entities are different by nature and may contain different set of properties in the future.
+5. The possibility to access specific function result in the middle of pipeline will provide more insights to the users how their functions performed.
 
-## 考虑的选项
+## Considered Options
 
-1. 用作 `dynamic` 返回类型 - 此选项提供了一些灵活性，但另一方面删除了强类型，这是 .NET 环境中的首选选项。此外，无法区分函数结果和内核结果。
-2. 定义新类型 - `FunctionResult` 和 `KernelResult` - 所选方法。
+1. Use `dynamic` as return type - this option provides some flexibility, but on the other hand removes strong typing, which is preferred option in .NET world. Also, there will be no way how to differentiate function result from Kernel result.
+2. Define new types - `FunctionResult` and `KernelResult` - chosen approach.
 
-## 决策结果
+## Decision Outcome
 
-new `FunctionResult` 和 `KernelResult` return 类型应涵盖从函数返回复杂类型、支持流式处理以及单独访问每个函数结果的可能性等场景。
+New `FunctionResult` and `KernelResult` return types should cover scenarios like returning complex types from functions, supporting streaming and possibility to access result of each function separately.
 
-### 复杂类型和流式处理
+### Complex Types and Streaming
 
-对于复杂类型和流式处理，将在 中 `object Value` 定义`FunctionResult`属性来存储单个函数结果，并在 中`KernelResult`定义属性来存储执行管道中最后一个函数的结果。为了更好的可用性，泛型方法 `GetValue<T>` 将允许强制转换为 `object Value` 特定类型。
+For complex types and streaming, property `object Value` will be defined in `FunctionResult` to store single function result, and in `KernelResult` to store result from last function in execution pipeline. For better usability, generic method `GetValue<T>` will allow to cast `object Value` to specific type.
 
-例子：
+Examples:
 
 ```csharp
 // string
@@ -48,24 +57,24 @@ await foreach (var result in results)
 }
 ```
 
-何时 `FunctionResult`/`KernelResult` 将存储 `TypeA` ，调用者将尝试将其转换为 `TypeB` - 在这种情况下 `InvalidCastException` ，将抛出有关类型的详细信息。这将为调用方提供一些信息，应该使用哪种类型进行强制转换。
+When `FunctionResult`/`KernelResult` will store `TypeA` and caller will try to cast it to `TypeB` - in this case `InvalidCastException` will be thrown with details about types. This will provide some information to the caller which type should be used for casting.
 
-### 元数据
+### Metadata
 
-要返回与函数执行相关的其他信息 - 属性 `Dictionary<string, object> Metadata` 将添加到 `FunctionResult`。这将允许将任何类型的信息传递给调用者，这应该会提供一些关于函数如何执行的见解（例如，使用的令牌数量、AI 模型响应等）。
+To return additional information related to function execution - property `Dictionary<string, object> Metadata` will be added to `FunctionResult`. This will allow to pass any kind of information to the caller, which should provide some insights how function performed (e.g. amount of tokens used, AI model response etc.)
 
-例子：
+Examples:
 
 ```csharp
 var functionResult = await function.InvokeAsync(context);
 Console.WriteLine(functionResult.Metadata["MyInfo"]);
 ```
 
-### 多个函数结果
+### Multiple function results
 
-`KernelResult` 将包含函数结果 - 的集合 `IReadOnlyCollection<FunctionResult> FunctionResults`。这将允许从 中获取特定的函数结果 `KernelResult`。Properties `FunctionName` 和 `PluginName` in `FunctionResult` 将有助于从 collection 中获取特定函数。
+`KernelResult` will contain collection of function results - `IReadOnlyCollection<FunctionResult> FunctionResults`. This will allow to get specific function result from `KernelResult`. Properties `FunctionName` and `PluginName` in `FunctionResult` will help to get specific function from collection.
 
-例：
+Example:
 
 ```csharp
 var kernelResult = await kernel.RunAsync(function1, function2, function3);

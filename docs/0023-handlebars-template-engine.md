@@ -1,121 +1,130 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: teresaqhoang
+date: 2023-12-06
+deciders: markwallace, alliscode, SergeyMenshykh
+consulted: markwallace, mabolan
+informed: stephentoub
+---
 
-# Handlebars Prompt 模板帮助程序
+# Handlebars Prompt Template Helpers
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-我们希望将 Handlebars 用作模板工厂，用于在 Semantic Kernel 中渲染 Prompts 和 Planner。Handlebars 提供了一种简单而富有表现力的语法，用于创建具有逻辑和数据的动态模板。但是，Handlebars 没有对与我们的用例相关的某些功能和场景的内置支持，例如：
+We want to use Handlebars as a template factory for rendering prompts and planners in the Semantic Kernel. Handlebars provides a simple and expressive syntax for creating dynamic templates with logic and data. However, Handlebars does not have built-in support for some features and scenarios that are relevant for our use cases, such as:
 
-- 将文本块标记为具有聊天完成连接器角色的消息。
-- 从内核调用函数并将参数传递给它们。
-- 在模板上下文中设置和获取变量。
-- 执行常见作，例如串联、算术、比较和 JSON 序列化。
-- 支持渲染模板的不同输出类型和格式。
+- Marking a block of text as a message with a role for chat completion connectors.
+- Invoking functions from the kernel and passing parameters to them.
+- Setting and getting variables in the template context.
+- Performing common operations such as concatenation, arithmetic, comparison, and JSON serialization.
+- Supporting different output types and formats for the rendered template.
 
-因此，我们需要使用自定义帮助程序来扩展 Handlebars，这些帮助程序可以解决这些差距，并为提示和规划工程师提供一致且方便的方式来编写模板。
+Therefore, we need to extend Handlebars with custom helpers that can address these gaps and provide a consistent and convenient way for prompt and planner engineers to write templates.
 
-首先，我们将通过**_为常见作和实用程序烘焙一组定义的自定义系统帮助程序_**来实现此目的，这些作和实用程序未提供任何内置 Handlebars 帮助程序，其中包括：
+First, we will do this by **_baking in a defined set of custom system helpers_** for common operations and utilities that are not provided any the built-in Handlebars helpers, which:
 
-- 允许我们完全控制 Handlebars 模板工厂可以执行哪些功能。
-- 通过为任何内置 Handlebars 帮助程序未提供但通常由模型产生幻觉的常见作和实用程序提供帮助程序，增强了模板工厂的功能和可用性。
-- 提高渲染模板的表达性和可读性，因为帮助程序可用于对模板数据/参数执行简单或复杂的逻辑或转换。
-- 为用户提供灵活性和便利性，因为他们可以：
+- Allows us full control over what functionality can be executed by the Handlebars template factory.
+- Enhances the functionality and usability of the template factory, by providing helpers for common operations and utilities that are not provided by any built-in Handlebars helpers but are commonly hallucinated by the model.
+- Improves the expressiveness and readability of the rendered template, as the helpers can be used to perform simple or complex logic or transformations on the template data / arguments.
+- Provides flexibility and convenience for the users, as they can:
 
-  - 选择语法，然后
-  - 扩展、添加或省略某些帮助程序
+  - Choose the syntax, and
+  - Extend, add, or omit certain helpers
 
-  以最好地满足他们的需求和偏好。
+  to best suits their needs and preferences.
 
-- 允许自定义可能具有不同行为或要求的特定作或实用程序，例如处理输出类型、格式或错误。
+- Allows for customization of specific operations or utilities that may have different behavior or requirements, such as handling output types, formats, or errors.
 
-这些帮助程序将处理参数的评估、作或实用程序的执行以及将结果写入模板。此类作的示例包括 `{{concat string1 string2 ...}}`、 `{{equal value1 value2}}` `{{json object}}` `{{set name=value}}` `{{get name}}` `{{or condition1 condition2}}`等。
+These helpers would handle the evaluation of the arguments, the execution of the operation or utility, and the writing of the result to the template. Examples of such operations are `{{concat string1 string2 ...}}`, `{{equal value1 value2}}`, `{{json object}}`, `{{set name=value}}`, `{{get name}}`, `{{or condition1 condition2}}`, etc.
 
-其次，我们必须 **_将 Kernel 中注册的函数作为_** Handlebars 模板工厂的帮助程序公开出来。下面详细介绍了此选项。
+Secondly, we have to **_expose the functions that are registered in the Kernel as helpers_** to the Handlebars template factory. Options for this are detailed below.
 
-## 决策驱动因素
+## Decision Drivers
 
-- 我们希望尽可能多地利用现有的 Handlebars 帮助程序、语法和机制来加载帮助程序，而不会引入不必要的复杂性或不一致性。
-- 我们希望为 prompt 和 SK 工程师提供有用且直观的 helpers。
-- 我们希望确保 Helpers 有良好的文档记录、测试和维护，并且它们不会相互冲突或与内置的 Handlebars Helper 冲突。
-- 我们希望为渲染的模板支持不同的输出类型和格式，例如文本、JSON 或复杂对象，并允许模板指定所需的输出类型。
+- We want to leverage the existing Handlebars helpers, syntax, and mechanisms for loading helpers as much as possible, without introducing unnecessary complexity or inconsistency.
+- We want to provide helpers that are useful and intuitive for prompt and SK engineers.
+- We want to ensure that the helpers are well-documented, tested, and maintained, and that they do not conflict with each other or with the built-in Handlebars helpers.
+- We want to support different output types and formats for the rendered template, such as text, JSON, or complex objects, and allow the template to specify the desired output type.
 
-## 考虑的选项
+## Considered Options
 
-我们考虑了以下使用内核函数扩展 Handlebars 的选项作为自定义帮助程序：
+We considered the following options for extending Handlebars with kernel functions as custom helpers:
 
-**1. 使用单个 helper 从内核调用函数。** 此选项将使用通用帮助程序（如 `{{invoke pluginName-functionName param1=value1 param2=value2 ...}}`）从内核调用任何函数并向其传递参数。帮助程序将处理函数的执行、参数和结果的转换以及将结果写入模板的过程。
+**1. Use a single helper for invoking functions from the kernel.** This option would use a generic helper, such as `{{invoke pluginName-functionName param1=value1 param2=value2 ...}}`, to call any function from the kernel and pass parameters to it. The helper would handle the execution of the function, the conversion of the parameters and the result, and the writing of the result to the template.
 
-**2. 对内核中的每个函数使用单独的帮助程序。** 此选项将为每个函数注册一个新的帮助程序，例如 `{{pluginName-functionName param1=value1 param2=value2 ...}}`，以处理函数的执行、参数和结果的转换以及将结果写入模板。
+**2. Use a separate helper for each function from the kernel.** This option would register a new helper for each function, such as `{{pluginName-functionName param1=value1 param2=value2 ...}}`, to handle the execution of the function, the conversion of the parameters and the result, and the writing of the result to the template.
 
-## 优点和缺点
+## Pros and Cons
 
-### 1. 使用单个泛型帮助程序从内核调用函数
+### 1. Use a single generic helper for invoking functions from the kernel
 
-优点：
+Pros:
 
-- 简化了帮助程序的注册和维护，因为只需要`invoke`定义和更新一个帮助程序 。
-- 为从内核调用任何函数提供一致且统一的语法，无论插件或函数名称、参数详细信息或结果如何。
-- 允许对内核函数进行自定义和特殊逻辑，例如处理输出类型、执行限制或错误。
-- 允许使用位置参数或命名参数以及哈希参数将参数传递给函数。
+- Simplifies the registration and maintenance of the helper, as only one helper, `invoke`, needs to be defined and updated.
+- Provides a consistent and uniform syntax for calling any function from the kernel, regardless of the plugin or function name, parameter details, or the result.
+- Allows for customization and special logic of kernel functions, such as handling output types, execution restrictions, or errors.
+- Allows the use of positional or named arguments, as well as hash arguments, for passing parameters to the function.
 
-缺点：
+Cons:
 
-- 降低模板的表达性和可读性，因为函数名称和参数包装在泛型帮助程序调用中。
-- 为模型添加额外的语法以学习和跟踪，这可能会导致在渲染过程中出现更多错误。
+- Reduces the expressiveness and readability of the template, as the function name and parameters are wrapped in a generic helper invocation.
+- Adds additional syntax for the model to learn and keep track of, potentially leading to more errors during render.
 
-### 2. 对_内核中的每个函数_使用通用帮助程序 
+### 2. Use a generic helper for _each_ function from the kernel
 
-优点：
+Pros:
 
-- 具有选项 1 的所有优点，但在很大程度上提高了模板的表达性和可读性，因为函数名称和参数直接写入模板中。
-- 保持处理每个函数的易维护性，因为每个帮助程序都将遵循相同的模板化逻辑进行注册和执行。
+- Has all the benefits of option 1, but largely improves the expressiveness and readability of the template, as the function name and parameters are directly written in the template.
+- Maintains ease of maintenance for handling each function, as each helper will follow the same templated logic for registration and execution.
 
-缺点：
+Cons:
 
-- 如果函数名称或参数名称与内置 Handlebars 帮助程序或内核变量匹配，可能会导致它们发生冲突或混淆。
+- May cause conflicts or confusion with the built-in Handlebars helpers or the kernel variables, if the function name or the parameter name matches them.
 
-## 决策结果
+## Decision Outcome
 
-我们决定采用选项 2：提供特殊的帮助程序来调用内核中的任何函数。这些帮助程序将为每个已注册的函数遵循相同的逻辑和语法。我们相信，这种方法以及将启用特殊实用程序逻辑或行为的自定义系统帮助程序，为 Handlebars 模板工厂和我们的用户提供了简单性、表现力、灵活性和功能性之间的最佳平衡。
+We decided to go with option 2: providing special helpers to invoke any function in the kernel. These helpers will follow the same logic and syntax for each registered function. We believe that this approach, alongside the custom system helpers that will enable special utility logic or behavior, provides the best balance between simplicity, expressiveness, flexibility, and functionality for the Handlebars template factory and our users.
 
-使用这种方法，
+With this approach,
 
-- 我们将允许客户使用任何内置的 [Handlebars.Net 帮助程序](https://github.com/Handlebars-Net/Handlebars.Net.Helpers)。
-- 我们将提供默认注册的 Utility Helpers。
-- 我们将提供默认注册的提示帮助程序（例如聊天消息）。
-- 我们将注册在 `Kernel`.
-- 我们将允许客户控制哪些插件注册为 helpers 以及 helpers 签名的语法。
-  - 默认情况下，我们将遵循 [HandlebarsHelperOptions 中定义的所有选项](https://github.com/Handlebars-Net/Handlebars.Net.Helpers/blob/8f7c9c082e18845f6a620bbe34bf4607dcba405b/src/Handlebars.Net.Helpers/Options/HandlebarsHelpersOptions.cs#L12)。
-  - 此外，我们将扩展此配置以包含一个 `RegisterCustomHelpersCallback` 选项，用户可以设置该选项来注册自定义帮助程序。
-- 我们将允许通过对象轻松访问 Kernel 函数参数，即函数变量和执行设置 `KernelArguments` 。
-- 我们将允许客户控制何时将插件函数注册为帮助程序。
-  - 默认情况下，这是在渲染模板时完成的。
-  - （可选）当通过传入 Plugin 集合来构造 Handlebars 模板工厂时，可以执行此作。
-- 如果内置 helpers、变量或内核对象之间发生冲突：
-  - 我们将抛出一个错误，清楚地解释问题所在，以及
-  - 允许客户提供自己的实施和覆盖，包括不注册默认帮助程序的选项。这可以通过设置为 `Options.Categories` empty array  来完成`[]`。
+- We will allow customers to use any of the built-in [Handlebars.Net helpers](https://github.com/Handlebars-Net/Handlebars.Net.Helpers).
+- We will provide utility helpers, which are registered by default.
+- We will provide prompt helpers (e.g. chat message), which are registered by default.
+- We will register all plugin functions registered on the `Kernel`.
+- We will allow customers to control which plugins are registered as helpers and the syntax of helpers' signatures.
+  - By default, we will honor all options defined in [HandlebarsHelperOptions](https://github.com/Handlebars-Net/Handlebars.Net.Helpers/blob/8f7c9c082e18845f6a620bbe34bf4607dcba405b/src/Handlebars.Net.Helpers/Options/HandlebarsHelpersOptions.cs#L12).
+  - Additionally, we will extend this configuration to include a `RegisterCustomHelpersCallback` option that users can set to register custom helpers.
+- We will allow Kernel function arguments to be easily accessed, i.e., function variables and execution settings, via a `KernelArguments` object.
+- We will allow customers to control when plugin functions are registered as helpers.
+  - By default, this is done when template is rendered.
+  - Optionally, this can be done when the Handlebars template factory is constructed by passing in a Plugin collection.
+- If conflicts arise between built-in helpers, variables, or kernel objects:
+  - We will throw an error clearly explaining what the issue is, as well as
+  - Allow customers to provide their own implementations and overrides, including an option to not register default helpers. This can be done by setting `Options.Categories` to an empty array `[]`.
 
-我们还决定遵循一些准则和最佳实践来设计和实现 helpers，例如：
+We also decided to follow some guidelines and best practices for designing and implementing the helpers, such as:
 
-- 记录每个帮助程序的用途、语法、参数和行为，并为它们提供示例和测试。
-- 以清晰一致的方式命名 Helper，并避免与内置的 Handlebars Helpers 或内核函数或变量发生冲突或混淆。
-  - 对自定义系统帮助程序使用独立函数名称（即 json、set）
-  - 对`-`注册为处理内核函数的帮助程序使用分隔符 “”，以将它们彼此区分开来，并与我们的系统或内置的 Handlebars 帮助程序区分开来。
-- 支持位置参数和哈希参数，用于将参数传递给帮助程序，并验证所需类型和计数的参数。
-- 处理帮助程序的输出类型、格式和错误，包括复杂类型或 JSON 架构。
-- 以高效且安全的方式实现帮助程序，并避免对模板上下文或数据产生任何副作用或不必要的修改。
+- Documenting the purpose, syntax, parameters, and behavior of each helper, and providing examples and tests for them.
+- Naming the helpers in a clear and consistent way, and avoiding conflicts or confusion with the built-in Handlebars helpers or the kernel functions or variables.
+  - Using standalone function names for custom system helpers (i.e., json, set)
+  - Using the delimiter "`-`" for helpers registered to handle the kernel functions, to distinguish them from each other and from our system or built-in Handlebars helpers.
+- Supporting both positional and hash arguments, for passing parameters to the helpers, and validating the arguments for the required type and count.
+- Handling the output types, formats, and errors of the helpers, including complex types or JSON schemas.
+- Implementing the helpers in a performant and secure way, and avoiding any side effects or unwanted modifications to the template context or data.
 
-实际上，在 Handlebars Template Engine 中将启用四个帮助程序存储桶：
+Effectively, there will be four buckets of helpers enabled in the Handlebars Template Engine:
 
-1. Handlebars 库中的默认辅助函数，包括：
-   - [启用循环和条件的内置帮助程序](https://handlebarsjs.com/guide/builtin-helpers.html)（#if、#each、#with #unless）
+1. Default helpers from the Handlebars library, including:
+   - [Built-in helpers](https://handlebarsjs.com/guide/builtin-helpers.html) that enable loops and conditions (#if, #each, #with, #unless)
    - [Handlebars.Net.Helpers](https://github.com/Handlebars-Net/Handlebars.Net.Helpers/wiki)
-2. 内核中的函数
-3. 有助于提示工程师的帮助程序（即 message 或 ）
-4. 可用于对模板数据或参数（即 set、get、json、concat、equals、range、array）执行简单逻辑或转换的实用程序帮助程序
+2. Functions in the kernel
+3. Helpers helpful to prompt engineers (i.e., message, or)
+4. Utility helpers that can be used to perform simple logic or transformations on the template data or arguments (i.e., set, get, json, concat, equals, range, array)
 
-### Handlebars Prompt 模板引擎的伪代码
+### Pseudocode for the Handlebars Prompt Template Engine
 
-带有内置帮助程序的 Handlebars 提示模板工厂的原型实现可能如下所示：
+A prototype implementation of a Handlebars prompt template factory with built-in helpers could look something like this:
 
 ```csharp
 /// Options for Handlebars helpers (built-in and custom).
@@ -253,6 +262,6 @@ public static class KernelSystemHelpers
 }
 ```
 
-**注意：这只是一个原型实现，仅用于说明目的。**
+**Note: This is just a prototype implementation for illustration purposes only.**
 
-Handlebars 支持将不同的对象类型作为 render 上的变量。这为在语义函数中直接使用对象而不仅仅是字符串提供了选项，即循环数组或访问复杂对象的属性，而无需在调用之前序列化或反序列化对象。
+Handlebars supports different object types as variables on render. This opens up the option to use objects outright rather than just strings in semantic functions, i.e., loop over arrays or access properties of complex objects, without serializing or deserializing objects before invocation.

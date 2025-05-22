@@ -1,52 +1,65 @@
+---
+# These are optional elements. Feel free to remove any of them
 
-# 适用于 1.0 版本的 DotNet 项目结构
+status: superseded by [ADR-0042](0042-samples-restructure.md)
+contact: markwallace-microsoft
+date: 2023-09-29
+deciders: SergeyMenshykh, dmytrostruk, RogerBarreto
+consulted: shawncal, stephentoub, lemillermicrosoft
+informed:
+  {
+    list everyone who is kept up-to-date on progress; and with whom there is a one-way communication,
+  }
+---
 
-## 上下文和问题陈述
+# DotNet Project Structure for 1.0 Release
 
-- 提供一组内聚的、定义明确的程序集，开发人员可以根据自己的需要轻松组合这些程序集。
-  - Semantic Kernel 核心应仅包含与 AI 编排相关的功能
-    - 删除提示模板引擎和语义函数
-  - 语义内核抽象应该只支持接口、抽象类和最小类来支持这些
-- 从 `Skills` NuGet 包中删除命名并替换为 `Plugins`
-  - 明确区分插件实现 （） `Skills.MsGraph`和插件集成 （）`Skills.OpenAPI`
-- 为程序集及其根命名空间提供一致的命名
-  - 有关当前模式的示例[，请参阅 ](#naming-patterns)命名模式 部分
+## Context and Problem Statement
 
-## 决策驱动因素
+- Provide a cohesive, well-defined set of assemblies that developers can easily combine based on their needs.
+  - Semantic Kernel core should only contain functionality related to AI orchestration
+    - Remove prompt template engine and semantic functions
+  - Semantic Kernel abstractions should only interfaces, abstract classes and minimal classes to support these
+- Remove `Skills` naming from NuGet packages and replace with `Plugins`
+  - Clearly distinguish between plugin implementations (`Skills.MsGraph`) and plugin integration (`Skills.OpenAPI`)
+- Have consistent naming for assemblies and their root namespaces
+  - See [Naming Patterns](#naming-patterns) section for examples of current patterns
 
-- 避免由于对程序集进行签名的影响而拥有过多的程序集，并降低复杂性
-- 遵循 .Net 命名准则
-  - [程序集和 DLL 的名称](https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/names-of-assemblies-and-dlls)
-  - [命名空间的名称](https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/names-of-namespaces)
+## Decision Drivers
 
-## 考虑的选项
+- Avoid having too many assemblies because of impact of signing these and to reduce complexity
+- Follow .Net naming guidelines
+  - [Names of Assemblies and DLLs](https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/names-of-assemblies-and-dlls)
+  - [Names of Namespaces](https://learn.microsoft.com/en-us/dotnet/standard/design-guidelines/names-of-namespaces)
 
-- 选项 #1：新建 `planning`和 `functions` `plugins` 项目区域
-- 选项 #2：文件夹命名与程序集名称匹配
+## Considered Options
 
-在所有情况下，都将进行以下更改：
+- Option #1: New `planning`, `functions` and `plugins` project areas
+- Option #2: Folder naming matches assembly name
 
-- 将非核心连接器移动到单独的存储库
-- 将提示模板引擎和语义函数合并到单个包中
+In all cases the following changes will be made:
 
-## 决策结果
+- Move non core Connectors to a separate repository
+- Merge prompt template engine and semantic functions into a single package
 
-所选选项：选项 #2：文件夹命名与程序集名称匹配，因为：
+## Decision Outcome
 
-1. 它为开发人员提供了一种轻松发现特定程序集的代码位置的方法
-1. 它与其他 e.g.e.， [azure-sdk-for-net 一致](https://github.com/Azure/azure-sdk-for-net)
+Chosen option: Option #2: Folder naming matches assembly name, because:
 
-项目的主要类别将是：
+1. It provides a way for developers to easily discover where code for a particular assembly is located
+1. It is consistent with other e.g., [azure-sdk-for-net](https://github.com/Azure/azure-sdk-for-net)
 
-1. `Connectors`： **_连接器项目允许语义内核连接到 AI 和内存服务_**。某些现有连接器项目可能会移动到其他存储库。
-1. `Planners`： **_Planner 项目提供一个或多个 Planner 实现，这些实现接受 ask 并将其转换为可执行计划以实现该 ask_**。此类别将包括当前作、顺序和逐步规划器（这些可以合并到一个项目中）。其他规划实现，例如，生成 Powershell 或 Python 代码的规划器可以作为单独的项目添加。
-1. `Functions`： **_一个函数项目，使 Semantic Kernel 能够访问它将编排的函数_**。此类别将包括：
-   1. 语义函数，即针对 LLM 执行的提示
-   1. GRPC 远程程序，即使用 GRPC 框架远程执行的程序
-   1. 开放 API 端点，即使用 HTTP 协议远程执行开放 API 定义的 REST 端点
-1. `Plugins`： **_插件项目包含 Semantic Kernel 插件的实现_**。Semantic Kernel 插件包含函数的具体实现，例如，插件可能包含用于基本文本作的代码。
+Main categories for the projects will be:
 
-### 选项 #1：新建 `planning`和 `functions` `plugins` 项目区域
+1. `Connectors`: **_A connector project allows the Semantic Kernel to connect to AI and Memory services_**. Some of the existing connector projects may move to other repositories.
+1. `Planners`: **_A planner project provides one or more planner implementations which take an ask and convert it into an executable plan to achieve that ask_**. This category will include the current action, sequential and stepwise planners (these could be merged into a single project). Additional planning implementations e.g., planners that generate Powershell or Python code can be added as separate projects.
+1. `Functions`: **_A function project that enables the Semantic Kernel to access the functions it will orchestrate_**. This category will include:
+   1. Semantic functions i.e., prompts executed against an LLM
+   1. GRPC remote procedures i.e., procedures executed remotely using the GRPC framework
+   1. Open API endpoints i.e., REST endpoints that have Open API definitions executed remotely using the HTTP protocol
+1. `Plugins`: **_A plugin project contains the implementation(s) of a Semantic Kernel plugin_**. A Semantic Kernel plugin is contains a concrete implementation of a function e.g., a plugin may include code for basic text operations.
+
+### Option #1: New `planning`, `functions` and `plugins` project areas
 
 ```text
 SK-dotnet
@@ -84,27 +97,27 @@ SK-dotnet
     └── SemanticKernel.UnitTests
 ```
 
-### 变化
+### Changes
 
-| 项目              | 描述                                                                                                |
+| Project              | Description                                                                                                |
 | -------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `Functions.Native`   | 从 Semantic Kernel 核心和抽象中提取原生函数。                                       |
-| `Functions.Semantic` | 从 Semantic Kernel 核心和抽象中提取语义函数。包括提示模板引擎。 |
-| `Functions.Planning` | 从 Semantic Kernel 核心和抽象中提取规划。                                               |
-| `Functions.Grpc`     | 旧 `Skills.Grpc` 项目                                                                                  |
-| `Functions.OpenAPI`  | 旧 `Skills.OpenAPI` 项目                                                                               |
-| `Plugins.Core`       | 旧 `Skills.Core` 项目                                                                                  |
-| `Plugins.Document`   | 旧 `Skills.Document` 项目                                                                              |
-| `Plugins.MsGraph`    | 旧 `Skills.MsGraph` 项目                                                                               |
-| `Plugins.WebSearch`  | 旧 `Skills.WebSearch` 项目                                                                             |
+| `Functions.Native`   | Extract native functions from Semantic Kernel core and abstractions.                                       |
+| `Functions.Semantic` | Extract semantic functions from Semantic Kernel core and abstractions. Include the prompt template engine. |
+| `Functions.Planning` | Extract planning from Semantic Kernel core and abstractions.                                               |
+| `Functions.Grpc`     | Old `Skills.Grpc` project                                                                                  |
+| `Functions.OpenAPI`  | Old `Skills.OpenAPI` project                                                                               |
+| `Plugins.Core`       | Old `Skills.Core` project                                                                                  |
+| `Plugins.Document`   | Old `Skills.Document` project                                                                              |
+| `Plugins.MsGraph`    | Old `Skills.MsGraph` project                                                                               |
+| `Plugins.WebSearch`  | Old `Skills.WebSearch` project                                                                             |
 
-### 语义内核技能和功能
+### Semantic Kernel Skills and Functions
 
-此图说明了函数和插件如何与 Semantic Kernel 核心集成。
+This diagram how functions and plugins would be integrated with the Semantic Kernel core.
 
 <img src="./diagrams/skfunctions-v1.png" alt="ISKFunction class relationships" width="400"/>
 
-### 选项 #2：文件夹命名与程序集名称匹配
+### Option #2: Folder naming matches assembly name
 
 ```text
 SK-dotnet
@@ -145,16 +158,16 @@ SK-dotnet
     └── Microsoft.SemanticKernel.MetaPackage
 ```
 
-**_笔记：_**
+**_Notes:_**
 
-- 最初只有一个解决方案文件。
-- 项目将在解决方案中分组，即连接器、规划器、插件、函数、扩展......
-- 每个项目文件夹都包含一个 `src` and `tests` 文件夹。
-- 将现有单元测试移动到正确的位置将是一个渐进的过程，因为某些项目需要分解。
+- There will only be a single solution file (initially).
+- Projects will be grouped in the solution i.e., connectors, planners, plugins, functions, extensions, ...
+- Each project folder contains a `src` and `tests` folder.
+- There will be a gradual process to move existing unit tests to the correct location as some projects will need to be broken up.
 
-## 更多信息
+## More Information
 
-### 当前项目结构
+### Current Project Structure
 
 ```text
 SK-dotnet
@@ -186,37 +199,37 @@ SK-dotnet
     └── SemanticKernel.UnitTests
 ```
 
-\\\* - 表示项目是 Semantic Kernel 元包的一部分
+\\\* - Means the project is part of the Semantic Kernel meta package
 
-### 项目描述
+### Project Descriptions
 
-| 项目                     | 描述                                                                                                      |
+| Project                     | Description                                                                                                      |
 | --------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| 连接器.AI.OpenAI        | Azure OpenAI 和 OpenAI 服务连接器                                                                       |
-| 连接。。。               | 其他 AI 服务连接器的集合，其中一些将移至另一个存储库                         |
-| 连接器.UnitTests        | 连接器单元测试                                                                                             |
-| 规划者.行动规划师       | 作规划器的 Semantic Kernel 实现                                                              |
-| Planner.SequentialPlanner   | 顺序计划程序的 Semantic Kernel 实现                                                           |
-| Planner.StepwisePlanner     | 逐步规划器的 Semantic Kernel 实现                                                             |
-| 模板引擎.Basic        | 提示模板引擎基本实现，仅供语义函数使用                           |
-| Extensions.UnitTests        | 扩展单元测试                                                                                            |
-| 内部实用程序           | 由多个 NuGet 包重复使用的内部实用程序（全部为内部）                                    |
-| 技能核心                 | 为支持语义函数而提供的核心本机函数集                                    |
-| Skills.Document 文档             | 用于与 Microsoft 文档交互的本机函数                                                        |
-| 技能.Grpc                 | 基于 GRPC 的端点的 Semantic Kernel 集成                                                             |
-| 技能.MsGraph              | 用于与 Microsoft Graph 终结点交互的本机函数                                                  |
-| 技能.OpenAPI              | OpenAI 终结点的语义内核集成和参考 Azure Key Vault 实现                    |
-| 技能网                  | 用于与 Web 端点交互的本机功能，例如 Bing、Google、文件下载                            |
-| Skills.UnitTests            | 技能单元测试                                                                                                |
-| 集成测试            | Semantic Kernel 集成测试                                                                                |
-| SemanticKernel 内核              | Semantic Kernel 核心实现                                                                              |
-| SemanticKernel.Abstractions | 语义内核抽象，即接口、抽象类、支持类......                          |
-| SemanticKernel.MetaPackage  | 语义内核元包，即引用其他必需的语义内核 NuGet 包的 NuGet 包 |
-| SemanticKernel.UnitTests    | 语义内核单元测试                                                                                       |
+| Connectors.AI.OpenAI        | Azure OpenAI and OpenAI service connectors                                                                       |
+| Connectors...               | Collection of other AI service connectors, some of which will move to another repository                         |
+| Connectors.UnitTests        | Connector unit tests                                                                                             |
+| Planner.ActionPlanner       | Semantic Kernel implementation of an action planner                                                              |
+| Planner.SequentialPlanner   | Semantic Kernel implementation of a sequential planner                                                           |
+| Planner.StepwisePlanner     | Semantic Kernel implementation of a stepwise planner                                                             |
+| TemplateEngine.Basic        | Prompt template engine basic implementations which are used by Semantic Functions only                           |
+| Extensions.UnitTests        | Extensions unit tests                                                                                            |
+| InternalUtilities           | Internal utilities which are reused by multiple NuGet packages (all internal)                                    |
+| Skills.Core                 | Core set of native functions which are provided to support Semantic Functions                                    |
+| Skills.Document             | Native functions for interacting with Microsoft documents                                                        |
+| Skills.Grpc                 | Semantic Kernel integration for GRPC based endpoints                                                             |
+| Skills.MsGraph              | Native functions for interacting with Microsoft Graph endpoints                                                  |
+| Skills.OpenAPI              | Semantic Kernel integration for OpenAI endpoints and reference Azure Key Vault implementation                    |
+| Skills.Web                  | Native functions for interacting with Web endpoints e.g., Bing, Google, File download                            |
+| Skills.UnitTests            | Skills unit tests                                                                                                |
+| IntegrationTests            | Semantic Kernel integration tests                                                                                |
+| SemanticKernel              | Semantic Kernel core implementation                                                                              |
+| SemanticKernel.Abstractions | Semantic Kernel abstractions i.e., interface, abstract classes, supporting classes, ...                          |
+| SemanticKernel.MetaPackage  | Semantic Kernel meta package i.e., a NuGet package that references other required Semantic Kernel NuGet packages |
+| SemanticKernel.UnitTests    | Semantic Kernel unit tests                                                                                       |
 
-### 命名模式
+### Naming Patterns
 
-以下是项目中使用的 Assembly 和根命名空间命名的一些不同示例。
+Below are some different examples of Assembly and root namespace naming that are used in the projects.
 
 ```xml
     <AssemblyName>Microsoft.SemanticKernel.Abstractions</AssemblyName>
@@ -232,7 +245,7 @@ SK-dotnet
     <RootNamespace>$(AssemblyName)</RootNamespace>
 ```
 
-### 当前文件夹结构
+### Current Folder Structure
 
 ```text
 dotnet/
@@ -268,13 +281,13 @@ dotnet/
 
 ```
 
-### 语义内核技能和功能
+### Semantic Kernel Skills and Functions
 
-此图显示当前技能已与 Semantic Kernel 核心集成。
+This diagram show current skills are integrated with the Semantic Kernel core.
 
-**_注意：_**
+**_Note:_**
 
-- 这不是真正的类层次结构图。它显示了一些类关系和依赖关系。
-- 命名空间缩写以删除 Microsoft.SemanticKernel 前缀。命名空间使用 `_` 而不是 `.`.
+- This is not a true class hierarchy diagram. It show some class relationships and dependencies.
+- Namespaces are abbreviated to remove Microsoft.SemanticKernel prefix. Namespaces use `_` rather than `.`.
 
 <img src="./diagrams/skfunctions-preview.png" alt="ISKFunction class relationships" width="400"/>

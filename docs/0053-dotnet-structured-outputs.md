@@ -1,13 +1,20 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+contact: dmytrostruk
+date: 2024-09-10
+deciders: sergeymenshykh, markwallace, rbarreto, westey-m, dmytrostruk, ben.thomas, evan.mattson, crickman
+---
 
-# Semantic Kernel 的 .NET 版本中的结构化输出实现
+# Structured Outputs implementation in .NET version of Semantic Kernel
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-[结构化输出](https://platform.openai.com/docs/guides/structured-outputs) 是 OpenAI API 中的一项功能，可确保模型始终根据提供的 JSON 架构生成响应。这提供了对模型响应的更多控制，允许避免模型幻觉并编写更简单的提示，而无需具体说明响应格式。此 ADR 介绍了如何在 .NET 版本的 Semantic Kernel 中启用此功能的几个选项。
+[Structured Outputs](https://platform.openai.com/docs/guides/structured-outputs) is a feature in OpenAI API that ensures the model will always generate responses based on provided JSON Schema. This gives more control over model responses, allows to avoid model hallucinations and write simpler prompts without a need to be specific about response format. This ADR describes several options how to enable this functionality in .NET version of Semantic Kernel.
 
-以下是如何在 .NET 和 Python OpenAI SDK 中实现的几个示例：
+A couple of examples how it's implemented in .NET and Python OpenAI SDKs:
 
-.NET OpenAI 开发工具包：
+.NET OpenAI SDK:
 ```csharp
 ChatCompletionOptions options = new()
 {
@@ -48,7 +55,7 @@ Console.WriteLine($"Final answer: {structuredJson.RootElement.GetProperty("final
 Console.WriteLine("Reasoning steps:");
 ```
 
-Python OpenAI 开发工具包：
+Python OpenAI SDK:
 
 ```python
 class CalendarEvent(BaseModel):
@@ -68,15 +75,15 @@ completion = client.beta.chat.completions.parse(
 event = completion.choices[0].message.parsed
 ```
 
-## 考虑的选项
+## Considered Options
 
-**注意**：本 ADR 中提供的所有选项并不互斥 - 它们可以同时实施和支持。
+**Note**: All of the options presented in this ADR are not mutually exclusive - they can be implemented and supported simultaneously.
 
-### 选项 #1：将 OpenAI.Chat.Chat.ChatResponseFormat 对象用于 ResponseFormat 属性（类似于 .NET OpenAI SDK）
+### Option #1: Use OpenAI.Chat.ChatResponseFormat object for ResponseFormat property (similar to .NET OpenAI SDK)
 
-这种方法意味着 `OpenAI.Chat.ChatResponseFormat` 具有 JSON Schema 的对象将由用户构建并提供给 `OpenAIPromptExecutionSettings.ResponseFormat` 属性，语义内核会将其按原样传递给 .NET OpenAI SDK。 
+This approach means that `OpenAI.Chat.ChatResponseFormat` object with JSON Schema will be constructed by user and provided to `OpenAIPromptExecutionSettings.ResponseFormat` property, and Semantic Kernel will pass it to .NET OpenAI SDK as it is. 
 
-使用示例：
+Usage example:
 
 ```csharp
 // Initialize Kernel
@@ -153,19 +160,19 @@ Console.WriteLine(result.ToString());
 // }
 ```
 
-优点：
-- Semantic Kernel 已经支持这种方法，无需任何其他更改，因为有一个逻辑可以将 `ChatResponseFormat` 对象按原样传递给 .NET OpenAI SDK。 
-- 与 .NET OpenAI SDK 一致。
+Pros:
+- This approach is already supported in Semantic Kernel without any additional changes, since there is a logic to pass `ChatResponseFormat` object as it is to .NET OpenAI SDK. 
+- Consistent with .NET OpenAI SDK.
 
-缺点：
-- 没有类型安全。有关响应类型的信息应由用户手动构建以执行请求。要访问每个响应属性，也应手动处理响应。可以定义 C# 类型并使用 JSON 反序列化进行响应，但请求的 JSON 架构仍将单独定义，这意味着有关类型的信息将存储在 2 个位置，对类型的任何修改都应在 2 个位置处理。
-- 与 Python 版本不一致，其中响应类型在类中定义，并通过 `response_format` 简单赋值传递给属性。 
+Cons:
+- No type-safety. Information about response type should be manually constructed by user to perform a request. To access each response property, the response should be handled manually as well. It's possible to define a C# type and use JSON deserialization for response, but JSON Schema for request will still be defined separately, which means that information about the type will be stored in 2 places and any modifications to the type should be handled in 2 places.
+- Inconsistent with Python version, where response type is defined in a class and passed to `response_format` property by simple assignment. 
 
-### 选项 #2：对 ResponseFormat 属性使用 C# 类型（类似于 Python OpenAI SDK）
+### Option #2: Use C# type for ResponseFormat property (similar to Python OpenAI SDK)
 
-这种方法意味着 `OpenAI.Chat.ChatResponseFormat` 带有 JSON Schema 的对象将由 Semantic Kernel 构建，用户只需要定义 C# 类型并将其分配给 `OpenAIPromptExecutionSettings.ResponseFormat` 属性。
+This approach means that `OpenAI.Chat.ChatResponseFormat` object with JSON Schema will be constructed by Semantic Kernel, and user just needs to define C# type and assign it to `OpenAIPromptExecutionSettings.ResponseFormat` property.
 
-使用示例：
+Usage example:
 
 ```csharp
 // Define desired response models
@@ -225,20 +232,20 @@ OutputResult(mathReasoning);
 // Final answer: x = -3.75
 ```
 
-优点：
-- 类型安全。用户不需要手动定义 JSON 架构，因为它将由 Semantic Kernel 处理，因此用户可以只专注于定义 C# 类型。可以添加或删除 C# 类型的属性，以更改所需响应的格式。 `Description` 属性以提供有关特定属性的更多详细信息。
-- 与 Python OpenAI SDK 一致。
-- 由于语义内核代码库已经具有从 C# 类型构建 JSON 架构的逻辑，因此只需进行最少的代码更改。
+Pros:
+- Type safety. Users won't need to define JSON Schema manually as it will be handled by Semantic Kernel, so users could focus on defining C# types only. Properties on C# type can be added or removed to change the format of desired response. `Description` attribute is supported to provide more detailed information about specific property.
+- Consistent with Python OpenAI SDK.
+- Minimal code changes are required since Semantic Kernel codebase already has a logic to build a JSON Schema from C# type.
 
-缺点：
-- 所需的类型应通过 or assignment 提供 `ResponseFormat = typeof(MathReasoning)` `ResponseFormat = object.GetType()` ，这可以通过使用 C# 泛型进行改进。
-- 来自 Kernel 的响应仍然是 `string`，因此应由用户手动将其反序列化为所需的类型。
+Cons:
+- Desired type should be provided via `ResponseFormat = typeof(MathReasoning)` or `ResponseFormat = object.GetType()` assignment, which can be improved by using C# generics.
+- Response coming from Kernel is still a `string`, so it should be deserialized to desired type manually by user.
 
-### 选项 #3：使用 C# 泛型
+### Option #3: Use C# generics
 
-此方法类似于选项 #2，但可以使用 `ResponseFormat = typeof(MathReasoning)` C# 泛型`ResponseFormat = object.GetType()`，而不是通过  or  赋值提供类型信息。
+This approach is similar to Option #2, but instead of providing type information via `ResponseFormat = typeof(MathReasoning)` or `ResponseFormat = object.GetType()` assignment, it will be possible to use C# generics.
 
-使用示例：
+Usage example:
 
 ```csharp
 // Define desired response models
@@ -269,24 +276,24 @@ var result = await kernel.InvokePromptAsync<MathReasoning>("How can I solve 8x +
 OutputResult(mathReasoning);
 ```
 
-优点：
-- 使用简单，无需稍后定义 `PromptExecutionSettings` 和反序列化字符串响应。
+Pros:
+- Simple usage, no need in defining `PromptExecutionSettings` and deserializing string response later.
 
-缺点：
-- 与选项 #1 和选项 #2 相比，实现复杂性：
-    1. 聊天完成服务返回一个字符串，因此应在某处添加反序列化逻辑以返回类型而不是字符串。可能的位置： `FunctionResult`，因为它已经包含 `GetValue<T>` 泛型方法，但它不包含反序列化逻辑，因此应该添加和测试它。 
-    2. `IChatCompletionService` 并且其方法不是通用的，但有关响应类型的信息仍应传递给 OpenAI 连接器。一种方法是添加 的通用版本 `IChatCompletionService`，这可能会引入许多额外的代码更改。另一种方法是通过 object 传递类型信息 `PromptExecutionSettings` 。考虑到 `IChatCompletionService` uses `PromptExecutionSettings` 而不是 `OpenAIPromptExecutionSettings`， `ResponseFormat` 属性应该移动到基执行设置类，这样就可以传递有关响应格式的信息，而无需耦合到特定的连接器。另一方面，目前尚不清楚 parameter 是否 `ResponseFormat` 对其他 AI 连接器有用。
-    3. 不支持流式处理方案，因为对于反序列化，应首先聚合所有响应内容。如果 Semantic Kernel 将执行聚合，则流式处理功能将丢失。
+Cons:
+- Implementation complexity compared to Option #1 and Option #2:
+    1. Chat completion service returns a string, so deserialization logic should be added somewhere to return a type instead of string. Potential place: `FunctionResult`, as it already contains `GetValue<T>` generic method, but it doesn't contain deserialization logic, so it should be added and tested. 
+    2. `IChatCompletionService` and its methods are not generic, but information about the response type should still be passed to OpenAI connector. One way would be to add generic version of `IChatCompletionService`, which may introduce a lot of additional code changes. Another way is to pass type information through `PromptExecutionSettings` object. Taking into account that `IChatCompletionService` uses `PromptExecutionSettings` and not `OpenAIPromptExecutionSettings`, `ResponseFormat` property should be moved to the base execution settings class, so it's possible to pass the information about response format without coupling to specific connector. On the other hand, it's not clear if `ResponseFormat` parameter will be useful for other AI connectors.
+    3. Streaming scenario won't be supported, because for deserialization all the response content should be aggregated first. If Semantic Kernel will do the aggregation, then streaming capability will be lost.
 
-## 超出范围
+## Out of scope
 
-函数调用功能超出了此 ADR 的范围，因为结构化输出功能已部分用于当前函数调用实现，方法是向 JSON 架构提供有关函数及其参数的信息。要添加到此过程的唯一剩余参数是 `strict` property，应将其设置为 `true` 在函数调用中启用 Structured Outputs。此参数可以通过 type 公开 `PromptExecutionSettings` 。 
+Function Calling functionality is out of scope of this ADR, since Structured Outputs feature is already partially used in current function calling implementation by providing JSON schema with information about function and its arguments. The only remaining parameter to add to this process is `strict` property which should be set to `true` to enable Structured Outputs in function calling. This parameter can be exposed through `PromptExecutionSettings` type. 
 
-通过将 `strict` property 设置为 `true` for function calling process，模型不应创建其他不存在的参数或函数，这可能会解决幻觉问题。另一方面，为函数调用启用结构化输出将在第一个请求期间引入额外的延迟，因为架构首先被处理，因此它可能会影响性能，这意味着此属性应有据可查。
+By setting `strict` property to `true` for function calling process, the model should not create additional non-existent parameters or functions, which could resolve hallucination problems. On the other hand, enabling Structured Outputs for function calling will introduce additional latency during first request since the schema is processed first, so it may impact the performance, which means that this property should be well-documented.
 
-有关更多信息，请参阅： [使用结构化输出进行函数调用](https://platform.openai.com/docs/guides/function-calling/function-calling-with-structured-outputs)。
+More information here: [Function calling with Structured Outputs](https://platform.openai.com/docs/guides/function-calling/function-calling-with-structured-outputs).
 
-## 决策结果
+## Decision Outcome
 
-1. 支持 Option #1 和 Option #2，为 Option #3 创建一个任务以单独处理它。 
-2. 在 Function Calling 中为 Structured Outputs 创建一个任务并单独处理它。
+1. Support Option #1 and Option #2, create a task for Option #3 to handle it separately. 
+2. Create a task for Structured Outputs in Function Calling and handle it separately.

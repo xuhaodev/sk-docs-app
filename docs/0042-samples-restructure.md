@@ -1,50 +1,60 @@
+---
+# Reestructure of How Sample Code will be Structured In the Repository
 
-## 上下文和问题陈述
+status: accepted
+contact: rogerbarreto
+date: 2024-04-18
+deciders: rogerbarreto, markwallace-microsoft, sophialagerkranspandey, matthewbolanos
+consulted: dmytrostruk, sergeymenshik, westey-m, eavanvalkenburg
+informed:
+---
 
-- 目前的样本结构方式信息量不大，也不容易找到。
-- Kernel Syntax Examples 中的编号失去了它的意义。
-- 项目的命名并没有传达出它们到底是什么的明确信息。
-- 文件夹和解决方案具有 `Examples` 不是必需的后缀，因为 中的所有内容 `samples` 都已是 `example`.
+## Context and Problem Statement
 
-### 当前确定的样本类型
+- The current way the samples are structured are not very informative and not easy to be found.
+- Numbering in Kernel Syntax Examples lost its meaning.
+- Naming of the projects don't sends a clear message what they really are.
+- Folders and Solutions have `Examples` suffixes which are not necessary as everything in `samples` is already an `example`.
 
-| 类型             | 描述                                                                                              |
+### Current identified types of samples
+
+| Type             | Description                                                                                              |
 | ---------------- | -------------------------------------------------------------------------------------------------------- |
-| `GettingStarted` | 用于入门的单个分步教程                                                            |
-| `Concepts`       | 按功能划分的概念特定代码片段                                                              |
-| `LearnResources` | 与 Microsoft Learn、DevBlogs 等在线文档源相关的代码片段 |
-| `Tutorials`      | 更深入的分步教程                                                                     |
-| `Demos`          | 利用一个或多个功能的演示应用程序                               |
+| `GettingStarted` | A single step-by-step tutorial to get started                                                            |
+| `Concepts`       | A concept by feature specific code snippets                                                              |
+| `LearnResources` | Code snippets that are related to online documentation sources like Microsoft Learn, DevBlogs and others |
+| `Tutorials`      | More in depth step-by-step tutorials                                                                     |
+| `Demos`          | Demonstration applications that leverage the usage of one or many features                               |
 
-## 决策驱动因素和原则
+## Decision Drivers and Principles
 
-- **易于搜索**：结构井然有序，便于查找不同类型的样品
-- **精益命名**：文件夹、解决方案和示例名称尽可能清晰和简短
-- **发出明确的信息**：避免 Semantic Kernel 特定的热度或行话
-- **Cross Language**：示例结构在所有支持的 SK 语言上都相似。
+- **Easy to Search**: Well organized structure, making easy to find the different types of samples
+- **Lean namings**: Folder, Solution and Example names are as clear and as short as possible
+- **Sends a Clear Message**: Avoidance of Semantic Kernel specific therms or jargons
+- **Cross Language**: The sample structure will be similar on all supported SK languages.
 
-## 当前现有文件夹的策略
+## Strategy on the current existing folders
 
-| 当前文件夹                       | 建议                                                            |
+| Current Folder                       | Proposal                                                            |
 | ------------------------------------ | ------------------------------------------------------------------- |
-| KernelSyntaxExamples/Getting_Started | 搬入 `GettingStarted`                                          |
-| KernelSyntaxExamples/`Examples??_*`  | 分解为 `Concepts` 多个概念子文件夹         |
-| AgentSyntax示例                  | 分解为 `Concepts` 特定 `Agents` 子文件夹。          |
-| 文档示例                | 移动到 `LearnResources` 子文件夹并重命名为 `MicrosoftLearn` |
-| CreateChatGpt插件                  | 移动到 `Demo` 子文件夹中                                          |
-| HomeAutomation                       | 移动到 `Demo` 子文件夹中                                          |
-| 遥测示例                     | 移动到 `Demo` 子文件夹并重命名为 `TelemetryWithAppInsights` |
-| HuggingFaceImageText示例          | 移动到 `Demo` 子文件夹并重命名为 `HuggingFaceImageToText`   |
+| KernelSyntaxExamples/Getting_Started | Move into `GettingStarted`                                          |
+| KernelSyntaxExamples/`Examples??_*`  | Decompose into `Concepts` on multiple conceptual subfolders         |
+| AgentSyntaxExamples                  | Decompose into `Concepts` on `Agents` specific subfolders.          |
+| DocumentationExamples                | Move into `LearnResources` subfolder and rename to `MicrosoftLearn` |
+| CreateChatGptPlugin                  | Move into `Demo` subfolder                                          |
+| HomeAutomation                       | Move into `Demo` subfolder                                          |
+| TelemetryExample                     | Move into `Demo` subfolder and rename to `TelemetryWithAppInsights` |
+| HuggingFaceImageTextExample          | Move into `Demo` subfolder and rename to `HuggingFaceImageToText`   |
 
-## 考虑的根结构选项
+## Considered Root Structure Options
 
-以下选项是文件夹根结构可能考虑的选项 `samples` 。
+The following options below are the potential considered options for the root structure of the `samples` folder.
 
-### 选项 1 - 超窄根分类
+### Option 1 - Ultra Narrow Root Categorization
 
-此选项在`samples`查找样本时尽可能多地压缩不同子类别中文件夹的根目录，以使其最简。
+This option squeezes as much as possible the root of `samples` folder in different subcategories to be minimalist when looking for the samples.
 
-建议的根结构
+Proposed root structure
 
 ```
 samples/
@@ -57,21 +67,21 @@ samples/
 └── Demos/
 ```
 
-优点：
+Pros:
 
-- 更简单、更不详细的结构（越差越好：越少越好的方法）
-- 初学者将看到 （兄弟文件夹） 其他教程，这些教程可能更适合他们的需求和用例。
-- 不会强制实施 Getting started。
+- Simpler and Less verbose structure (Worse is Better: Less is more approach)
+- Beginners will be presented (sibling folders) to other tutorials that may fit better on their need and use case.
+- Getting started will not be imposed.
 
-缺点：
+Cons:
 
-- 可能会增加额外的认知负荷，知道这是一个 `Getting Started` 教程
+- May add extra cognitive load to know that `Getting Started` is a tutorial
 
-### 选项 2 - 入门根分类
+### Option 2 - Getting Started Root Categorization
 
-此选项将 `Getting Started` 引入根文件夹， `samples` 与 中建议的结构进行比较 `Option 1`。
+This option brings `Getting Started` to the root `samples` folder compared the structure proposed in `Option 1`.
 
-建议的根结构
+Proposed root structure
 
 ```
 samples/
@@ -84,20 +94,20 @@ samples/
 └── Demos/
 ```
 
-优点：
+Pros:
 
-- 开始使用是客户首先看到的内容
-- 初学者需要额外的单击才能开始使用。
+- Getting Started is the first thing the customer will see
+- Beginners will need an extra click to get started.
 
-缺点：
+Cons:
 
-- 如果 Getting started 示例没有客户的有效示例，则它必须返回其他文件夹以获取更多内容。
+- If the Getting started example does not have a valid example for the customer it has go back on other folders for more content.
 
-### 选项 3 - 保守 + 基于用例的根分类
+### Option 3 - Conservative + Use Cases Based Root Categorization
 
-此选项更为保守，并将 Syntax Examples 项目保留为根选项，并保留 Use Cases、Modalities 和 Kernel Content 的一些新文件夹。
+This option is more conservative and keeps Syntax Examples projects as root options as well as some new folders for Use Cases, Modalities and Kernel Content.
 
-建议的根结构
+Proposed root structure
 
 ```
 samples/
@@ -110,163 +120,163 @@ samples/
 ├── Documentation/ OR Resources/
 ```
 
-优点：
+Pros:
 
-- 更保守的方法是将 KernelSyntaxExamples 和 AgentSyntaxExamples 保留为根文件夹不会破坏任何现有的 Internet 链接。
-- Use Cases、Modalities 和 Kernel Content 是针对不同类型样本的更具体的文件夹
+- More conservative approach, keeping KernelSyntaxExamples and AgentSyntaxExamples as root folders won't break any existing internet links.
+- Use Cases, Modalities and Kernel Content are more specific folders for different types of samples
 
-缺点：
+Cons:
 
-- 更详细的结构会增加查找样本的额外摩擦。
-- `KernelContent` 或者 `Modalities` 是客户可能不清楚的内部术语
-- `Documentation` 可能会混淆 Documents Only 文件夹，该文件夹实际上包含文档中使用的代码示例。（不明确消息）
-- `Use Cases` 可能会暗示一个实际用例的想法，而实际上这些是 SK 功能的简单演示。
+- More verbose structure adds extra friction to find the samples.
+- `KernelContent` or `Modalities` is a internal term that may not be clear for the customer
+- `Documentation` may be confused a documents only folder, which actually contains code samples used in documentation. (not clear message)
+- `Use Cases` may suggest an idea of real world use cases implemented, where in reality those are simple demonstrations of a SK feature.
 
-## KernelSyntaxExamples 分解选项
+## KernelSyntaxExamples Decomposition Options
 
-目前，Kernel Syntax Examples 包含 70 多个并排编号的示例，其中数字没有进度含义，信息量不大。
+Currently Kernel Syntax Examples contains more than 70 numbered examples all side-by-side, where the number has no progress meaning and is not very informative.
 
-对于基于开发的 Kernel 和 Features `Concepts`的多个子文件夹的 KernelSyntaxExamples 文件夹分解，请考虑以下选项。
+The following options are considered for the KernelSyntaxExamples folder decomposition over multiple subfolders based on Kernel `Concepts` and Features that were developed.
 
-确定的面向组件的概念：
+Identified Component Oriented Concepts:
 
-- 内核
+- Kernel
 
-  - 建筑工人
-  - 功能
-    - 参数
-    - 方法函数
-    - PromptFunctions 函数
-    - 类型
-    - 结果
-      - 序列化
-      - 元数据
-      - 强类型
-    - 内联函数
-  - 插件
-    - 描述插件
-    - OpenAI 插件
-    - OpenAPI 插件
-      - API 清单
-    - gRPC 插件
-    - 可变插件
-  - AI 服务（通过内核调用使用服务的示例）
-    - 聊天完成
-    - 文本生成
-    - 服务选择器
-  - 钩
-  - 过滤 器
-    - 函数过滤
-    - 模板渲染过滤
-    - 函数调用筛选（如果可用）
-  - 模板
+  - Builder
+  - Functions
+    - Arguments
+    - MethodFunctions
+    - PromptFunctions
+    - Types
+    - Results
+      - Serialization
+      - Metadata
+      - Strongly typed
+    - InlineFunctions
+  - Plugins
+    - Describe Plugins
+    - OpenAI Plugins
+    - OpenAPI Plugins
+      - API Manifest
+    - gRPC Plugins
+    - Mutable Plugins
+  - AI Services (Examples using Services thru Kernel Invocation)
+    - Chat Completion
+    - Text Generation
+    - Service Selector
+  - Hooks
+  - Filters
+    - Function Filtering
+    - Template Rendering Filtering
+    - Function Call Filtering (When available)
+  - Templates
 
-- AI 服务（直接使用服务的示例，包括单个/多个 + 流式处理和非流式处理结果）
+- AI Services (Examples using Services directly with Single/Multiple + Streaming and Non-Streaming results)
 
-  - 执行设置
-  - 聊天完成
-    - 本地模型
-      - 奥拉马
-      - 拥抱脸
+  - ExecutionSettings
+  - Chat Completion
+    - Local Models
+      - Ollama
+      - HuggingFace
       - LMStudio
-      - 本地人工智能
-    - 双子座
-    - 开放人工智能
+      - LocalAI
+    - Gemini
+    - OpenAI
     - AzureOpenAI
-    - 拥抱脸
-  - 文本生成
-    - 本地模型
-      - 奥拉马
-      - 拥抱脸
-    - 开放人工智能
+    - HuggingFace
+  - Text Generation
+    - Local Models
+      - Ollama
+      - HuggingFace
+    - OpenAI
     - AzureOpenAI
-    - 拥抱脸
-  - 文本到图像
-    - 开放人工智能
+    - HuggingFace
+  - Text to Image
+    - OpenAI
     - AzureOpenAI
-  - 图像到文本
-    - 拥抱脸
-  - 文本到音频
-    - 开放人工智能
-  - 音频到文本
-    - 开放人工智能
-  - 习惯
-    - 戴伊
-    - 开放人工智能
-      - OpenAI 文件
+  - Image to Text
+    - HuggingFace
+  - Text to Audio
+    - OpenAI
+  - Audio to Text
+    - OpenAI
+  - Custom
+    - DYI
+    - OpenAI
+      - OpenAI File
 
-- 内存服务
+- Memory Services
 
-  - 搜索
+  - Search
 
-    - 语义记忆
-    - 文本记忆
-    - Azure AI 搜索
+    - Semantic Memory
+    - Text Memory
+    - Azure AI Search
 
-  - 文本嵌入
-    - 开放人工智能
-    - 拥抱脸
+  - Text Embeddings
+    - OpenAI
+    - HuggingFace
 
-- 遥测
-- 伐木
-- 依赖关系注入
+- Telemetry
+- Logging
+- Dependency Injection
 
-- Http客户端
+- HttpClient
 
-  - 弹性
-  - 用法
+  - Resiliency
+  - Usage
 
-- 规划
+- Planners
 
   - Handlerbars
 
-- 认证
+- Authentication
 
   - Azure AD
 
-- 函数调用
+- Function Calling
 
-  - 自动函数调用
-  - 手动函数调用
+  - Auto Function Calling
+  - Manual Function Calling
 
-- 滤波
+- Filtering
 
-  - 内核钩子
-  - 服务选择器
+  - Kernel Hooks
+  - Service Selector
 
-- 模板
-- 达观
+- Templates
+- Resilience
 
-- 记忆
+- Memory
 
-  - 语义记忆
-  - 文本内存插件
-  - 搜索
+  - Semantic Memory
+  - Text Memory Plugin
+  - Search
 
-- 抹布
+- RAG
 
-  - 内嵌
-  - 函数调用
+  - Inline
+  - Function Calling
 
-- 代理
+- Agents
 
-  - 代表团
-  - 图表
-  - 协作
-  - 创作
-  - 工具
-  - 聊天完成代理
-    （代理语法示例：不带编号）
+  - Delegation
+  - Charts
+  - Collaboration
+  - Authoring
+  - Tools
+  - Chat Completion Agent
+    (Agent Syntax Examples Goes here without numbering)
 
-- 流编排器
+- Flow Orchestrator
 
-### KernelSyntaxExamples 分解选项 1 - 按组件划分的概念
+### KernelSyntaxExamples Decomposition Option 1 - Concept by Components
 
-此选项分解了 Concepts Structured by Kernel Components and Features。
+This options decomposes the Concepts Structured by Kernel Components and Features.
 
-乍一看，这些概念是如何关联的似乎合乎逻辑且易于理解的，并且可以按照提供的结构演变为更高级的概念。
+At first is seems logical and easy to understand how the concepts are related and can be evolved into more advanced concepts following the provided structure.
 
-大（每个文件夹的文件较少）：
+Large (Less files per folder):
 
 ```
 Concepts/
@@ -377,7 +387,7 @@ Concepts/
 └── Flow Orchestrator/
 ```
 
-Compact （每个文件夹更多文件）：
+Compact (More files per folder):
 
 ```
 Concepts/
@@ -426,22 +436,22 @@ Concepts/
 └── Flow Orchestrator/
 ```
 
-优点：
+Pros:
 
-- 易于理解组件之间的关系
-- 易于演变为更高级的概念
-- 清晰了解为特定功能放置或添加更多样本的位置
+- Easy to understand how the components are related
+- Easy to evolve into more advanced concepts
+- Clear picture where to put or add more samples for a specific feature
 
-缺点：
+Cons:
 
-- 非常深的结构，可能会让开发人员难以驾驭
-- 虽然结构清晰，但可能过于冗长
+- Very deep structure that may be overwhelming for the developer to navigate
+- Although the structure is clear, it may be too verbose
 
-### KernelSyntaxExamples 分解选项 2 - 按组件划分的概念扁平化版本
+### KernelSyntaxExamples Decomposition Option 2 - Concept by Components Flattened Version
 
-方法与选项 1 类似，但采用扁平化结构，使用单级文件夹来避免深度嵌套和复杂性，同时保持组件化概念的轻松导航。
+Similar approach to Option 1, but with a flattened structure using a single level of folders to avoid deep nesting and complexity although keeping easy to navigate around the componentized concepts.
 
-大（每个文件夹的文件较少）：
+Large (Less files per folder):
 
 ```
 Concepts/
@@ -511,7 +521,7 @@ Concepts/
 └── FlowOrchestrator
 ```
 
-Compact （每个文件夹更多文件）：
+Compact (More files per folder):
 
 ```
 Concepts/
@@ -546,20 +556,20 @@ Concepts/
 └── FlowOrchestrator
 ```
 
-优点：
+Pros:
 
-- 易于理解组件之间的关系
-- 易于演变为更高级的概念
-- 清晰了解为特定功能放置或添加更多样本的位置
-- 扁平化结构避免了深度嵌套，并使其更容易在 IDE 和 GitHub UI 上导航。
+- Easy to understand how the components are related
+- Easy to evolve into more advanced concepts
+- Clear picture where to put or add more samples for a specific feature
+- Flattened structure avoids deep nesting and makes it easier to navigate on IDEs and GitHub UI.
 
-缺点：
+Cons:
 
-- 虽然结构易于浏览，但可能仍然过于冗长
+- Although the structure easy to navigate, it may be still too verbose
 
-# KernelSyntaxExamples 分解选项 3 - 按特征分组划分的概念
+# KernelSyntaxExamples Decomposition Option 3 - Concept by Feature Grouping
 
-此选项通过将 big 和 related 功能分组在一起来分解 Kernel Syntax Examples。
+This option decomposes the Kernel Syntax Examples by grouping big and related features together.
 
 ```
 Concepts/
@@ -585,21 +595,21 @@ Concepts/
 └── LocalModels/
 ```
 
-优点：
+Pros:
 
-- 结构更小，更易于导航
-- 清晰了解为特定功能放置或添加更多样本的位置
+- Smaller structure, easier to navigate
+- Clear picture where to put or add more samples for a specific feature
 
-缺点：
+Cons:
 
-- 不要清楚地说明组件是如何关联的
-- 由于结构更高，每个文件可能需要更多示例
-- 更难演变成更高级的概念
-- 更多示例将共享同一文件夹，从而更难找到特定示例（KernelSyntaxExamples 文件夹的主要痛点）
+- Don't give a clear picture of how the components are related
+- May require more examples per file as the structure is more high level
+- Harder to evolve into more advanced concepts
+- More examples will be sharing the same folder, making it harder to find a specific example (major pain point for the KernelSyntaxExamples folder)
 
-# KernelSyntaxExamples 分解选项 4 - 按难度级别划分的概念
+# KernelSyntaxExamples Decomposition Option 4 - Concept by Difficulty Level
 
-按难度级别（从基础到专家）分解示例。整体结构与选项 3 类似，但只有子项具有该复杂度级别时会有所不同。
+Breaks the examples per difficulty level, from basic to expert. The overall structure would be similar to option 3 although only subitems would be different if they have that complexity level.
 
 ```
 Concepts/
@@ -622,21 +632,21 @@ Concepts/
 
 ```
 
-优点：
+Pros:
 
-- 初学者将面向正确的难度级别，示例将更按复杂程度进行组织
+- Beginers will be oriented to the right difficulty level and examples will be more organized by complexity
 
-缺点：
+Cons:
 
-- 我们没有关于什么是基础、中级、高级和专家级别以及难度的定义。
-- 每个难度级别可能需要更多示例
-- 不清楚组件之间的关系
-- 创建示例时，将很难知道示例的难度级别是多少，以及如何传播可能适合多个不同级别的多个示例。
+- We don't have a definition on what is basic, intermediate, advanced and expert levels and difficulty.
+- May require more examples per difficulty level
+- Not clear how the components are related
+- When creating examples will be hard to know what is the difficulty level of the example as well as how to spread multiple examples that may fit in multiple different levels.
 
-## 决策结果
+## Decision Outcome
 
-选择的选项：
+Chosen options:
 
-[x] 根结构决策： **选项 2** - 入门根分类
+[x] Root Structure Decision: **Option 2** - Getting Started Root Categorization
 
-[x] KernelSyntaxExamples 分解决策： **选项 3** - 按特征分组的概念
+[x] KernelSyntaxExamples Decomposition Decision: **Option 3** - Concept by Feature Grouping

@@ -1,27 +1,36 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: "proposed | rejected | accepted | deprecated | … | superseded by [ADR-0001](0001-madr-architecture-decisions.md)"
+contact: {person proposing the ADR}
+date: {YYYY-MM-DD when the decision was last updated}
+deciders: {list everyone involved in the decision}
+consulted: {list everyone whose opinions are sought (typically subject-matter experts); and with whom there is a two-way communication}
+informed: {list everyone who is kept up-to-date on progress; and with whom there is a one-way communication}
+---
 
-# {已解决问题和解决方案的简称}
+# {short title of solved problem and solution}
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-{描述上下文和问题陈述，例如，使用两到三个句子以自由形式或以说明性故事的形式。
-您可能希望以问题的形式阐明问题，并添加指向协作板或问题管理系统的链接。
+{Describe the context and problem statement, e.g., in free form using two to three sentences or in the form of an illustrative story.
+You may want to articulate the problem in form of a question and add links to collaboration boards or issue management systems.}
 
 <!-- This is an optional element. Feel free to remove. -->
 
-## 决策驱动因素
+## Decision Drivers
 
-- {决策驱动因素 1，例如，一种力量，面临关注，...}
-- {决策驱动因素 2，例如，一股力量，面临关注，...}
+- {decision driver 1, e.g., a force, facing concern, …}
+- {decision driver 2, e.g., a force, facing concern, …}
 - … <!-- numbers of drivers can vary -->
 
-## 考虑的选项
+## Considered Options
 
-- {选项 1 的标题}
-- {选项 2 的标题}
-- {选项 3 的标题}
+- {title of option 1}
+- {title of option 2}
+- {title of option 3}
 - … <!-- numbers of options can vary -->
 
-## 决策结果
+## Decision Outcome
 
-选择的选项：“{option 1} 的标题”，因为
-例如，只有选项，它满足 K.O. 标准 决策驱动 | 它解决力 {force} | ... | 效果最好（见下文）}。
+Chosen option: "{title of option 1}", because
+{justification. e.g., only option, which meets k.o. criterion decision driver | which resolves force {force} | … | comes out best (see below)}.

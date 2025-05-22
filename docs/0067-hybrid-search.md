@@ -1,124 +1,133 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: westey-m
+date: 2024-03-10
+deciders: westey-m, rbarreto, markwallace, sergeymenshykh, eavanvalkenburg, roji, dmytrostruk
+consulted: rbarreto, markwallace, sergeymenshykh, eavanvalkenburg, roji, dmytrostruk
+informed: rbarreto, markwallace, sergeymenshykh, eavanvalkenburg, roji, dmytrostruk
+---
 
-# 在 VectorStore 抽象中支持混合搜索
+# Support Hybrid Search in VectorStore abstractions
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-除了简单的向量搜索外，许多数据库还支持混合搜索。
-混合搜索通常会产生更高质量的搜索结果，因此能够通过 VectorStore 抽象进行混合搜索
-是一个需要添加的重要功能。
+In addition to simple vector search, many databases also support Hybrid search.
+Hybrid search typically results in higher quality search results, and therefore the ability to do Hybrid search via VectorStore abstractions
+is an important feature to add.
 
-支持混合搜索的方式因数据库而异。支持混合搜索的两种最常见方法是：
+The way in which Hybrid search is supported varies by database. The two most common ways of supporting hybrid search is:
 
-1. 并行使用密集向量搜索和关键字/全文搜索，然后合并结果。
-1. 并行使用密集向量搜索和稀疏向量搜索，然后组合结果。
+1. Using dense vector search and keyword/fulltext search in parallel, and then combining the results.
+1. Using dense vector search and sparse vector search in parallel, and then combining the results.
 
-稀疏向量与密集向量的不同之处在于，它们通常具有更多的维度，但许多维度为零。
-稀疏向量与文本搜索一起使用时，词汇表中的每个单词/标记都有一个维度，该值表示单词的重要性
-在源文本中。
-单词在特定文本块中越常见，单词在语料库中越不常见，稀疏向量中的值就越高。
+Sparse vectors are different from dense vectors in that they typically have many more dimensions, but with many of the dimensions being zero.
+Sparse vectors, when used with text search, have a dimension for each word/token in a vocabulary, with the value indicating the importance of the word
+in the source text.
+The more common the word in a specific chunk of text, and the less common the word is in the corpus, the higher the value in the sparse vector.
 
-生成稀疏向量的机制多种多样，例如
+There are various mechanisms for generating sparse vectors, such as
 
 - [TF-IDF](https://en.wikipedia.org/wiki/Tf%E2%80%93idf)
-- [斯普拉德](https://www.pinecone.io/learn/splade/)
-- [BGE-m3 稀疏嵌入模型](https://huggingface.co/BAAI/bge-m3)。
-- [松果稀疏英语 v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0)
+- [SPLADE](https://www.pinecone.io/learn/splade/)
+- [BGE-m3 sparse embedding model](https://huggingface.co/BAAI/bge-m3).
+- [pinecone-sparse-english-v0](https://docs.pinecone.io/models/pinecone-sparse-english-v0)
 
-虽然这些在 Python 中得到了很好的支持，但目前在 .net 中并没有得到很好的支持。
-添加对生成稀疏向量的支持超出了此 ADR 的范围。
+While these are supported well in Python, they are not well supported in .net today.
+Adding support for generating sparse vectors is out of scope of this ADR.
 
-更多背景信息：
+More background information:
 
-- [Qdrant 关于使用稀疏向量进行混合搜索的背景文章](https://qdrant.tech/articles/sparse-vectors)
-- [适合初学者的 TF-IDF 解说器](https://medium.com/@coldstart_coder/understanding-and-implementing-tf-idf-in-python-a325d1301484)
+- [Background article from Qdrant about using sparse vectors for Hybrid Search](https://qdrant.tech/articles/sparse-vectors)
+- [TF-IDF explainer for beginners](https://medium.com/@coldstart_coder/understanding-and-implementing-tf-idf-in-python-a325d1301484)
 
-ML.Net 包含 TF-IDF 的实现，可用于在 .net 中生成稀疏向量。有关示例，请参阅 [此处](https://github.com/dotnet/machinelearning/blob/886e2ff125c0060f5a251056c7eb2a7d28738984/docs/samples/Microsoft.ML.Samples/Dynamic/Transforms/Text/ProduceWordBags.cs#L55-L105) 。
+ML.Net contains an implementation of TF-IDF that could be used to generate sparse vectors in .net. See [here](https://github.com/dotnet/machinelearning/blob/886e2ff125c0060f5a251056c7eb2a7d28738984/docs/samples/Microsoft.ML.Samples/Dynamic/Transforms/Text/ProduceWordBags.cs#L55-L105) for an example.
 
-### 不同数据库中的混合搜索支持
+### Hybrid search support in different databases
 
-|特征|Azure AI 搜索|维维亚特|雷迪斯|色度|松果|PostgreSQL 的|Qdrant|米尔沃斯|Elasticsearch|CosmosDB NoSql|MongoDB 数据库|
+|Feature|Azure AI Search|Weaviate|Redis|Chroma|Pinecone|PostgreSql|Qdrant|Milvus|Elasticsearch|CosmosDB NoSql|MongoDB|
 |-|-|-|-|-|-|-|-|-|-|-|-|
-|支持混合搜索|Y|Y|N （不使用 fusion 并行执行）|N|Y|Y|Y|Y|Y|Y|Y|
-|混合搜索定义|矢量 + 全文|[向量 + 关键词 （BM25F）](https://weaviate.io/developers/weaviate/search/hybrid)|||[关键字的向量 + 稀疏向量](https://docs.pinecone.io/guides/get-started/key-features#hybrid-search)|[向量 + 关键字](https://jkatz05.com/post/postgres/hybrid-search-postgres-pgvector/)|[向量 + 稀疏向量 / 关键字](https://qdrant.tech/documentation/concepts/hybrid-queries/)|[向量 + 稀疏向量](https://milvus.io/docs/multi-vector-search.md)|矢量 + 全文|[矢量 + 全文 （BM25）](https://learn.microsoft.com/en-us/azure/cosmos-db/gen-ai/hybrid-search)|[矢量 + 全文](https://www.mongodb.com/docs/atlas/atlas-search/tutorial/hybrid-search)|
-|熔融方法可配置|N|Y|||?|Y|Y|Y|Y，但只有一个选项|Y，但只有一个选项|N|
-|融合方法|[RRF](https://learn.microsoft.com/en-us/azure/search/hybrid-search-ranking)|排名/RelativeScore|||?|[构建您自己的](https://jkatz05.com/post/postgres/hybrid-search-postgres-pgvector/)|RRF / DBSF|[RRF / 加权](https://milvus.io/docs/multi-vector-search.md)|[RRF](https://www.elastic.co/search-labs/tutorials/search-tutorial/vector-search/hybrid-search)|[RRF](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/query/rrf)|[RRF](https://www.mongodb.com/docs/atlas/atlas-search/tutorial/hybrid-search)|
-|混合搜索输入参数|向量 + 字符串|[向量 + 字符串](https://weaviate.io/developers/weaviate/api/graphql/search-operators#hybrid)|||向量 + 稀疏向量|向量 + 字符串|[向量 + 稀疏向量](https://qdrant.tech/documentation/concepts/hybrid-queries/)|[向量 + 稀疏向量](https://milvus.io/docs/multi-vector-search.md)|向量 + 字符串|向量 + 字符串数组|向量 + 字符串|
-|稀疏距离函数|不适用|不适用|||[dotproduct 仅适用于密集和稀疏，1 个设置用于两者](https://docs.pinecone.io/guides/data/understanding-hybrid-search#sparse-dense-workflow)|不适用|点产品|内积|不适用|不适用|不适用|
-|稀疏索引选项|不适用|不适用|||没有单独的 CONFIG 到 DENSE|不适用|ondisk / inmemory + IDF|[SPARSE_INVERTED_INDEX / SPARSE_WAND](https://milvus.io/docs/index.md?tab=sparse)|不适用|不适用|不适用|
-|稀疏数据模型|不适用|不适用|||[indices & values 数组](https://docs.pinecone.io/guides/data/upsert-sparse-dense-vectors)|不适用|indices & values 数组|[稀疏矩阵 / 字典列表 / 元组列表](https://milvus.io/docs/sparse_vector.md#Use-sparse-vectors-in-Milvus)|不适用|不适用|不适用|
-|关键字匹配行为|[以 searchMode=any 分隔的空格执行 OR，searchmode=all 执行 AND](https://learn.microsoft.com/en-us/azure/search/search-lucene-query-architecture)|[按空格分割的分词会影响排名](https://weaviate.io/developers/weaviate/search/bm25)|||不适用|[分词化](https://www.postgresql.org/docs/current/textsearch-controls.html)|[<p>无 FTS 索引：子字符串完全匹配</p><p>存在 FTS 索引：必须存在所有单词</p>](https://qdrant.tech/documentation/concepts/filtering/#full-text-match)|不适用|[And/Or 功能](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-bool-prefix-query.html)|-|[允许使用 OR 的多个多词短语](https://www.mongodb.com/docs/atlas/atlas-search/phrase/)和一个[多词 prhase，其中单词可以是 OR 或 AND](https://www.mongodb.com/docs/atlas/atlas-search/text/)|
+|Hybrid search supported|Y|Y|N (No parallel execution with fusion)|N|Y|Y|Y|Y|Y|Y|Y|
+|Hybrid search definition|Vector + FullText|[Vector + Keyword (BM25F)](https://weaviate.io/developers/weaviate/search/hybrid)|||[Vector + Sparse Vector for keywords](https://docs.pinecone.io/guides/get-started/key-features#hybrid-search)|[Vector + Keyword](https://jkatz05.com/post/postgres/hybrid-search-postgres-pgvector/)|[Vector + SparseVector / Keyword](https://qdrant.tech/documentation/concepts/hybrid-queries/)|[Vector + SparseVector](https://milvus.io/docs/multi-vector-search.md)|Vector + FullText|[Vector + Fulltext (BM25)](https://learn.microsoft.com/en-us/azure/cosmos-db/gen-ai/hybrid-search)|[Vector + FullText](https://www.mongodb.com/docs/atlas/atlas-search/tutorial/hybrid-search)|
+|Fusion method configurable|N|Y|||?|Y|Y|Y|Y, but only one option|Y, but only one option|N|
+|Fusion methods|[RRF](https://learn.microsoft.com/en-us/azure/search/hybrid-search-ranking)|Ranked/RelativeScore|||?|[Build your own](https://jkatz05.com/post/postgres/hybrid-search-postgres-pgvector/)|RRF / DBSF|[RRF / Weighted](https://milvus.io/docs/multi-vector-search.md)|[RRF](https://www.elastic.co/search-labs/tutorials/search-tutorial/vector-search/hybrid-search)|[RRF](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/query/rrf)|[RRF](https://www.mongodb.com/docs/atlas/atlas-search/tutorial/hybrid-search)|
+|Hybrid Search Input Params|Vector + string|[Vector + string](https://weaviate.io/developers/weaviate/api/graphql/search-operators#hybrid)|||Vector + SparseVector|Vector + String|[Vector + SparseVector](https://qdrant.tech/documentation/concepts/hybrid-queries/)|[Vector + SparseVector](https://milvus.io/docs/multi-vector-search.md)|Vector + string|Vector + string array|Vector + string|
+|Sparse Distance Function|n/a|n/a|||[dotproduct only for both dense and sparse, 1 setting for both](https://docs.pinecone.io/guides/data/understanding-hybrid-search#sparse-dense-workflow)|n/a|dotproduct|Inner Product|n/a|n/a|n/a|
+|Sparse Indexing options|n/a|n/a|||no separate config to dense|n/a|ondisk / inmemory  + IDF|[SPARSE_INVERTED_INDEX / SPARSE_WAND](https://milvus.io/docs/index.md?tab=sparse)|n/a|n/a|n/a|
+|Sparse data model|n/a|n/a|||[indices & values arrays](https://docs.pinecone.io/guides/data/upsert-sparse-dense-vectors)|n/a|indices & values arrays|[sparse matrix / List of dict / list of tuples](https://milvus.io/docs/sparse_vector.md#Use-sparse-vectors-in-Milvus)|n/a|n/a|n/a|
+|Keyword matching behavior|[Space Separated with SearchMode=any does OR, searchmode=all does AND](https://learn.microsoft.com/en-us/azure/search/search-lucene-query-architecture)|[Tokenization with split by space, affects ranking](https://weaviate.io/developers/weaviate/search/bm25)|||n/a|[Tokenization](https://www.postgresql.org/docs/current/textsearch-controls.html)|[<p>No FTS Index: Exact Substring match</p><p>FTS Index present: All words must be present</p>](https://qdrant.tech/documentation/concepts/filtering/#full-text-match)|n/a|[And/Or capabilities](https://www.elastic.co/guide/en/elasticsearch/reference/current/query-dsl-match-bool-prefix-query.html)|-|[Allows multiple multi-word phrases with OR](https://www.mongodb.com/docs/atlas/atlas-search/phrase/) and [a single multi-word prhase where the words can be OR'd or AND'd](https://www.mongodb.com/docs/atlas/atlas-search/text/)|
 
-词汇表：
+Glossary:
 
-- RRF = 倒数秩融合
-- DBSF = 基于分布的分数融合
-- IDF = 逆向文档频率
+- RRF = Reciprical Rank Fusion
+- DBSF = Distribution-Based Score Fusion
+- IDF = Inverse Document Frequency
 
-### Cosmos DB NoSQL 全文搜索配置所需的语言
+### Language required for Cosmos DB NoSQL full text search configuration
 
-Cosmos DB NoSQL 需要为全文搜索指定语言，并且需要为混合搜索启用全文搜索索引。
-因此，我们需要支持一种在创建索引时指定语言的方法。
+Cosmos DB NoSQL requires a language to be specified for full text search and it requires full text search indexing for hybrid search to be enabled.
+We therefore need to support a way of specifying the language when creating the index.
 
-Cosmos DB NoSQL 是示例中唯一具有此类型的必需设置的数据库。
+Cosmos DB NoSQL is the only database from our sample that has a required setting of this type.
 
-|特征|Azure AI 搜索|维维亚特|雷迪斯|色度|松果|PostgreSQL 的|Qdrant|米尔沃斯|Elasticsearch|CosmosDB NoSql|MongoDB 数据库|
+|Feature|Azure AI Search|Weaviate|Redis|Chroma|Pinecone|PostgreSql|Qdrant|Milvus|Elasticsearch|CosmosDB NoSql|MongoDB|
 |-|-|-|-|-|-|-|-|-|-|-|-|
-|需要 FullTextSearch 索引进行混合搜索|Y|Y|不适用|不适用|不适用|Y|N [可选](https://qdrant.tech/documentation/concepts/filtering/#full-text-match)|不适用|Y|Y|[Y](https://www.mongodb.com/docs/atlas/atlas-search/tutorial/hybrid-search/?msockid=04b550d92f2f619c271a45a42e066050#create-the-atlas-vector-search-and-fts-indexes)|
-|必需的 FullTextSearch 索引选项|不需要， [很多可选](https://learn.microsoft.com/en-us/rest/api/searchservice/indexes/create?view=rest-searchservice-2024-07-01&tabs=HTTP)|无需任何选项，[也无需任何可选内容](https://weaviate.io/developers/weaviate/concepts/indexing#collections-without-indexes)||||[所需语言](https://jkatz05.com/post/postgres/hybrid-search-postgres-pgvector/)|不需要， [一些可选](https://qdrant.tech/documentation/concepts/indexing/#full-text-index)||不需要， [很多可选](https://elastic.github.io/elasticsearch-net/8.16.3/api/Elastic.Clients.Elasticsearch.Mapping.TextProperty.html)|所需语言|不需要， [很多可选](https://www.mongodb.com/docs/atlas/atlas-search/field-types/string-type/#configure-fts-field-type-field-properties)|
+|Requires FullTextSearch indexing for hybrid search|Y|Y|n/a|n/a|n/a|Y|N [optional](https://qdrant.tech/documentation/concepts/filtering/#full-text-match)|n/a|Y|Y|[Y](https://www.mongodb.com/docs/atlas/atlas-search/tutorial/hybrid-search/?msockid=04b550d92f2f619c271a45a42e066050#create-the-atlas-vector-search-and-fts-indexes)|
+|Required FullTextSearch index options|None required, [many optional](https://learn.microsoft.com/en-us/rest/api/searchservice/indexes/create?view=rest-searchservice-2024-07-01&tabs=HTTP)|None required, [none optional](https://weaviate.io/developers/weaviate/concepts/indexing#collections-without-indexes)||||[language required](https://jkatz05.com/post/postgres/hybrid-search-postgres-pgvector/)|none required, [some optional](https://qdrant.tech/documentation/concepts/indexing/#full-text-index)||None required, [many optional](https://elastic.github.io/elasticsearch-net/8.16.3/api/Elastic.Clients.Elasticsearch.Mapping.TextProperty.html)|Language Required|None required, [many optional](https://www.mongodb.com/docs/atlas/atlas-search/field-types/string-type/#configure-fts-field-type-field-properties)|
 
-### 关键字搜索界面选项
+### Keyword Search interface options
 
-每个数据库都有不同的关键字搜索功能。有些在列出混合搜索的关键词时只支持非常基本的界面。下表列出了每个数据库与我们可能希望支持的特定关键字 public interface 的兼容性。
+Each DB has different keyword search capabilities. Some only support a very basic interface when it comes to listing keywords for hybrid search. The following table is to list the compatibility of each DB with a specific keyword public interface we may want to support.
 
-|特征|Azure AI 搜索|维维亚特|PostgreSQL 的|Qdrant|Elasticsearch|CosmosDB NoSql|MongoDB 数据库|
+|Feature|Azure AI Search|Weaviate|PostgreSql|Qdrant|Elasticsearch|CosmosDB NoSql|MongoDB|
 |-|-|-|-|-|-|-|-|
-|<p>string[] keyword</p><p>每个元素一个单词</p><p>任何匹配的单词都会提升排名。</p>|Y|Y（必须用空格连接）|[Y（必须用空格连接）](https://www.postgresql.org/docs/current/textsearch-controls.html)|Y（通过具有多个 OR 匹配的筛选器）|Y|Y|[Y（必须用空格连接）](https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.find_one)|
-|<p>string[] 关键字</p><p>每个元素一个或多个单词</p><p>必须存在单个元素中的所有单词才能提高排名。</p>|Y|N|Y|Y（通过具有多个 OR 匹配和 FTS 指数的过滤器）|-|N|N|
-|<p>string[] 关键字</p><p>每个元素一个或多个单词</p><p>单个元素中的多个单词是必须完全匹配才能提高排名的短语。</p>|Y|N|Y|仅通过具有多个 OR 匹配且无索引的过滤器|-|N|Y|
-|<p>string 关键字</p><p>空格分隔的单词</p><p>任何匹配的单词都会提升排名。</p>|Y|Y|Y|N（需要拆分单词）|-|N（需要拆分单词）|Y|
+|<p>string[] keyword</p><p>One word per element</p><p>Any matching word boosts ranking.</p>|Y|Y (have to join with spaces)|[Y (have to join with spaces)](https://www.postgresql.org/docs/current/textsearch-controls.html)|Y (via filter with multiple OR'd matches)|Y|Y|[Y (have to join with spaces)](https://pymongo.readthedocs.io/en/stable/api/pymongo/collection.html#pymongo.collection.Collection.find_one)|
+|<p>string[] keyword</p><p>One or more words per element</p><p>All words in a single element have to be present to boost the ranking.</p>|Y|N|Y|Y (via filter with multiple OR'd matches and FTS Index)|-|N|N|
+|<p>string[] keyword</p><p>One or more words per element</p><p>Multiple words in a single element is a phrase that must match exactly to boost the ranking.</p>|Y|N|Y|Only via filter with multiple OR'd matches and NO Index|-|N|Y|
+|<p>string keyword</p><p>Space separated words</p><p>Any matching word boosts ranking.</p>|Y|Y|Y|N (would need to split words)|-|N (would need to split words)|Y|
 
-### 命名选项
+### Naming Options
 
-|接口名称|方法名称|参数|选项类名称|关键字属性选择器|密集向量属性选择器|
+|Interface Name|Method Name|Parameters|Options Class Name|Keyword Property Selector|Dense Vector Property Selector|
 |-|-|-|-|-|-|
-|关键字VectorizedHybridSearch|关键字VectorizedHybridSearch|字符串[] + 密集向量|KeywordVectorizedHybridSearchOptions|FullTextPropertyName （完整文本属性名称）|VectorPropertyName （向量属性名称）|
-|SparseVectorizedHybridSearch|SparseVectorizedHybridSearch|稀疏向量 + 密集向量|SparseVectorizedHybridSearchOptions|SparseVectorPropertyName （稀疏向量属性名称）|VectorPropertyName （向量属性名称）|
-|关键字矢量化文本混合搜索|关键字矢量化文本混合搜索|字符串[] + 字符串|KeywordVectorizableTextHybridSearchOptions|FullTextPropertyName （完整文本属性名称）|VectorPropertyName （向量属性名称）|
-|SparseVectorizableTextHybridSearch|SparseVectorizableTextHybridSearch|字符串[] + 字符串|SparseVectorizableTextHybridSearchOptions|SparseVectorPropertyName （稀疏向量属性名称）|VectorPropertyName （向量属性名称）|
+|KeywordVectorizedHybridSearch|KeywordVectorizedHybridSearch|string[] + Dense Vector|KeywordVectorizedHybridSearchOptions|FullTextPropertyName|VectorPropertyName|
+|SparseVectorizedHybridSearch|SparseVectorizedHybridSearch|Sparse Vector + Dense Vector|SparseVectorizedHybridSearchOptions|SparseVectorPropertyName|VectorPropertyName|
+|KeywordVectorizableTextHybridSearch|KeywordVectorizableTextHybridSearch|string[] + string|KeywordVectorizableTextHybridSearchOptions|FullTextPropertyName|VectorPropertyName|
+|SparseVectorizableTextHybridSearch|SparseVectorizableTextHybridSearch|string[] + string|SparseVectorizableTextHybridSearchOptions|SparseVectorPropertyName|VectorPropertyName|
 
-|接口名称|方法名称|参数|选项类名称|关键字属性选择器|密集向量属性选择器|
+|Interface Name|Method Name|Parameters|Options Class Name|Keyword Property Selector|Dense Vector Property Selector|
 |-|-|-|-|-|-|
-|关键字VectorizedHybridSearch|混合搜索|字符串[] + 密集向量|KeywordVectorizedHybridSearchOptions|FullTextPropertyName （完整文本属性名称）|VectorPropertyName （向量属性名称）|
-|SparseVectorizedHybridSearch|混合搜索|稀疏向量 + 密集向量|SparseVectorizedHybridSearchOptions|SparseVectorPropertyName （稀疏向量属性名称）|VectorPropertyName （向量属性名称）|
-|关键字矢量化文本混合搜索|混合搜索|字符串[] + 字符串|KeywordVectorizableTextHybridSearchOptions|FullTextPropertyName （完整文本属性名称）|VectorPropertyName （向量属性名称）|
-|SparseVectorizableTextHybridSearch|混合搜索|字符串[] + 字符串|SparseVectorizableTextHybridSearchOptions|SparseVectorPropertyName （稀疏向量属性名称）|VectorPropertyName （向量属性名称）|
+|KeywordVectorizedHybridSearch|HybridSearch|string[] + Dense Vector|KeywordVectorizedHybridSearchOptions|FullTextPropertyName|VectorPropertyName|
+|SparseVectorizedHybridSearch|HybridSearch|Sparse Vector + Dense Vector|SparseVectorizedHybridSearchOptions|SparseVectorPropertyName|VectorPropertyName|
+|KeywordVectorizableTextHybridSearch|HybridSearch|string[] + string|KeywordVectorizableTextHybridSearchOptions|FullTextPropertyName|VectorPropertyName|
+|SparseVectorizableTextHybridSearch|HybridSearch|string[] + string|SparseVectorizableTextHybridSearchOptions|SparseVectorPropertyName|VectorPropertyName|
 
-|接口名称|方法名称|参数|选项类名称|关键字属性选择器|密集向量属性选择器|
+|Interface Name|Method Name|Parameters|Options Class Name|Keyword Property Selector|Dense Vector Property Selector|
 |-|-|-|-|-|-|
-|HybridSearchWithKeywords|混合搜索|字符串[] + 密集向量|HybridSearchOptions|FullTextPropertyName （完整文本属性名称）|VectorPropertyName （向量属性名称）|
-|HybridSearchWithSparseVector|HybridSearchWithSparseVector|稀疏向量 + 密集向量|HybridSearchWithSparseVectorOptions|SparseVectorPropertyName （稀疏向量属性名称）|VectorPropertyName （向量属性名称）|
-|HybridSearchWithKeywordsAndVectorizableText|混合搜索|字符串[] + 字符串|HybridSearchOptions|FullTextPropertyName （完整文本属性名称）|VectorPropertyName （向量属性名称）|
-|HybridSearchWithVectorizableKeywordsAndText|HybridSearchWithSparseVector|字符串[] + 字符串|HybridSearchWithSparseVectorOptions|SparseVectorPropertyName （稀疏向量属性名称）|VectorPropertyName （向量属性名称）|
+|HybridSearchWithKeywords|HybridSearch|string[] + Dense Vector|HybridSearchOptions|FullTextPropertyName|VectorPropertyName|
+|HybridSearchWithSparseVector|HybridSearchWithSparseVector|Sparse Vector + Dense Vector|HybridSearchWithSparseVectorOptions|SparseVectorPropertyName|VectorPropertyName|
+|HybridSearchWithKeywordsAndVectorizableText|HybridSearch|string[] + string|HybridSearchOptions|FullTextPropertyName|VectorPropertyName|
+|HybridSearchWithVectorizableKeywordsAndText|HybridSearchWithSparseVector|string[] + string|HybridSearchWithSparseVectorOptions|SparseVectorPropertyName|VectorPropertyName|
 
-|面积|搜索类型|参数|方法名称|
+|Area|Type of search|Params|Method Name|
 |-|-|-|-|
-|**非矢量搜索**||||
-|非矢量搜索|规则，无矢量||搜索|
-|**使用命名方法进行向量搜索**||||
-|向量搜索|使用 Vector|`ReadonlyMemory<float> vector`|矢量搜索|
-|向量搜索|使用可矢量化文本|`string text`|VectorSearchWithText （向量搜索文本）|
-|向量搜索|使用可矢量化图像|`string/byte[]/other image`|矢量搜索与图像|
-|向量搜索|使用可矢量化的图像 + 文本|`string/byte[]/other image, string text`|VectorSearchWithImageAndText （矢量搜索带图像和文本）|
-|**使用命名参数进行向量搜索**||||
-|向量搜索|使用 Vector|`new Vector(ReadonlyMemory<float>)`|矢量搜索|
-|向量搜索|使用可矢量化文本|`new VectorizableText(string text)`|矢量搜索|
-|向量搜索|使用可矢量化图像|`new VectorizableImage(string/byte[]/other image)`|矢量搜索|
-|向量搜索|使用可矢量化的图像 + 文本|`VectorizableMultimodal(string/byte[]/other image, string text)`|矢量搜索|
-|**混合搜索**||||
-|混合搜索|使用 DenseVector 和字符串[] 关键字|`ReadonlyMemory<float> vector, string[] keywords`|混合搜索|
-|混合搜索|使用可矢量化字符串和字符串[] 关键字|`string vectorizableText, string[] keywords`|混合搜索|
-|混合搜索|使用 DenseVector 和 SparseVector|`ReadonlyMemory<float> vector, ? sparseVector`|HybridSearchWithSparseVector|
-|混合搜索|使用可矢量化字符串和稀疏矢量化字符串[] 关键字|`string vectorizableText, string[] vectorizableKeywords`|HybridSearchWithSparseVector|
+|**Non-vector Search**||||
+|Non-vector Search|Regular, without vector||Search|
+|**Vector Search with named methods**||||
+|Vector Search|With Vector|`ReadonlyMemory<float> vector`|VectorSearch|
+|Vector Search|With Vectorizable Text|`string text`|VectorSearchWithText|
+|Vector Search|With Vectorizable Image|`string/byte[]/other image`|VectorSearchWithImage|
+|Vector Search|With Vectorizable Image+Text|`string/byte[]/other image, string text`|VectorSearchWithImageAndText|
+|**Vector Search with named params**||||
+|Vector Search|With Vector|`new Vector(ReadonlyMemory<float>)`|VectorSearch|
+|Vector Search|With Vectorizable Text|`new VectorizableText(string text)`|VectorSearch|
+|Vector Search|With Vectorizable Image|`new VectorizableImage(string/byte[]/other image)`|VectorSearch|
+|Vector Search|With Vectorizable Image+Text|`VectorizableMultimodal(string/byte[]/other image, string text)`|VectorSearch|
+|**Hybrid Search**||||
+|Hybrid Search|With DenseVector and string[] keywords|`ReadonlyMemory<float> vector, string[] keywords`|HybridSearch|
+|Hybrid Search|With vectorizable string and string[] keywords|`string vectorizableText, string[] keywords`|HybridSearch|
+|Hybrid Search|With DenseVector and SparseVector|`ReadonlyMemory<float> vector, ? sparseVector`|HybridSearchWithSparseVector|
+|Hybrid Search|With vectorizable string and sparse vectorisable string[] keywords|`string vectorizableText, string[] vectorizableKeywords`|HybridSearchWithSparseVector|
 
 ```csharp
 var collection;
@@ -240,7 +249,7 @@ public Task HybridSearch(
     CancellationToken cancellationToken);
 ```
 
-### 基于关键字的混合搜索
+### Keyword based hybrid search
 
 ```csharp
 interface IKeywordVectorizedHybridSearch<TRecord>
@@ -268,7 +277,7 @@ class KeywordVectorizedHybridSearchOptions
 }
 ```
 
-### 基于稀疏向量的混合搜索
+### Sparse Vector based hybrid search
 
 ```csharp
 interface ISparseVectorizedHybridSearch<TRecord>
@@ -295,7 +304,7 @@ class SparseVectorizedHybridSearchOptions
 }
 ```
 
-### 基于关键字的可矢量化文本混合搜索
+### Keyword Vectorizable text based hybrid search
 
 ```csharp
 interface IKeywordVectorizableHybridSearch<TRecord>
@@ -322,7 +331,7 @@ class KeywordVectorizableHybridSearchOptions
 }
 ```
 
-### 基于稀疏向量的可矢量化文本混合搜索
+### Sparse Vector based Vectorizable text hybrid search
 
 ```csharp
 interface ISparseVectorizableTextHybridSearch<TRecord>
@@ -349,67 +358,67 @@ class SparseVectorizableTextHybridSearchOptions
 }
 ```
 
-## 决策驱动因素
+## Decision Drivers
 
-- 需要支持生成稀疏向量，才能使基于稀疏向量的混合搜索可行。
-- 需要支持每个记录多个向量场景。
-- 在我们的评估集中，没有一个数据库被确定为支持在 upsert 上将文本转换为数据库中的稀疏向量，并将这些稀疏向量存储在可检索的字段中。当然，其中一些 DB 可能会在内部使用稀疏向量来实现关键字搜索，而无需将它们暴露给调用者。
+- Support for generating sparse vectors is required to make sparse vector based hybrid search viable.
+- Multiple vectors per record scenarios need to be supported.
+- No database in our evaluation set have been identified as supporting converting text to sparse vectors in the database on upsert and storing those sparse vectors in a retrievable field. Of course some of these DBs may use sparse vectors internally to implement keyword search, without exposing them to the caller.
 
-## 确定考虑的选项的范围
+## Scoping Considered Options
 
-### 1. 仅限关键字混合搜索
+### 1. Keyword Hybrid Search Only
 
-目前只实施KeywordVectorizedHybridSearch & KeywordVectorizableTextHybridSearch，直到
-我们可以添加对生成稀疏向量的支持。
+Only implement KeywordVectorizedHybridSearch & KeywordVectorizableTextHybridSearch for now, until
+we can add support for generating sparse vectors.
 
-### 2. 关键字和稀疏矢量化混合搜索
+### 2. Keyword and SparseVectorized Hybrid Search
 
-实现KeywordVectorizedHybridSearch和KeywordVectorizableTextHybridSearch，但只实现
-KeywordVectorizableTextHybridSearch，因为我们的评估集中没有数据库支持在数据库中生成稀疏向量。
-这将要求我们生成可以从文本生成稀疏向量的代码。
+Implement KeywordVectorizedHybridSearch & KeywordVectorizableTextHybridSearch but only
+KeywordVectorizableTextHybridSearch, since no database in our evaluation set supports generating sparse vectors in the database.
+This will require us to produce code that can generate sparse vectors from text.
 
-### 3. 上述所有混合搜索
+### 3. All abovementioned Hybrid Search
 
-创建所有四个接口并实现 SparseVectorizableTextHybridSearch 的实现，该
-在客户端代码中生成稀疏向量。
-这将要求我们生成可以从文本生成稀疏向量的代码。
+Create all four interfaces and implement an implementation of SparseVectorizableTextHybridSearch that
+generates the sparse vector in the client code.
+This will require us to produce code that can generate sparse vectors from text.
 
-### 4. 广义混合搜索
+### 4. Generalized Hybrid Search
 
-某些数据库支持更通用的混合搜索版本，您可以在其中进行两个（有时是多个）任何类型的搜索，并使用您选择的融合方法组合这些搜索的结果。
-您可以使用这种更通用的搜索来实现 Vector + Keyword 搜索。
-但是，对于仅支持 Vector + Keyword 混合搜索的数据库，不可能在这些数据库之上实现通用混合搜索。
+Some databases support a more generalized version of hybrid search, where you can take two (or sometimes more) searches of any type and combine the results of these using your chosen fusion method.
+You can implement Vector + Keyword search using this more generalized search.
+For databases that support only Vector + Keyword hybrid search though, it is not possible to implement the generalized hybrid search on top of those databases.
 
-## PropertyName 命名考虑的选项
+## PropertyName Naming Considered Options
 
-### 1. 显式密集命名
+### 1. Explicit Dense naming
 
-DenseVectorPropertyName （密度向量属性名称）
-SparseVectorPropertyName （稀疏向量属性名称）
+DenseVectorPropertyName
+SparseVectorPropertyName
 
-DenseVectorPropertyName （密度向量属性名称）
-FullTextPropertyName （完整文本属性名称）
+DenseVectorPropertyName
+FullTextPropertyName
 
-- 优点：考虑到还涉及稀疏向量，这更明确。
-- 缺点：它与非混合向量搜索中的命名不一致。
+- Pros: This is more explicit, considering that there are also sparse vectors involved.
+- Cons: It is inconsistent with the naming in the non-hybrid vector search.
 
-### 2. 隐式密集命名
+### 2. Implicit Dense naming
 
-VectorPropertyName （向量属性名称）
-SparseVectorPropertyName （稀疏向量属性名称）
+VectorPropertyName
+SparseVectorPropertyName
 
-VectorPropertyName （向量属性名称）
-FullTextPropertyName （完整文本属性名称）
+VectorPropertyName
+FullTextPropertyName
 
-- 优点：这与非混合向量搜索中的命名一致。
-- 缺点：它在内部不一致，即我们有 sparse vector，但对于 dense，它只是 vector。
+- Pros: This is consistent with the naming in the non-hybrid vector search.
+- Cons: It is internally inconsistent, i.e. we have sparse vector, but for dense it's just vector.
 
-## 关键字拆分考虑的选项
+## Keyword splitting Considered Options
 
-### 1. 接受 在界面中拆分关键字
+### 1. Accept Split keywords in interface
 
-接受 string 的 ICollection，其中每个值都是一个单独的关键字。
-采用单个关键字并调用该版本的版本 `ICollection<string>` 也可以作为扩展方法提供。
+Accept an ICollection of string where each value is a separate keyword.
+A version that takes a single keyword and calls the `ICollection<string>` version can also be provided as an extension method.
 
 ```csharp
     Task<VectorSearchResults<TRecord>> KeywordVectorizedHybridSearch(
@@ -419,12 +428,12 @@ FullTextPropertyName （完整文本属性名称）
         CancellationToken cancellationToken);
 ```
 
-- 优点：如果底层数据库需要拆分关键字，则更容易在连接器中使用
-- 优点： 仅广泛支持解决方案，请参阅上面的比较表。
+- Pros: Easier to use in the connector if the underlying DB requires split keywords
+- Pros: Only solution broadly supported, see comparison table above.
 
-### 2. 在界面中接受单个字符串
+### 2. Accept single string in interface
 
-接受包含所有关键字的单个字符串。
+Accept a single string containing all the keywords.
 
 ```csharp
     Task<VectorSearchResults<TRecord>> KeywordVectorizedHybridSearch(
@@ -434,12 +443,12 @@ FullTextPropertyName （完整文本属性名称）
         CancellationToken cancellationToken);
 ```
 
-- 优点： 用户更容易使用，因为他们不需要进行任何关键字拆分。
-- 缺点：我们没有能力正确清理字符串，例如，根据语言适当地拆分单词，并可能删除填充词。
+- Pros: Easier for a user to use, since they don't need to do any keyword splitting.
+- Cons: We don't have the capabilities to properly sanitise the string, e.g. splitting words appropriately for the language, and potentially removing filler words.
 
-### 3. 接受 either in 接口
+### 3. Accept either in interface
 
-接受任一选项，并根据底层数据库的需要组合或拆分连接器中的关键字。
+Accept either option and either combine or split the keywords in the connector as needed by the underlying db.
 
 ```csharp
     Task<VectorSearchResults<TRecord>> KeywordVectorizedHybridSearch(
@@ -454,67 +463,67 @@ FullTextPropertyName （完整文本属性名称）
         CancellationToken cancellationToken);
 ```
 
-- 优点： 用户更容易使用，因为他们可以选择更适合自己的
-- 缺点： 我们仍然必须通过组合关键字或拆分它们来与内部演示文稿进行转换。
-- 缺点：我们没有能力正确清理单个字符串，例如，根据语言适当地拆分单词，并可能删除填充词。
+- Pros: Easier for a user to use, since they can pick whichever suits them better
+- Cons: We have to still convert to/from the internal presentation by either combining keywords or splitting them.
+- Cons: We don't have the capabilities to properly sanitise the single string, e.g. splitting words appropriately for the language, and potentially removing filler words.
 
-### 4. 接受接口中的任一，但抛出不支持的
+### 4. Accept either in interface but throw for not supported
 
-接受任一选项，但抛出基础数据库不支持的选项。
+Accept either option but throw for the one not supported by the underlying DB.
 
-- 优点： 我们更容易实施。
-- 缺点： 用户更难使用。
+- Pros: Easier for us to implement.
+- Cons: Harder for users to use.
 
-### 5. 每个都有单独的接口
+### 5. Separate interfaces for each
 
-为 Enumerable 和 single string 选项创建一个单独的接口，并且仅为每个 db 实现底层系统支持的接口。
+Create a separate interface for the Enumerable and single string options, and only implement the one that is supported by the underlying system for each db.
 
-- 优点： 我们更容易实施。
-- 缺点： 用户更难使用。
+- Pros: Easier for us to implement.
+- Cons: Harder for users to use.
 
-## 全文搜索索引 强制配置 考虑的选项
+## Full text search index mandatory configuration Considered Options
 
-Cosmos DB NoSQL 要求在创建全文搜索索引时指定语言。
-其他 DB 具有可设置的可选值。
+Cosmos DB NoSQL requires a language to be specified when creating a full text search index.
+Other DBs have optional values that can be set.
 
-### 1. 通过收集选项传入选项
+### 1. Pass option in via collection options
 
-此选项只需将 language 选项添加到集合的 options 类中，即可完成最低限度的作。
-然后，此语言将用于集合创建的所有全文搜索索引。
+This option does the minimum by just adding a language option to the collection's options class.
+This language would then be used for all full text search indexes created by the collection.
 
-- 优点： 最容易实现
-- 缺点： 不允许将多种语言用于一条记录中的不同字段
-- 缺点： 没有添加对所有数据库的所有全文搜索选项的支持
+- Pros: Simplest to implement
+- Cons: Doesn't allow multiple languages to be used for different fields in one record
+- Cons: Doesn't add support for all full text search options for all dbs
 
-### 2. 为 RecordDefinition 和数据模型属性添加扩展
+### 2. Add extensions for RecordDefinition and data model Attributes
 
-向 VectorStoreRecordProperty 添加属性包，以允许提供特定于数据库的元数据。
-添加一个可以继承的抽象基本属性，该属性允许将额外的元数据添加到数据模型中。
-其中，每个数据库都有自己的属性来指定其设置，并有一个方法将内容转换为
-VectorStoreRecordProperty 所需的属性包。
+Add a property bag to the VectorStoreRecordProperty allowing database specific metadata to be provided.
+Add an abstract base attribute that can be inherited from that allows extra metadata to be added to the data model,
+where each database has their own attributes to specify their settings, with a method to convert the contents to
+the property bag required by VectorStoreRecordProperty.
 
-- 优点： 允许对一条记录中的不同字段使用多种语言
-- 优点： 允许其他数据库通过自己的属性添加自己的设置
-- 缺点： 需要实施更多工作
+- Pros: Allows multiple languages to be used for different fields in one record
+- Pros: Allows other DBs to add their own settings via their own attributes
+- Cons: More work to implement
 
-## 决策结果
+## Decision Outcome
 
-### 范围
+### Scoping
 
-已选择选项 “1.Keyword Hybrid Search Only“，因为企业对生成稀疏向量的支持很差，并且没有端到端的故事，因此该值很低。
+Chosen option "1. Keyword Hybrid Search Only", since enterprise support for generating sparse vectors is poor and without an end to end story, the value is low.
 
-### PropertyName 命名
+### PropertyName Naming
 
-所选选项 “2.隐式密集命名“，因为它与现有的向量搜索选项命名一致。
+Chosen option "2. Implicit Dense naming", since it is consistent with the existing vector search options naming.
 
-### 关键字拆分
+### Keyword splitting
 
-已选择选项 “1.Accept Split keywords in interface“，因为它是数据库中唯一一个得到广泛支持的。
+Chosen option "1. Accept Split keywords in interface", since it is the only one with broad support amongst databases.
 
-### Naming Options 决策
+### Naming Options decision
 
-我们一致认为，我们的北极星设计将支持 Embedding 类型和某种形式的可矢量化数据（可能是来自 MEAI 的 DataContent）作为两者的输入
-常规搜索和混合搜索。
+We agreed that our north star design would be to support the Embedding type and some form of vectorizable data (probably DataContent from MEAI) as input for both
+Regular search and Hybrid search.
 
 ```csharp
 public Task VectorSearch<TRecord>(Embedding embedding, VectorSearchOptions<TRecord> options = null, CancellationToken cancellationToken = null);
@@ -524,10 +533,10 @@ public Task VectorSearch<TRecord>(VectorizableData[] vectorizableData, VectorSea
 public Task HybridSearch<TRecord, TVectorType>(TVector vector, VectorizableData vectorizableData, HybridSearchOptions<TRecord> options = null, CancellationToken cancellationToken = null);
 ```
 
-我们将有一个 HybridSearch 方法名称，将来会针对不同的输入使用不同的重载，但是将有一个选项类。
-用于选择目标关键字字段的属性选择器，或者将来将调用稀疏向量字段 `AdditionalPropertyName`。
+We will have a single HybridSearch method name, with different overloads in future for different inputs, however there will be a single options class.
+The property selector for choosing the target keyword field or in future the sparse vector field will be called `AdditionalPropertyName`.
 
-在我们努力使正确的数据类型和 Embedding 类型可用时，我们将提供以下接口。
+While we work on getting the right data types and Embedding types to be available, we will ship the following interface.
 
 ```csharp
 public Task HybridSearch<TVector>(TVector vector, ICollection<string> keywords, HybridSearchOptions<TRecord> options = null, CancellationToken cancellationToken);

@@ -1,9 +1,18 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: dmytrostruk
+date: 2023-10-03
+deciders: dmytrostruk
+consulted: SergeyMenshykh, RogerBarreto, markwallace-microsoft
+informed:
+---
 
-# 内核服务注册
+# Kernel Service Registration
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-插件可能具有依赖项以支持复杂场景。例如，有 `TextMemoryPlugin`，它支持 、 等函数 `retrieve` `recall` `save` `remove`。Constructor 的实现方式如下：
+Plugins may have dependencies to support complex scenarios. For example, there is `TextMemoryPlugin`, which supports functions like `retrieve`, `recall`, `save`, `remove`. Constructor is implemented in following way:
 
 ```csharp
 public TextMemoryPlugin(ISemanticTextMemory memory)
@@ -12,21 +21,21 @@ public TextMemoryPlugin(ISemanticTextMemory memory)
 }
 ```
 
-`TextMemoryPlugin` 取决于 `ISemanticTextMemory` 接口。同样，其他插件可能有多个依赖项，应该有一种方法可以手动或自动解决所需的依赖项。
+`TextMemoryPlugin` depends on `ISemanticTextMemory` interface. In similar way, other Plugins may have multiple dependencies and there should be a way how to resolve required dependencies manually or automatically.
 
-目前， `ISemanticTextMemory` 是 interface 的一个属性 `IKernel` ，它允许 `ISemanticTextMemory` `TextMemoryPlugin` 在插件初始化时注入：
+At the moment, `ISemanticTextMemory` is a property of `IKernel` interface, which allows to inject `ISemanticTextMemory` into `TextMemoryPlugin` during Plugin initialization:
 
 ```csharp
 kernel.ImportFunctions(new TextMemoryPlugin(kernel.Memory));
 ```
 
-应该有一种方法可以不仅支持与内存相关的接口，而且支持任何类型的服务，这些服务可以在 Plugin - `ISemanticTextMemory`， `IPromptTemplateEngine`或任何其他 `IDelegatingHandlerFactory` 服务中使用。
+There should be a way how to support not only Memory-related interface, but any kind of service, which can be used in Plugin - `ISemanticTextMemory`, `IPromptTemplateEngine`, `IDelegatingHandlerFactory` or any other service.
 
-## 考虑的选项
+## Considered Options
 
-### 解决方案 #1.1（默认可用）
+### Solution #1.1 (available by default)
 
-用户负责所有插件初始化和手动解决依赖项 **** 。
+User is responsible for all Plugins initialization and dependency resolution with **manual** approach.
 
 ```csharp
 var memoryStore = new VolatileMemoryStore();
@@ -40,11 +49,11 @@ var kernel = Kernel.Builder.Build();
 kernel.ImportFunctions(memoryPlugin);
 ```
 
-注意：这是手动解决服务依赖关系的本机 .NET 方法，默认情况下，此方法应始终可用。任何其他有助于提高依赖项解析的解决方案都可以在此方法之上添加。
+Note: this is native .NET approach how to resolve service dependencies manually, and this approach should always be available by default. Any other solutions which could help to improve dependency resolution can be added on top of this approach.
 
-### 解决方案 #1.2 （默认可用）
+### Solution #1.2 (available by default)
 
-用户负责所有插件初始化和依赖项解析，并使用 **依赖项注入** 方法。
+User is responsible for all Plugins initialization and dependency resolution with **dependency injection** approach.
 
 ```csharp
 var serviceCollection = new ServiceCollection();
@@ -65,13 +74,13 @@ var kernel = Kernel.Builder.Build();
 kernel.ImportFunctions(memoryPlugin);
 ```
 
-注意：与解决方案 #1.1 类似，这种方式应该是开箱即用的。用户总是可以处理他们这边的所有依赖项，只需向 Kernel 提供所需的插件即可。
+Note: in similar way as Solution #1.1, this way should be supported out of the box. Users always can handle all the dependencies on their side and just provide required Plugins to Kernel.
 
-### 解决方案 #2.1
+### Solution #2.1
 
-作为解决方案 #1.1 和解决方案 #1.2 的补充，在内核级别自定义服务集合和服务提供商，以简化依赖项解析过程。
+Custom service collection and service provider on Kernel level to simplify dependency resolution process, as addition to Solution #1.1 and Solution #1.2.
 
-Interface `IKernel` 将拥有自己的服务提供商 `KernelServiceProvider` ，其功能最少，无法获得所需的服务。
+Interface `IKernel` will have its own service provider `KernelServiceProvider` with minimal functionality to get required service.
 
 ```csharp
 public interface IKernelServiceProvider
@@ -99,21 +108,21 @@ var memoryPlugin = new TextMemoryPlugin(semanticTextMemory);
 kernel.ImportFunctions(memoryPlugin);
 ```
 
-优点：
+Pros:
 
-- 不依赖于特定的 DI 容器库。
-- 轻量级实现。
-- 可以只注册那些可以件使用的服务（与主机应用程序隔离）。
-- 可以按名称多次注册同一接口****。
+- No dependency on specific DI container library.
+- Lightweight implementation.
+- Possibility to register only those services that can be used by Plugins (isolation from host application).
+- Possibility to register same interface multiple times by **name**.
 
-缺点：
+Cons:
 
-- 自定义 DI 容器的实现和维护，而不是使用现有的库。
-- 要导入 Plugin，仍然需要手动初始化以注入特定的服务。
+- Implementation and maintenance for custom DI container, instead of using already existing libraries.
+- To import Plugin, it still needs to be initialized manually to inject specific service.
 
-### 解决方案 #2.2
+### Solution #2.2
 
-此解决方案是对解决方案 #2.1 的最后一个缺点的改进，用于处理应手动初始化插件实例的情况。这将需要添加如何将 Plugin 导入 Kernel 的新方法 - 不是使用对象 **实例**，而是使用对象 **类型**。在这种情况下，Kernel 将负责 `TextMemoryPlugin` 初始化和注入自定义服务集合中所有必需的依赖项。
+This solution is an improvement for last disadvantage of Solution #2.1 to handle case, when Plugin instance should be initialized manually. This will require to add new way how to import Plugin into Kernel - not with object **instance**, but with object **type**. In this case, Kernel will be responsible for `TextMemoryPlugin` initialization and injection of all required dependencies from custom service collection.
 
 ```csharp
 // Instead of this
@@ -126,9 +135,9 @@ kernel.ImportFunctions(memoryPlugin);
 kernel.ImportFunctions<TextMemoryPlugin>();
 ```
 
-### 解决方案 #3
+### Solution #3
 
-不要在 Kernel 中自定义服务集合和服务提供商，而是使用已经存在的 DI 库 - `Microsoft.Extensions.DependencyInjection`。
+Instead of custom service collection and service provider in Kernel, use already existing DI library - `Microsoft.Extensions.DependencyInjection`.
 
 ```csharp
 var serviceCollection = new ServiceCollection();
@@ -157,17 +166,17 @@ kernel.ImportFunctions(memoryPlugin);
 kernel.ImportFunctions<TextMemoryPlugin>();
 ```
 
-优点：
+Pros:
 
-- 依赖项解析不需要实现 - 只需使用现有的 .NET 库。
-- 可以在现有应用程序中一次性注入所有已注册的服务，并将它们用作插件依赖项。
+- No implementation is required for dependency resolution - just use already existing .NET library.
+- The possibility to inject all registered services at once in already existing applications and use them as Plugin dependencies.
 
-缺点：
+Cons:
 
-- 语义内核软件包的其他依赖项 - `Microsoft.Extensions.DependencyInjection`。
-- 无法包含特定的服务列表（缺乏与主机应用程序的隔离）。
-- 版本 `Microsoft.Extensions.DependencyInjection` 不匹配和运行时错误的可能性（例如，用户在 `Microsoft.Extensions.DependencyInjection` `--version 2.0`语义内核使用 `--version 6.0`）
+- Additional dependency for Semantic Kernel package - `Microsoft.Extensions.DependencyInjection`.
+- No possibility to include specific list of services (lack of isolation from host application).
+- Possibility of `Microsoft.Extensions.DependencyInjection` version mismatch and runtime errors (e.g. users have `Microsoft.Extensions.DependencyInjection` `--version 2.0` while Semantic Kernel uses `--version 6.0`)
 
-## 决策结果
+## Decision Outcome
 
-目前，仅支持 Solution #1.1 和 Solution #1.2，以保持 Kernel 作为单一责任单位。在将 Plugin 实例传递给 Kernel 之前，应该解决 Plugin 依赖项。
+As for now, support Solution #1.1 and Solution #1.2 only, to keep Kernel as unit of single responsibility. Plugin dependencies should be resolved before passing Plugin instance to the Kernel.

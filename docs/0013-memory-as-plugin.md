@@ -1,8 +1,17 @@
-# 将所有与 Memory 相关的逻辑移动到单独的 Plugin
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: dmytrostruk
+date: 2023-09-21
+deciders: shawncal, dmytrostruk
+consulted: 
+informed: 
+---
+# Move all Memory-related logic to separate Plugin
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-与内存相关的逻辑位于不同的 C# 项目中：
+Memory-related logic is located across different C# projects:
 
 - `SemanticKernel.Abstractions`
   - `IMemoryStore`
@@ -16,22 +25,22 @@
 - `Plugins.Core`
   - `TextMemoryPlugin`
 
-Property `ISemanticTextMemory Memory` 也是 type 的一部分 `Kernel` ，但 kernel 本身并不使用它。在 Plugins 中注入 Memory 功能需要此属性。目前， `ISemanticTextMemory` interface 是 的主要依赖项 `TextMemoryPlugin`，在某些示例中 `TextMemoryPlugin` 被初始化为 `new TextMemoryPlugin(kernel.Memory)`。
+Property `ISemanticTextMemory Memory` is also part of `Kernel` type, but kernel itself doesn't use it. This property is needed to inject Memory capabilities in Plugins. At the moment, `ISemanticTextMemory` interface is main dependency of `TextMemoryPlugin`, and in some examples `TextMemoryPlugin` is initialized as `new TextMemoryPlugin(kernel.Memory)`.
 
-虽然这种方法适用于 Memory，但目前无法注入 `MathPlugin` 到其他 Plugin 中。遵循相同的方法并将 `Math` 属性添加到 `Kernel` 类型不是可扩展的解决方案，因为无法为每个可用的 Plugin 定义单独的属性。
+While this approach works for Memory, there is no way how to inject `MathPlugin` into other Plugin at the moment. Following the same approach and adding `Math` property to `Kernel` type is not scalable solution, as it's not possible to define separate properties for each available Plugin.
 
-## 决策驱动因素
+## Decision Drivers
 
-1.  如果内核不使用 memory，则 `Kernel`memory 不应是 type 的属性。
-2. 内存的处理方式应与其他插件或服务相同，这可能是特定插件可能需要的。
-3. 应该有一种方法可以将内存功能注册到附加的 Vector DB 中，并将该功能注入到需要它的插件中。
+1. Memory should not be a property of `Kernel` type if it's not used by the kernel.
+2. Memory should be treated in the same way as other plugins or services, that may be required by specific Plugins.
+3. There should be a way how to register Memory capability with attached Vector DB and inject that capability in Plugins that require it.
 
-## 决策结果
+## Decision Outcome
 
-将所有与 Memory 相关的逻辑移动到名为 `Plugins.Memory` .这将允许简化 Kernel logic 并在需要的地方（其他插件）使用 Memory。
+Move all Memory-related logic to separate project called `Plugins.Memory`. This will allow to simplify Kernel logic and use Memory in places where it's needed (other Plugins).
 
-高级任务：
+High-level tasks:
 
-1. 将 Memory 相关代码移动到单独的项目中。
-2. 实现一种在需要 Memory 的 Plugins 中注入 Memory 的方法。
-3. 从 type 中删除 `Memory` property `Kernel` 。
+1. Move Memory-related code to separate project.
+2. Implement a way how to inject Memory in Plugins that require it.
+3. Remove `Memory` property from `Kernel` type.

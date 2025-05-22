@@ -1,48 +1,57 @@
+﻿---
+# These are optional elements. Feel free to remove any of them.
+status: { accepted }
+contact: { Tao Chen }
+date: { 2024-05-02 }
+deciders: { Stephen Toub, Ben Thomas }
+consulted: { Stephen Toub, Liudmila Molkova, Ben Thomas }
+informed: { Dmytro Struk, Mark Wallace }
+---
 
-# 在 Semantic Kernel 中使用标准化词汇表和规范实现可观测性
+# Use standardized vocabulary and specification for observability in Semantic Kernel
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-观察 LLM 应用程序一直是客户和社区的一个巨大要求。这项工作旨在确保 SK 提供最佳的开发人员体验，同时遵守基于生成式 AI 的应用程序的可观察性行业标准。
+Observing LLM applications has been a huge ask from customers and the community. This work aims to ensure that SK provides the best developer experience while complying with the industry standards for observability in generative-AI-based applications.
 
-有关更多信息，请参考此问题：https://github.com/open-telemetry/semantic-conventions/issues/327
+For more information, please refer to this issue: https://github.com/open-telemetry/semantic-conventions/issues/327
 
-### 语义约定
+### Semantic conventions
 
-生成式 AI 的语义约定目前处于起步阶段，因此，此处概述的许多要求在未来可能会发生变化。因此，从此架构决策记录 （ADR） 派生的几个特征可能被视为实验性特征。必须保持对不断发展的行业标准的适应性和响应能力，以确保我们系统的性能和可靠性不断改进。
+The semantic conventions for generative AI are currently in their nascent stage, and as a result, many of the requirements outlined here may undergo changes in the future. Consequently, several features derived from this Architectural Decision Record (ADR) may be considered experimental. It is essential to remain adaptable and responsive to evolving industry standards to ensure the continuous improvement of our system's performance and reliability.
 
-- [生成式 AI 的语义约定](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai)
-- [通用 LLM 属性](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/attributes-registry/gen-ai.md)
+- [Semantic conventions for generative AI](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai)
+- [Generic LLM attributes](https://github.com/open-telemetry/semantic-conventions/blob/main/docs/attributes-registry/gen-ai.md)
 
-### 遥测要求 （实验性）
+### Telemetry requirements (Experimental)
 
-根据 [初始版本](https://github.com/open-telemetry/semantic-conventions/blob/651d779183ecc7c2f8cfa90bf94e105f7b9d3f5a/docs/attributes-registry/gen-ai.md)，语义内核应在表示单个 LLM 请求的 activity 中提供以下属性：
+Based on the [initial version](https://github.com/open-telemetry/semantic-conventions/blob/651d779183ecc7c2f8cfa90bf94e105f7b9d3f5a/docs/attributes-registry/gen-ai.md), Semantic Kernel should provide the following attributes in activities that represent individual LLM requests:
 
-> `Activity` 是一个 .Net 概念，在 OpenTelemetry 之前就存在。A `span` 是一个 OpenTelemetry 概念，等效于 . `Activity`
+> `Activity` is a .Net concept and existed before OpenTelemetry. A `span` is an OpenTelemetry concept that is equivalent to an `Activity`.
 
-- （必填）`gen_ai.system`
-- （必填）`gen_ai.request.model`
-- （推荐）`gen_ai.request.max_token`
-- （推荐）`gen_ai.request.temperature`
-- （推荐）`gen_ai.request.top_p`
-- （推荐）`gen_ai.response.id`
-- （推荐）`gen_ai.response.model`
-- （推荐）`gen_ai.response.finish_reasons`
-- （推荐）`gen_ai.response.prompt_tokens`
-- （推荐）`gen_ai.response.completion_tokens`
+- (Required)`gen_ai.system`
+- (Required)`gen_ai.request.model`
+- (Recommended)`gen_ai.request.max_token`
+- (Recommended)`gen_ai.request.temperature`
+- (Recommended)`gen_ai.request.top_p`
+- (Recommended)`gen_ai.response.id`
+- (Recommended)`gen_ai.response.model`
+- (Recommended)`gen_ai.response.finish_reasons`
+- (Recommended)`gen_ai.response.prompt_tokens`
+- (Recommended)`gen_ai.response.completion_tokens`
 
-以下事件将选择性地附加到活动：
-| 事件名称| 属性|
+The following events will be optionally attached to an activity:
+| Event name| Attribute(s)|
 |---|---|
 |`gen_ai.content.prompt`|`gen_ai.prompt`|
 |`gen_ai.content.completion`|`gen_ai.completion`|
 
-> 内核必须提供配置选项来禁用这些事件，因为它们可能包含 PII。
-> 有关 [ 这些属性的要求级别，请参阅](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai)生成式 AI 的语义约定。
+> The kernel must provide configuration options to disable these events because they may contain PII.
+> See the [Semantic conventions for generative AI](https://github.com/open-telemetry/semantic-conventions/tree/main/docs/gen-ai) for requirement level for these attributes.
 
-## 我们在何处创建 activity
+## Where do we create the activities
 
-建立明确的职责界限至关重要，特别是因为某些服务提供商（如 Azure OpenAI SDK）已经预先存在检测。我们的目标是将我们的活动定位在尽可能接近模型级别的位置，以促进更具凝聚力和一致性的开发人员体验。
+It is crucial to establish a clear line of responsibilities, particularly since certain service providers, such as the Azure OpenAI SDK, have pre-existing instrumentation. Our objective is to position our activities as close to the model level as possible to promote a more cohesive and consistent developer experience.
 
 ```mermaid
 block-beta
@@ -65,55 +74,55 @@ columns 1
     end
 ```
 
-> Semantic Kernel 还支持其他类型的内存/矢量数据库连接器。我们将在单独的 ADR 中讨论这些连接器的插桩。
+> Semantic Kernel also supports other types of connectors for memories/vector databases. We will discuss instrumentations for those connectors in a separate ADR.
 
-> 请注意，这不会改变我们对 [Planner 和 kernel Functions 的 instrumentation](./0025-planner-telemetry-enhancement.md) 方法。我们可能会修改或删除之前创建的一些计量，这将引入重大更改。
+> Note that this will not change our approaches to [instrumentation for planners and kernel functions](./0025-planner-telemetry-enhancement.md). We may modify or remove some of the meters we created previously, which will introduce breaking changes.
 
-为了使 activity 尽可能接近模型级别，我们应该将它们保持在连接器级别。
+In order to keep the activities as close to the model level as possible, we should keep them at the connector level.
 
-### 超出范围
+### Out of scope
 
-这些服务将在将来讨论：
+These services will be discuss in the future:
 
-- 内存/矢量数据库服务
-- 音频到文本服务 （`IAudioToTextService`）
-- 嵌入服务 （`IEmbeddingGenerationService`）
-- 图像到文本服务 （）`IImageToTextService`
-- 文本到音频服务 （`ITextToAudioService`）
-- 文本到图像服务 （`ITextToImageService`）
+- Memory/vector database services
+- Audio to text services (`IAudioToTextService`)
+- Embedding services (`IEmbeddingGenerationService`)
+- Image to text services (`IImageToTextService`)
+- Text to audio services (`ITextToAudioService`)
+- Text to image services (`ITextToImageService`)
 
-## 考虑的选项
+## Considered Options
 
-- 活动范围
-  - 所有连接器，无论使用何种客户端 SDK。
-  - 连接器在其客户端 SDK 中缺少插桩或使用自定义客户端。
-  - 所有连接器，请注意，从连接器派生的活动属性与从插桩客户端 SDK 派生的活动的属性不重叠。
-- 检测的实现
-  - 静态类
-- 用于实验功能和敏感数据收集的开关
-  - 应用上下文切换
+- Scope of Activities
+  - All connectors, irrespective of the client SDKs used.
+  - Connectors that either lack instrumentation in their client SDKs or use custom clients.
+  - All connectors, noting that the attributes of activities derived from connectors and those from instrumented client SDKs do not overlap.
+- Implementations of Instrumentation
+  - Static class
+- Switches for experimental features and the collection of sensitive data
+  - App context switch
 
-### 活动范围
+### Scope of Activities
 
-#### 所有连接器，无论使用何种客户端 SDK
+#### All connectors, irrespective of the client SDKs utilized
 
-所有 AI 连接器都将生成 Activity，以便跟踪对模型的单个请求。每个活动都将维护一组 **一致的属性**。这种一致性保证了用户可以一致地监控他们的 LLM 请求，而不管他们的应用程序中使用的连接器是什么。但是，它引入了数据重复的潜在缺点，这会导致 **更高的成本**，因为这些活动中包含的属性将包含比客户端 SDK 生成的属性更广泛的集合（即额外的 SK 特定属性），前提是客户端 SDK 的检测同样符合语义约定。
+All AI connectors will generate activities for the purpose of tracing individual requests to models. Each activity will maintain a **consistent set of attributes**. This uniformity guarantees that users can monitor their LLM requests consistently, irrespective of the connectors used within their applications. However, it introduces the potential drawback of data duplication which **leads to greater costs**, as the attributes contained within these activities will encompass a broader set (i.e. additional SK-specific attributes) than those generated by the client SDKs, assuming that the client SDKs are likewise instrumented in alignment with the semantic conventions.
 
-> 在理想情况下，预计所有客户端 SDK 最终都将与语义约定保持一致。
+> In an ideal world, it is anticipated that all client SDKs will eventually align with the semantic conventions.
 
-#### 连接器在其客户端 SDK 中缺少插桩或使用自定义客户端
+#### Connectors that either lack instrumentation in their client SDKs or utilize custom clients
 
-与无法为 LLM 请求生成活动功能的客户端 SDK 配对的 AI 连接器将负责创建此类活动。相比之下，与已生成请求活动的客户端 SDK 关联的连接器将不会受到进一步检测的约束。要求用户订阅客户端 SDK 提供的活动源，以确保对 LLM 请求的一致跟踪。这种方法有助于 **降低** 与不必要的数据重复相关的成本。但是，它可能会在 **跟踪中引入不一致**，因为并非所有 LLM 请求都会伴随着连接器生成的活动。
+AI connectors paired with client SDKs that lack the capability to generate activities for LLM requests will take on the responsibility of creating such activities. In contrast, connectors associated with client SDKs that do already generate request activities will not be subject to further instrumentation. It is required that users subscribe to the activity sources offered by the client SDKs to ensure consistent tracking of LLM requests. This approach helps in **mitigating the costs** associated with unnecessary data duplication. However, it may introduce **inconsistencies in tracing**, as not all LLM requests will be accompanied by connector-generated activities.
 
-#### 所有连接器，请注意，从连接器派生的活动属性与从插桩的客户端 SDK 派生的活动的属性不重叠
+#### All connectors, noting that the attributes of activities derived from connectors and those from instrumented client SDKs do not overlap
 
-所有连接器都将生成 activity，以便跟踪对模型的各个请求。这些连接器活动的组成（特别是包含的属性）将根据关联客户端 SDK 的检测状态来确定。目的是仅包含必要的属性以防止数据重复。最初，链接到缺少插桩的客户端 SDK 的连接器将生成包含 LLM 语义约定概述的所有潜在属性以及一些特定于 SK 的属性的活动。但是，一旦客户端 SDK 按照这些约定进行检测，连接器将停止在其活动中包含以前添加的属性，从而避免冗余。这种方法有助于为 ** 使用 SK 构建用户**提供相对一致的开发体验，同时**优化**与可观测性相关的成本。
+All connectors will generate activities for the purpose of tracing individual requests to models. The composition of these connector activities, specifically the attributes included, will be determined based on the instrumentation status of the associated client SDK. The aim is to include only the necessary attributes to prevent data duplication. Initially, a connector linked to a client SDK that lacks instrumentation will generate activities encompassing all potential attributes as outlined by the LLM semantic conventions, alongside some SK-specific attributes. However, once the client SDK becomes instrumented in alignment with these conventions, the connector will cease to include those previously added attributes in its activities, avoiding redundancy. This approach facilitates a **relatively consistent** development experience for user building with SK while **optimizing costs** associated with observability.
 
-### 插桩实现
+### Instrumentation implementations
 
-#### 静态类 `ModelDiagnostics`
+#### Static class `ModelDiagnostics`
 
-这个类将位于 `dotnet\src\InternalUtilities\src\Diagnostics`。
+This class will live under `dotnet\src\InternalUtilities\src\Diagnostics`.
 
 ```C#
 // Example
@@ -148,7 +157,7 @@ internal static class ModelDiagnostics
 }
 ```
 
-用法示例
+Example usage
 
 ```C#
 public async Task<IReadOnlyList<TextContent>> GenerateTextAsync(
@@ -180,16 +189,16 @@ public async Task<IReadOnlyList<TextContent>> GenerateTextAsync(
 }
 ```
 
-### 用于实验功能和敏感数据收集的开关
+### Switches for experimental features and the collection of sensitive data
 
-#### 应用上下文切换
+#### App context switch
 
-我们将引入两个标志，以便于显式激活跟踪 LLM 请求：
+We will introduce two flags to facilitate the explicit activation of tracing LLMs requests:
 
 1. `Microsoft.SemanticKernel.Experimental.EnableModelDiagnostics`
-   - 激活后，将允许创建表示单个 LLM 请求的活动。
+   - Activating will enable the creation of activities that represent individual LLM requests.
 2. `Microsoft.SemanticKernel.Experimental.EnableModelDiagnosticsWithSensitiveData`
-   - 激活后，将允许创建表示单个 LLM 请求的活动，其中包含可能包含 PII 信息的事件。
+   - Activating will enable the creation of activities that represent individual LLM requests, with events that may contain PII information.
 
 ```C#
 // In application code
@@ -212,17 +221,17 @@ else
 </ItemGroup>
 ```
 
-## 决策结果
+## Decision Outcome
 
-选择的选项：
+Chosen options:
 
-[x] 活动范围： **选项 3** - 所有连接器，请注意，从连接器派生的活动属性与从检测的客户端 SDK 派生的活动的属性不重叠。
+[x] Scope of Activities: **Option 3** - All connectors, noting that the attributes of activities derived from connectors and those from instrumented client SDKs do not overlap.
 
-[x] 插桩实现： **选项 1** - 静态类
+[x] Instrumentation Implementation: **Option 1** - Static class
 
-[x] 实验性切换： **选项 1** - 应用上下文切换
+[x] Experimental switch: **Option 1** - App context switch
 
-## 附录
+## Appendix
 
 ### `AppContextSwitchHelper.cs`
 
@@ -283,7 +292,7 @@ internal static class ModelDiagnostics
 }
 ```
 
-### 扩展
+### Extensions
 
 ```C#
 internal static class ActivityExtensions
@@ -320,4 +329,4 @@ internal static class ActivityExtensions
 }
 ```
 
-> 请注意，上面提供的实现只是说明性示例，代码库中的实际实现可能会进行修改。
+> Please be aware that the implementations provided above serve as illustrative examples, and the actual implementations within the codebase may undergo modifications.

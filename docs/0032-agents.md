@@ -1,144 +1,222 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: experimental
+contact: crickman
+date: 2024-01-24
+deciders: markwallace-microsoft, matthewbolanos
+consulted: rogerbarreto, dmytrostruk, alliscode, SergeyMenshykh
+informed:
+---
 
-# SK Agents 概述和高级设计
+# SK Agents Overview and High Level Design
 
-## **上下文和问题陈述**
-对 OpenAI Assistant API 的支持发布在一个实验包中 `*.Assistants` ，该包后来更名为该包`*.Agents`，以期转向更通用的代理框架。
+## **Context and Problem Statement**
+Support for the OpenAI Assistant API was published in an experimental `*.Assistants` package that was later renamed to `*.Agents` with the aspiration of pivoting to a more general agent framework.
 
-最初的 `Assistants` 工作从未打算演变成一个通用 _的 Agent Framework_。
+The initial `Assistants` work was never intended to evolve into a general _Agent Framework_.
 
-此 ADR 定义了该常规 _代理框架_。
+This ADR defines that general _Agent Framework_.
 
-代理应能够支持两种交互模式：
+An agent is expected to be able to support two interaction patterns:
 
-1. **直接调用 （“No Chat”）：**
+1. **Direct Invocation ("No Chat"):**
 
-    调用方可以直接调用任何单个代理，而无需任何干预机制或基础结构。
-    对于使用直接调用轮流进行对话的不同代理，调用方应轮流调用每个代理。
-    不同代理类型之间的协调交互也必须由调用方显式管理。
+    The caller is able to directly invoke any single agent without any intervening machinery or infrastructure.
+    For different agents to take turns in a conversation using direct invocation, the caller is expected to invoke each agent per turn.
+    Coordinating interaction between different agent types must also be explicitly managed by the caller.
 
-2. **代理聊天：**  
+2. **Agent Chat:**  
 
-    呼叫者能够召集多个座席参与扩展对话，以实现特定目标
-    （通常响应初始或迭代输入）。 参与后，座席可以轮流参与多次互动的聊天。
-
-
-## **代理概述**
-从根本上说，代理具有以下特征：
-- 身份：允许唯一标识每个代理。
-- 行为：座席参与对话的方式
-- 交互：代理行为是对其他代理或输入的响应。
-
-各种代理专业化可能包括：
-- System Instructions（系统指令）：一组指导代理行为的指令。
-- 工具/功能：使代理能够执行特定任务或作。
-- 设置：代理特定的设置。 对于聊天完成代理，这可能包括 LLM 设置 - 例如 Temperature、TopP、StopSequence 等
+    The caller is able to assemble multiple agents to participate in an extended conversation for the purpose of accomplishing a specific goal
+    (generally in response to initial or iterative input).  Once engaged, agents may participate in the chat over multiple interactions by taking turns.
 
 
-### **代理模式**
-代理 __ 可以是各种形式。 模式在能力和约束方面是不对称的。
+## **Agents Overview**
+Fundamentally an agent possesses the following characteristics:
+- Identity: Allows each agent to be uniquely identified.
+- Behavior: The manner in which an agent participates in a conversation
+- Interaction: That an agent behavior is in response to other agents or input.
 
-- **SemanticKernel - ChatCompletion**： _ 仅基于 _SemanticKernel* 对聊天完成（例如 .NET）的支持的代理*。`ChatCompletionService`
-- **OpenAI Assistants**：一个托管 _的代理_ 解决方案支持OpenAI _Assistant API_ （包括OpenAI和Azure OpenAI）。
-- **自定义**：通过扩展_代理框架开发的自定义代理_。
-- **未来**：尚未公布，例如 HuggingFace Assistant API（他们已经有助手，但尚未发布 API）。
-
-
-## **决策驱动因素**
-- _代理框架_ 应提供足够的抽象，以便能够构建可能利用任何 LLM API 的代理。
-- _代理框架_ 应为最常见的代理协作类型提供足够的抽象和构建块。随着新的协作方法的出现，添加新的块应该很容易。
-- _代理框架_ 应提供构建块来修改代理输入和输出，以涵盖各种自定义场景。
-- _代理框架_ 应与 _SemanticKernel_ 模式保持一致：工具、DI、插件、函数调用等。
-- _代理框架_ 应可扩展，以便其他库可以构建自己的代理和聊天体验。
-- _代理框架_ 应尽可能简单，以便于扩展。
-- _代理框架_ 应将复杂性封装在实现细节中，而不是调用模式中。
-- _代理_ 体抽象应支持不同的模态（请参阅 [代理模态](#agent-modalities) 部分）。
--  __ 任何形式的代理都应能够与 _ 任何其他形式的_代理进行交互。
--  _代理_ 应能够支持其自身的模式要求。（专业化）
-- _代理_ 输入和输出应与 SK 内容类型保持一致 `ChatMessageContent`。
+Various agents specializations might include:
+- System Instructions: A set of directives that guide the agent's behavior.
+- Tools/Functions: Enables the agent to perform specific tasks or actions.
+- Settings: Agent specific settings.  For chat-completion agents this might include LLM settings - such as Temperature, TopP, StopSequence, etc
 
 
-## **设计 - 分析**
+### **Agent Modalities**
+An _Agent_ can be of various modalities.  Modalities are asymmetrical with regard to abilities and constraints.
 
-代理参与对话，通常是为了响应用户或环境输入。  
+- **SemanticKernel - ChatCompletion**: An _Agent_ based solely on the *SemanticKernel* support for chat-completion (e.g. .NET `ChatCompletionService`).
+- **OpenAI Assistants**: A hosted _Agent_ solution supported the _OpenAI Assistant API_ (both OpenAI & Azure OpenAI).
+- **Custom**: A custom agent developed by extending the _Agent Framework_.
+- **Future**: Yet to be announced, such as a HuggingFace Assistant API (they already have assistants, but yet to publish an API.)
+
+
+## **Decision Drivers**
+- _Agent Framework_ shall provide sufficient abstraction to enable the construction of agents that could utilize potentially any LLM API.
+- _Agent Framework_ shall provide sufficient abstraction and building blocks for the most frequent types of agent collaboration. It should be easy to add new blocks as new collaboration methods emerge.
+- _Agent Framework_ shall provide building blocks to modify agent input and output to cover various customization scenarios.
+- _Agent Framework_ shall align with _SemanticKernel_ patterns: tools, DI, plugins, function-calling, etc.
+- _Agent Framework_ shall be extensible so that other libraries can build their own agents and chat experiences.
+- _Agent Framework_ shall be as simple as possible to facilitate extensibility.
+- _Agent Framework_ shall encapsulate complexity within implementation details, not calling patterns.
+- _Agent_ abstraction shall support different modalities (see [Agent Modalities](#agent-modalities) section).
+- An _Agent_ of any modality shall be able to interact with an _Agent_ of any other modality.
+- An _Agent_ shall be able to support its own modality requirements. (Specialization)
+- _Agent_ input and output shall align to SK content type `ChatMessageContent`.
+
+
+## **Design - Analysis**
+
+Agents participate in a conversation, often in response to user or environmental input.  
 
 <p align="center">
 <kbd><img src="./diagrams/agent-analysis.png" alt="Agent Analysis Diagram" width="420" /></kbd>
 </p>
 
-除了 之外 `Agent`，还从此模式中确定了两个基本概念：
+In addition to `Agent`, two fundamental concepts are identified from this pattern:
 
-- 对话 - 座席交互序列的上下文。
-- 通道：（图中的“通信路径”）- 代理与单个会话交互的关联状态和协议。
+- Conversation - Context for sequence of agent interactions.
+- Channel: ("Communication Path" from diagram) - The associated state and protocol  with which the agent interacts with a single conversation.
 
-> 不同模式的代理必须自由地满足其模式提出的要求。 将概念形式化 `Channel` 为实现这一目标提供了一个自然的工具。
-对于基于_聊天完成的_代理，这意味着拥有和管理一组特定的聊天消息（聊天历史记录）并与聊天完成 API/端点通信。
-对于基于 _Open AI Assistant API_ 的代理，这意味着定义特定_线程_并作为远程服务与 Assistant API 通信。
+> Agents of different modalities must be free to satisfy the requirements presented by their modality.  Formalizing the `Channel` concept provides a natural vehicle for this to occur.
+For an agent based on _chat-completion_, this means owning and managing a specific set of chat messages (chat-history) and communicating with a chat-completion API / endpoint.
+For an agent based on the _Open AI Assistant API_, this means defining a specific _thread_ and communicating with the Assistant API as a remote service.
 
-这些概念汇集在一起，提出了以下概括：
+These concepts come together to suggest the following generalization:
 
 <p align="center">
 <kbd><img src="./diagrams/agent-pattern.png" alt="Agent Pattern Diagram" width="212" /></kbd>
 </p>
 
 
-在与团队一起迭代这些概念后，这种概括将转换为以下高级定义：
+After iterating with the team over these concepts, this generalization translates into the following high-level definitions:
 
 <p align="center">
 <kbd><img src="./diagrams/agent-design.png" alt="Agent Design Diagram" width="540" /></kbd>
 </p>
 
 
-类名|父类|角色|形态|注意
+Class Name|Parent Class|Role|Modality|Note
 -|-|-|-|-
-代理|-|代理|抽象化|根代理抽象
-内核代理|代理|代理|抽象化|包括 `Kernel` 服务和插件
-代理频道|-|渠道|抽象化|代理参与聊天的渠道。
-代理聊天|-|聊天|抽象化|为座席交互提供核心功能。
-代理群聊|代理聊天|聊天|效用|基于策略的聊天
+Agent|-|Agent|Abstraction|Root agent abstraction
+KernelAgent|Agent|Agent|Abstraction|Includes `Kernel` services and plug-ins
+AgentChannel|-|Channel|Abstraction|Conduit for an agent's participation in a chat.
+AgentChat|-|Chat|Abstraction|Provides core capabilities for agent interactions.
+AgentGroupChat|AgentChat|Chat|Utility|Strategy based chat
+---
 
 
-## **设计 - 聊天完成代理**
+## **Design - Abstractions**
 
-第一个具体代理是 `ChatCompletionAgent`。
-该 `ChatCompletionAgent` implementation 能够与任何 `IChatCompletionService` implementation集成。
-由于 `IChatCompletionService` 作用于 `ChatHistory`，这演示了如何 `ChatHistoryKernelAgent` 简单地实现。
+Here the detailed class definitions from the  high-level pattern from the previous section are enumerated.
 
-代理行为（自然）根据任何 `IChatCompletionService` .
-例如，不支持函数调用的连接器同样不会 `KernelFunction` 作为 _Agent 执行任何 _Interface。
+Also shown are entities defined as part of the _ChatHistory_ optimization: `IChatHistoryHandler`, `ChatHistoryKernelAgent`, and `ChatHistoryChannel`.
+These _ChatHistory_ entities eliminates the requirement for _Agents_ that act on a locally managed `ChatHistory` instance (as opposed to agents managed via remotely hosted frameworks) to implement their own `AgentChannel`.
+
+<p align="center">
+<kbd><img src="./diagrams/agent-abstractions.png" alt="Agent Abstractions Diagram" width="812" /></kbd>
+</p>
+
+
+Class Name|Parent Class|Role|Modality|Note
+-|-|-|-|-
+Agent|-|Agent|Abstraction|Root agent abstraction
+AgentChannel|-|Channel|Abstraction|Conduit for an agent's participation in an `AgentChat`.
+KernelAgent|Agent|Agent|Abstraction|Defines `Kernel` services and plug-ins
+ChatHistoryChannel|AgentChannel|Channel|Abstraction|Conduit for agent participation in a chat based on local chat-history.
+IChatHistoryHandler|-|Agent|Abstraction|Defines a common part for agents that utilize `ChatHistoryChannel`.
+ChatHistoryKernelAgent|KernelAgent|Agent|Abstraction|Common definition for any `KernelAgent` that utilizes a `ChatHistoryChannel`.
+AgentChat|-|Chat|Abstraction|Provides core capabilities for an multi-turn agent conversation.
+---
+
+
+## **Design - Chat-Completion Agent**
+
+The first concrete agent is `ChatCompletionAgent`.
+The `ChatCompletionAgent` implementation is able to integrate with any `IChatCompletionService` implementation.
+Since `IChatCompletionService` acts upon `ChatHistory`, this demonstrates how `ChatHistoryKernelAgent` may be simply implemented.
+
+Agent behavior is (naturally) constrained according to the specific behavior of any `IChatCompletionService`. 
+For example, a connector that does not support function-calling will likewise not execute any `KernelFunction` as an _Agent_.
 
 <p align="center">
 <kbd><img src="./diagrams/agent-chatcompletion.png" alt="ChatCompletion Agent Diagram" width="540" /></kbd>
 </p>
 
-类名|父类|角色|形态|注意
+Class Name|Parent Class|Role|Modality|Note
 -|-|-|-|-
-ChatCompletionAgent|ChatHistoryKernelAgent|代理|SemanticKernel 内核|基于 _ 本地聊天历史记录的具体_代理。
+ChatCompletionAgent|ChatHistoryKernelAgent|Agent|SemanticKernel|Concrete _Agent_ based on a local chat-history.
+---
 
 
-## **设计 - OpenAI Assistant Agent**
+## **Design - Group Chat**
 
-下一个具体代理是 `OpenAIAssistantAgent`。
-该代理基于 _OpenAI Assistant API_，并实现了自己的频道，因为聊天记录作为助理线程进行远程管理__。
+`AgentGroupChat` is a concrete `AgentChat` whose behavior is defined by various _Strategies_.
+
+<p align="center">
+<kbd><img src="./diagrams/agent-groupchat.png" alt="Agent Group Chat Diagram" width="720" /></kbd>
+</p>
+
+Class Name|Parent Class|Role|Modality|Note
+-|-|-|-|-
+AgentGroupChat|AgentChat|Chat|Utility|Strategy based chat
+AgentGroupChatSettings|-|Config|Utility|Defines strategies that affect behavior of `AgentGroupChat`.
+SelectionStrategy|-|Config|Utility|Determines the order for `Agent` instances to participate in `AgentGroupChat`.
+TerminationStrategy|-|Config|Utility|Determines when the `AgentGroupChat` conversation is allowed to terminate (no need to select another `Agent`).
+---
+
+
+## **Design - OpenAI Assistant Agent**
+
+The next concrete agent is `OpenAIAssistantAgent`.
+This agent is based on the _OpenAI Assistant API_ and implements its own channel as chat history is managed remotely as an assistant _thread_.
 
 <p align="center">
 <kbd><img src="./diagrams/agent-assistant.png" alt=" OpenAI Assistant Agent Diagram" width="720" /></kbd>
 </p>
 
-类名|父类|角色|形态|注意
+Class Name|Parent Class|Role|Modality|Note
 -|-|-|-|-
-OpenAIAssistantAgent|内核代理|代理|OpenAI 助手|基于 OpenAI Assistant API_ 的功能性代理 _
-打开 AIAssistantChannel|代理频道|渠道|OpenAI 助手|关联的频道 `OpenAIAssistantAgent`
-OpenAIAssistant定义|-|配置|OpenAI 助手| 枚举托管代理定义时提供的 _Open AI Assistant_ 的定义。
+OpenAIAssistantAgent|KernelAgent|Agent|OpenAI Assistant|A functional agent based on _OpenAI Assistant API_
+OpenAIAssistantChannel|AgentChannel|Channel|OpenAI Assistant|Channel associated with `OpenAIAssistantAgent`
+OpenAIAssistantDefinition|-|Config|OpenAI Assistant|Definition of an _Open AI Assistant_ provided when enumerating over hosted agent definitions.
+---
+
+### **OpenAI Assistant API Reference**
+
+- [Assistants Documentation](https://platform.openai.com/docs/assistants)
+- [Assistants API](https://platform.openai.com/docs/api-reference/assistants)
+
+<p>
+<kbd><img src="./diagrams/open-ai-assistant-api-objects.png" alt="OpenAI Assistant API Objects.png" width="560"/></kbd>
+</p>
 
 
-## **使用模式**
+## **Design - Aggregator Agent**
 
-**1. 代理实例化：ChatCompletion**
+In order to support complex calling patterns, `AggregatorAgent` enables one or more agents participating in an `AgentChat` to present as a single logical `Agent`.
 
-创建 a  直接与 `ChatCompletionAgent`Agent Framework`Kernel` 外部使用 for `IChatCompletionService` 定义对象 _ 的方式保持一致_，
-添加了 Provide Agent Specific Instructions 和 Identity。
+<p align="center">
+<kbd><img src="./diagrams/agent-aggregator.png" alt="Aggregator Agent Diagram" width="480" /></kbd>
+</p>
 
-（_dotnet_）
+Class Name|Parent Class|Role|Modality|Note
+-|-|-|-|-
+AggregatorAgent|Agent|Agent|Utility|Adapts an `AgentChat` as an `Agent`
+AggregatorChannel|AgentChannel|Channel|Utility|`AgentChannel` used by `AggregatorAgent`.
+AggregatorMode|-|Config|Utility|Defines the aggregation mode for `AggregatorAgent`.
+---
+
+
+## **Usage Patterns**
+
+**1. Agent Instantiation: ChatCompletion**
+
+Creating a `ChatCompletionAgent` aligns directly with how a `Kernel` object would be defined with an `IChatCompletionService` for outside of the _Agent Framework_,
+with the addition of provide agent specific instructions and identity.
+
+(_dotnet_)
 ```c#
 // Start with the Kernel
 IKernelBuilder builder = Kernel.CreateBuilder();
@@ -162,7 +240,7 @@ ChatCompletionAgent agent =
     };
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 # Start with the Kernel
 kernel = Kernel()
@@ -180,13 +258,13 @@ agent = ChatCompletionAgent(service_id="agent", kernel=kernel, name="name", inst
 ```
 
 
-**2. 代理实例化：OpenAI Assistant**
+**2. Agent Instantiation: OpenAI Assistant**
 
-由于每个 Assistant作都是对 REST 端点的调用， `OpenAIAssistantAgent`因此顶级作是通过静态异步工厂方法实现的：
+Since every Assistant action is a call to a REST endpoint, `OpenAIAssistantAgent`, top-level operations are realized via static asynchronous factory methods:
 
-**创造：**
+**Create:**
 
-（_dotnet_）
+(_dotnet_)
 ```c#
 // Start with the Kernel
 IKernelBuilder builder = Kernel.CreateBuilder();
@@ -211,7 +289,7 @@ OpenAIAssistantAgent agent =
         definition);
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 # Start with the Kernel
 kernel = Kernel()
@@ -227,9 +305,9 @@ agent = OpenAIAssistantAgent.create(kernel=kernel, config=config, definition=def
 ```
 
 
-**检索：**
+**Retrieval:**
 
-（_dotnet_）
+(_dotnet_)
 ```c#
 // Start with the Kernel
 Kernel kernel = ...;
@@ -241,7 +319,7 @@ OpenAIServiceConfiguration config = new("apikey", "endpoint");
 OpenAIAssistantAgent agent =  OpenAIAssistantAgent.RetrieveAsync(kernel, config, "agent-id");
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 # Start with the Kernel
 kernel = Kernel()
@@ -254,9 +332,9 @@ agent = OpenAIAssistantAgent.retrieve(kernel = kernel, config=config, agentid="a
 ```
 
 
-**检查：**
+**Inspection:**
 
-（_dotnet_）
+(_dotnet_)
 ```c#
 // Create config
 OpenAIServiceConfiguration config = new("apikey", "endpoint");
@@ -265,7 +343,7 @@ OpenAIServiceConfiguration config = new("apikey", "endpoint");
 IAsyncEnumerable<OpenAIAssistantDefinition> definitions = OpenAIAssistantAgent.ListDefinitionsAsync(config);
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 # Create config
 config = OpenAIServiceConfiguration("apikey", "endpoint")
@@ -275,11 +353,11 @@ definitions = await OpenAIAssistantAgent.list_definitions(config=config)
 ```
 
 
-**3. 代理聊天：显式**
+**3. Agent Chat: Explicit**
 
- 代理 （_Agent_）  可以明确定位为 在 `AgentGroupChat`.
+An _Agent_ may be explicitly targeted to respond in an `AgentGroupChat`.
 
-（_dotnet_）
+(_dotnet_)
 ```c#
 // Define agents
 ChatCompletionAgent agent1 = ...;
@@ -304,7 +382,7 @@ await WriteMessagesAsync(chat.GetHistoryAsync(agent1));
 await WriteMessagesAsync(chat.GetHistoryAsync(agent2));
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 # Define agents
 agent1 = ChatCompletionAgent(...)
@@ -330,11 +408,11 @@ await write_message(chat.get_history(agent2))
 ```
 
 
-**4. 代理聊天：多回合**
+**4. Agent Chat: Multi-Turn**
 
-_代理_ 也可以轮流为实现一个目标而努力：
+_Agents_ may also take multiple turns working towards an objective:
 
-（_dotnet_）
+(_dotnet_)
 ```c#
 // Define agents
 ChatCompletionAgent agent1 = ...;
@@ -364,7 +442,7 @@ chat.AddAgent(agent3);
 await WriteMessagesAsync(chat.InvokeAsync());
 ```
 
-（_蟒蛇_）
+(_python_)
 ```python
 # Define agents
 agent1 = ChatCompletionAgent(...)

@@ -1,109 +1,117 @@
+---
+status: { accepted }
+contact: { TaoChenOSU }
+date: { 2023-11-21 }
+deciders: alliscode, dmytrostruk, markwallace, SergeyMenshykh, stephentoub
+consulted: {}
+informed: {}
+---
 
-# Planner 遥测增强功能
+# Planner Telemetry Enhancement
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-对于使用 Semantic Kernel 规划功能的应用程序来说，能够持续监控规划器和计划的性能并对其进行调试将是非常有益的。
+It would be extremely beneficial for applications using Semantic Kernel's planning features to be able to continuously monitor the performance of planners and plans as well as debugging them.
 
-## 场景
+## Scenarios
 
-Contoso 是一家使用 SK 开发 AI 应用程序的公司。
+Contoso is a company that is developing an AI application using SK.
 
-1. Contoso 需要持续监控特定规划者的令牌使用情况，包括提示令牌、完成令牌和总令牌。
-2. Contoso 需要持续监视特定规划者创建计划所需的时间。
-3. Contoso 需要持续监视特定规划者创建有效计划的成功率。
-4. Contoso 需要持续监视成功执行的特定计划类型的成功率。
-5. Contoso 希望能够查看特定 Planner 运行的令牌使用情况。
-6. Contoso 希望能够查看创建特定计划程序运行计划所花费的时间。
-7. Contoso 希望能够查看计划中的步骤。
-8. Contoso 希望能够查看每个计划步骤的输入和输出。
-9. Contoso 想要更改一些可能影响规划器性能的设置。他们想知道在提交更改之前性能将受到什么影响。
-10. Contoso 希望更新到更便宜、更快速的新模型。他们想知道新模型在规划任务中的执行情况。
+1. Contoso needs to continuously monitor the token usage of a particular planner, including prompt tokens, completion tokens, and the total tokens.
+2. Contoso needs to continuously monitor the time it takes for a particular planner to create a plan.
+3. Contoso needs to continuously monitor the success rate of a particular planner in creating a valid plan.
+4. Contoso needs to continuously monitor the success rate of a particular plan type being executed successfully.
+5. Contoso wants to be able to see the token usage of a particular planner run.
+6. Contoso wants to be able to see the time taken to create a plan of a particular planner run.
+7. Contoso wants to be able to see the steps in a plan.
+8. Contoso wants to be able to see the inputs&outputs of each plan step.
+9. Contoso wants to change a few settings that may affect the performance of the planners. They would like to know how the performance will be affected before committing the changes.
+10. Contoso wants to update to a new model that is cheaper and faster. They would like to know how the new model performs in planning tasks.
 
-## 超出范围
+## Out of scope
 
-1. 我们提供了一个有关如何将遥测数据发送到 Application Insights 的示例。尽管技术上支持其他遥测服务选项，但我们不会介绍在此 ADR 中设置这些选项的可能方法。
-2. 本 ADR 并不寻求修改 SK 中的当前仪表设计。
-3. 我们不考虑不返回令牌使用情况的服务。
+1. We provide an example on how to send telemetry to Application Insights. Although other telemetry service options are supported technically, we will not cover possible ways of setting them up in this ADR.
+2. This ADR does not seek to modify the current instrumentation design in SK.
+3. We do not consider services that do not return token usage.
 
-## 决策驱动因素
+## Decision Drivers
 
-- 框架应与 Telemetry Service 无关。
-- SK 应发出以下指标：
-  - 输入提示 （Prompt） 的令牌使用情况
-    - 说明：提示是使用令牌 （） 的最小单位`KernelFunctionFromPrompt`。
-    - 维度：ComponentType、ComponentName、Service ID、Model ID
-    - 类型： 直方图
-    - 例：
-      | 组件类型 | 组件名称 | 服务 ID | 型号 ID | 价值 |
+- The framework should be telemetry service agnostic.
+- The following metrics should be emitted by SK:
+  - Input token usage for prompt (Prompt)
+    - Description: A prompt is the smallest unit that consumes tokens (`KernelFunctionFromPrompt`).
+    - Dimensions: ComponentType, ComponentName, Service ID, Model ID
+    - Type: Histogram
+    - Example:
+      | ComponentType | ComponentName | Service ID | Model ID | Value |
       |---|---|---|---|---|
-      | 功能 | 写诗 | | GPT-3.5-涡轮增压 | 40
-      | 功能 | TellJoke 公司 | | GPT-4 的 | 50
-      | 功能 | WriteAndTellJoke （写入和讲述笑话） | | GPT-3.5-涡轮增压 | 30
-      | 计划 | CreateHandlebarsPlan | | GPT-3.5-涡轮增压 | 100
-  - 提示 （Completion） 的输出令牌使用情况
-    - 说明：提示是使用令牌 （） 的最小单位`KernelFunctionFromPrompt`。
-    - 维度：ComponentType、ComponentName、Service ID、Model ID
-    - 类型： 直方图
-    - 例：
-      | 组件类型 | 组件名称 | 服务 ID | 型号 ID | 价值 |
+      | Function | WritePoem | | GPT-3.5-Turbo | 40
+      | Function | TellJoke | | GPT-4 | 50
+      | Function | WriteAndTellJoke | | GPT-3.5-Turbo | 30
+      | Planner | CreateHandlebarsPlan | | GPT-3.5-Turbo | 100
+  - Output token usage for prompt (Completion)
+    - Description: A prompt is the smallest unit that consumes tokens (`KernelFunctionFromPrompt`).
+    - Dimensions: ComponentType, ComponentName, Service ID, Model ID
+    - Type: Histogram
+    - Example:
+      | ComponentType | ComponentName | Service ID | Model ID | Value |
       |---|---|---|---|---|
-      | 功能 | 写诗 | | GPT-3.5-涡轮增压 | 40
-      | 功能 | TellJoke 公司 | | GPT-4 的 | 50
-      | 功能 | WriteAndTellJoke （写入和讲述笑话） | | GPT-3.5-涡轮增压 | 30
-      | 计划 | CreateHandlebarsPlan | | GPT-3.5-涡轮增压 | 100
-  - 函数的聚合执行时间
-    - 描述：一个函数可以由零个或多个提示组成。函数的执行时间是函数调用从开始到结束的持续时间 `invoke` 。
-    - 维度：ComponentType、ComponentName、Service ID、Model ID
-    - 类型： 直方图
-    - 例：
-      | 组件类型 | 组件名称 | 价值 |
+      | Function | WritePoem | | GPT-3.5-Turbo | 40
+      | Function | TellJoke | | GPT-4 | 50
+      | Function | WriteAndTellJoke | | GPT-3.5-Turbo | 30
+      | Planner | CreateHandlebarsPlan | | GPT-3.5-Turbo | 100
+  - Aggregated execution time for functions
+    - Description: A function can consist of zero or more prompts. The execution time of a function is the duration from start to end of a function's `invoke` call.
+    - Dimensions: ComponentType, ComponentName, Service ID, Model ID
+    - Type: Histogram
+    - Example:
+      | ComponentType | ComponentName | Value |
       |---|---|---|
-      | 功能 | 写诗 | 1 分钟
-      | 功能 | TellJoke 公司 | 1 分钟
-      | 功能 | WriteAndTellJoke （写入和讲述笑话） | 1.5 米
-      | 计划 | CreateHandlebarsPlan | 2 分钟
-  - 规划器的成功/失败计数
-    - 描述：当 Planner 生成有效计划时，它被视为成功。当模型响应成功解析为所需格式的计划并且它包含一个或多个步骤时，计划有效。
-    - 维度：ComponentType、ComponentName、Service ID、Model ID
-    - 类型： 计数器
-    - 例：
-      | 组件类型 | 组件名称 | 失败 | 成功
+      | Function | WritePoem | 1m
+      | Function | TellJoke | 1m
+      | Function | WriteAndTellJoke | 1.5m
+      | Planner | CreateHandlebarsPlan | 2m
+  - Success/failure count for planners
+    - Description: A planner run is considered successful when it generates a valid plan. A plan is valid when the model response is successfully parsed into a plan of desired format and it contains one or more steps.
+    - Dimensions: ComponentType, ComponentName, Service ID, Model ID
+    - Type: Counter
+    - Example:
+      | ComponentType | ComponentName | Fail | Success
       |---|---|---|---|
-      | 计划 | CreateHandlebarsPlan | 5 | 95
-      | 计划 | 创建 HSequentialPlan | 20 | 80
-  - 计划的成功/失败计数
-    - 描述：当计划中的所有步骤都成功执行时，计划执行被视为成功。
-    - 维度：ComponentType、ComponentName、Service ID、Model ID
-    - 类型： 计数器
-    - 例：
-      | 组件类型 | 组件名称 | 失败 | 成功
+      | Planner | CreateHandlebarsPlan | 5 | 95
+      | Planner | CreateHSequentialPlan | 20 | 80
+  - Success/failure count for plans
+    - Description: A plan execution is considered successful when all steps in the plan are executed successfully.
+    - Dimensions: ComponentType, ComponentName, Service ID, Model ID
+    - Type: Counter
+    - Example:
+      | ComponentType | ComponentName | Fail | Success
       |---|---|---|---|
-      | 计划 | 车把平面图 | 5 | 95
-      | 计划 | SequentialPlan 计划 | 20 | 80
+      | Plan | HandlebarsPlan | 5 | 95
+      | Plan | SequentialPlan | 20 | 80
 
-## 考虑的选项
+## Considered Options
 
-- 函数钩子
-  - 将 logic 注入到将在调用函数之前或之后执行的函数。
-- 仪表
-  - 伐木
-  - 指标
-  - 痕迹
+- Function hooks
+  - Inject logic to functions that will get executed before or after a function is invoked.
+- Instrumentation
+  - Logging
+  - Metrics
+  - Traces
 
-## 其他注意事项
+## Other Considerations
 
-SK 目前跟踪连接器中的令牌使用指标;但是，这些指标未分类。因此，开发人员无法确定不同作的 Token 使用情况。为了解决这个问题，我们提出了以下两种方法：
+SK currently tracks token usage metrics in connectors; however, these metrics are not categorized. Consequently, developers cannot determine token usage for different operations. To address this issue, we propose the following two approaches:
 
-- 自下而上：将令牌使用信息从连接器传播回函数。
-- 自上而下：将函数信息向下传播到连接器，使它们能够使用函数信息标记指标项。
+- Bottom-up: Propagate token usage information from connectors back to the functions.
+- Top-down: Propagate function information down to the connectors, enabling them to tag metric items with function information.
 
-我们决定实施自下而上的方法，原因如下：
+We have decided to implement the bottom-up approach for the following reasons:
 
-1. SK 已配置为通过 `ContentBase`.我们只需要扩展需要传播的项目列表，例如模型信息。
-2. 目前，SK 没有将函数信息向下传递到连接器级别的方法。尽管我们考虑使用 [行李](https://opentelemetry.io/docs/concepts/signals/baggage/#:~:text=In%20OpenTelemetry%2C%20Baggage%20is%20contextual%20information%20that%E2%80%99s%20passed,available%20to%20any%20span%20created%20within%20that%20trace.) 作为向下传播信息的一种方式，但出于安全考虑，OpenTelemetry 团队的专家建议不要使用这种方法。
+1. SK is already configured to propagate token usage information from connectors via `ContentBase`. We simply need to extend the list of items that need to be propagated, such as model information.
+2. Currently, SK does not have a method for passing function information down to the connector level. Although we considered using [baggage](https://opentelemetry.io/docs/concepts/signals/baggage/#:~:text=In%20OpenTelemetry%2C%20Baggage%20is%20contextual%20information%20that%E2%80%99s%20passed,available%20to%20any%20span%20created%20within%20that%20trace.) as a means of propagating information downward, experts from the OpenTelemetry team advised against this approach due to security concerns.
 
-使用自下而上的方法，我们需要从元数据中检索令牌使用信息：
+With the bottom-up approach, we need to retrieve the token usage information from the metadata:
 
 ```csharp
 // Note that not all services support usage details.
@@ -162,66 +170,66 @@ private void CaptureUsageDetails(string? modelId, IDictionary<string, object?>? 
 }
 ```
 
-> 请注意，我们不考虑不返回令牌使用情况的服务。目前只有OpenAI和Azure OpenAI服务返回令牌使用信息。
+> Note that we do not consider services that do not return token usage. Currently only OpenAI & Azure OpenAI services return token usage information.
 
-## 决策结果
+## Decision Outcome
 
-1. 新指标名称：
-   | 米 | 指标 |
+1. New metrics names:
+   | Meter | Metrics |
    |---|---|
    |Microsoft.SemanticKernel.Planning| <ul><li>semantic_kernel.planning.invoke_plan.duration</li></ul> |
-   |Microsoft.SemanticKernel 内核| <ul><li>semantic_kernel.function.invocation.token_usage.prompt</li><li>semantic_kernel.function.invocation.token_usage.completion</li></ul> |
-   > 注意：我们还会将所有现有量度的“sk”前缀替换为“semantic_kernel”，以避免歧义。
-2. 仪表
+   |Microsoft.SemanticKernel| <ul><li>semantic_kernel.function.invocation.token_usage.prompt</li><li>semantic_kernel.function.invocation.token_usage.completion</li></ul> |
+   > Note: we are also replacing the "sk" prefixes with "semantic_kernel" for all existing metrics to avoid ambiguity.
+2. Instrumentation
 
-## 验证
+## Validation
 
-可以添加测试以确保所有预期的遥测项都已就位且格式正确。
+Tests can be added to make sure that all the expected telemetry items are in place and of the correct format.
 
-## 描述 选项
+## Description the Options
 
-### 函数钩子
+### Function hooks
 
-函数钩子允许开发人员将逻辑注入内核，这些逻辑将在调用函数之前或之后执行。示例使用案例包括在调用函数之前记录函数输入，以及在函数返回后记录结果。
-有关更多信息，请参阅以下 ADR：
+Function hooks allow developers to inject logic to the kernel that will be executed before or after a function is invoked. Example use cases include logging the function input before a function is invoked, and logging results after the function returns.
+For more information, please refer to the following ADRs:
 
-1. [内核钩子阶段 1](./0005-kernel-hooks-phase1.md)
-2. [内核钩子阶段 2](./0018-kernel-hooks-phase2.md)
+1. [Kernel Hooks Phase 1](./0005-kernel-hooks-phase1.md)
+2. [Kernel Hooks Phase 2](./0018-kernel-hooks-phase2.md)
 
-我们可以在函数注册期间注入默认回调来记录所有函数的关键信息。
+We can inject, during function registration, default callbacks to log critical information for all functions.
 
-优点：
+Pros:
 
-1. 为开发人员提供最大的曝光率和灵活性。即，应用程序开发人员可以通过添加更多回调来非常轻松地记录单个函数的附加信息。
+1. Maximum exposure and flexibility to the developers. i.e. App developers can very easily log additional information for individual functions by adding more callbacks.
 
-缺点：
+Cons:
 
-1. 不创建量度，需要额外的工作来聚合结果。
-2. 仅依赖日志不会提供跟踪详细信息。
-3. 日志的修改频率更高，这可能会导致实施不稳定，并且需要额外的维护。
-4. 钩子只能访问有限的函数数据。
+1. Does not create metrics and need additional works to aggregate results.
+2. Relying only on logs does not provide trace details.
+3. Logs are modified more frequently, which could lead an unstable implementation and require extra maintenance.
+4. Hooks only have access to limited function data.
 
-> 注意：由于 SK 中已经实现了分布式跟踪，开发人员可以在 hook 中创建自定义遥测数据，只要 hook 中的信息可用，这些遥测数据将在配置后发送到遥测服务。但是，在 hook 内创建的遥测项不会作为父子关系与函数相关联，因为它们不在函数的范围内。
+> Note: with distributed tracing already implemented in SK, developers can create custom telemetry within the hooks, which will be sent to the telemetry service once configured, as long as the information is available in the hooks. However, telemetry items created inside the hooks will not be correlated to the functions as parent-child relationships, since they are outside the scope of the functions.
 
-### 分布式跟踪
+### Distributed tracing
 
-分布式跟踪是一种诊断技术，可以定位分布式应用程序中的故障和性能瓶颈。.Net 具有对在库中添加分布式跟踪的本机支持，并且 .Net 库还经过检测以自动生成分布式跟踪信息。
+Distributed tracing is a diagnostic technique that can localize failures and performance bottlenecks within distributed applications. .Net has native support to add distributed tracing in libraries and .Net libraries are also instrumented to produce distributed tracing information automatically.
 
-有关更多信息，请参阅此文档： [.Net 分布式跟踪](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/)
+For more information, please refer to this document: [.Net distributed tracing](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/)
 
-总体优点：
+Overall pros:
 
-1. 本机 .Net 支持。
-2. 分布式跟踪已在 SK 中实现。我们只需要添加更多的遥测数据。
-3. 遥测服务与 [OpenTelemetry 无关](https://opentelemetry.io/docs/what-is-opentelemetry/)。
+1. Native .Net support.
+2. Distributed tracing is already implemented in SK. We just need to add more telemetry.
+3. Telemetry service agnostic with [OpenTelemetry](https://opentelemetry.io/docs/what-is-opentelemetry/).
 
-总体缺点：
+Overall cons:
 
-1. 使用 SK 作为库的应用程序开发人员添加自定义跟踪和指标的灵活性较低。
+1. Less flexibility for app developers consuming SK as a library to add custom traces and metrics.
 
-#### 伐木
+#### Logging
 
-日志将用于在代码运行时记录有趣的事件。
+Logs will be used to record interesting events while the code is running.
 
 ```csharp
 // Use LoggerMessage attribute for optimal performance
@@ -229,9 +237,9 @@ this._logger.LogPlanCreationStarted();
 this._logger.LogPlanCreated();
 ```
 
-#### [指标](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics)
+#### [Metrics](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/metrics)
 
-指标将用于记录加班的测量值。
+Metrics will be used to record measurements overtime.
 
 ```csharp
 /// <summary><see cref="Meter"/> for function-related metrics.</summary>
@@ -259,9 +267,9 @@ catch (Exception ex)
 s_planExecutionDuration.Record(duration.TotalSeconds, in tags);
 ```
 
-#### [痕迹](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/distributed-tracing)
+#### [Traces](https://learn.microsoft.com/en-us/dotnet/core/diagnostics/distributed-tracing)
 
-活动用于通过应用程序跟踪依赖关系，将其他组件完成的工作关联起来，并形成一个称为跟踪的活动树。
+Activities are used to track dependencies through an application, correlating work done by other components, and form a tree of activities known as a trace.
 
 ```csharp
 ActivitySource s_activitySource = new("Microsoft.SemanticKernel");
@@ -274,9 +282,9 @@ logger.LoggerGoal(goal);
 logger.LoggerPlan(plan);
 ```
 
-> 注意：跟踪日志将包含敏感数据，应在生产环境中关闭：https://learn.microsoft.com/en-us/dotnet/core/extensions/logging?tabs=command-line#log-level
+> Note: Trace log will contain sensitive data and should be turned off in production: https://learn.microsoft.com/en-us/dotnet/core/extensions/logging?tabs=command-line#log-level
 
-## 应用程序如何将遥测数据发送到 Application Insights 的示例
+## Example of how an application would send the telemetry to Application Insights
 
 ```csharp
 using var traceProvider = Sdk.CreateTracerProviderBuilder()
@@ -302,8 +310,8 @@ using var loggerFactory = LoggerFactory.Create(builder =>
 });
 ```
 
-## 更多信息
+## More information
 
-需要完成的其他工作：
+Additional works that need to be done:
 
-1. 更新 [遥测文档](../../dotnet/docs/TELEMETRY.md)
+1. Update [telemetry doc](../../dotnet/docs/TELEMETRY.md)

@@ -1,159 +1,169 @@
+---
+# Strategy for Community Driven Connectors and Features
 
-# 社区驱动的连接器和功能策略
+status: approved
+contact: rogerbarreto
+date: 2024-01-24
+deciders: rogerbarreto, markwallace-microsoft, dmytrostruk, sergeymenshik
+consulted:
+informed:
+---
 
-## 上下文和问题陈述
+# Strategy for Community Driven Connectors and Features
 
-通常，连接器是中等到复杂的新功能，可以由一个人或一个团队开发。为了避免冲突并更好地控制开发过程，我们强烈建议在我们的仓库中使用 Feature Branch Strategy。
+## Context and Problem Statement
 
-在我们当前的软件开发过程中，管理主分支中的更改变得越来越复杂，从而导致发布周期的潜在冲突和延迟。
+Normally Connectors are Middle to Complex new Features that can be developed by a single person or a team. In order to avoid conflicts and to have a better control of the development process, we strongly suggest the usage of a Feature Branch Strategy in our repositories.
 
-## 标准和准则原则
+In our current software development process, managing changes in the main branch has become increasingly complex, leading to potential conflicts and delays in release cycles.
 
-- **模式**：Feature Branch Strategy 是一种众所周知的模式，用于管理代码库中的更改。它在行业中得到广泛应用，并得到包括 GitHub 在内的大多数版本控制系统的支持，这也进一步清楚地说明了社区如何为 SK 的连接器或任何其他更大功能的开发做出有意义的贡献。
-- **隔离的开发环境**：通过使用功能分支，每个开发人员都可以在不干扰他人工作的情况下处理项目的不同方面。这种隔离减少了冲突并确保 main 分支保持稳定。
-- **简化的集成**：功能分支简化了将新代码集成到主分支的过程。通过处理更小、更易于管理的更改，可以最大限度地降低集成过程中发生重大冲突的风险。
-- **代码审查的效率**：功能分支中更小、更集中的更改会带来更快、更高效的代码审查。这种效率不仅与一次审查较少代码的便利性有关，还与了解更改的上下文和影响所节省的时间有关。
-- **降低 Bug 风险**：隔离功能分支中的开发可降低将 Bug 引入 main 分支的可能性。在单个功能的有限上下文中识别和修复问题更容易。
-- **及时的功能集成**：小型、增量的拉取请求可以更快地审查和更快地将功能集成到功能分支中，并且更容易合并到 main 中，因为代码之前已经经过审查。这种及时性可确保功能更快地合并并准备好部署，从而提高对更改的响应能力。
-- **代码测试、覆盖率和质量**：为了保持良好的代码质量，必须对引入代码库的任何新代码或功能进行适当的测试和验证。任何新功能或代码都应该包含在单元测试和集成测试中。代码还应由我们的 CI/CD 管道进行验证，并遵循我们的代码质量标准和指南。
-- **示例**：任何新功能或代码都应附有演示如何使用新功能或代码的示例。这对于确保新功能或代码被正确记录以及社区可以轻松理解和使用它非常重要。
-- **签名**：任何最终将成为包的连接器都需要在文件中启用包和程序集签名（设置为“发布 = 发布”）。 `SK-dotnet.sln` 
+## Standards and Guidelines Principles
+
+- **Pattern**: The Feature Branch Strategy is a well-known pattern for managing changes in a codebase. It is widely used in the industry and is supported by most version control systems, including GitHub, this also gives further clear picture on how the community can meaningfully contribute to the development of connectors or any other bigger feature for SK.
+- **Isolated Development Environments**: By using feature branches, each developer can work on different aspects of the project without interfering with others' work. This isolation reduces conflicts and ensures that the main branch remains stable.
+- **Streamlined Integration**: Feature branches simplify the process of integrating new code into the main branch. By dealing with smaller, more manageable changes, the risk of major conflicts during integration is minimized.
+- **Efficiency in Code Review**: Smaller, more focused changes in feature branches lead to quicker and more efficient code reviews. This efficiency is not just about the ease of reviewing less code at a time but also about the time saved in understanding the context and impact of the changes.
+- **Reduced Risk of Bugs**: Isolating development in feature branches reduces the likelihood of introducing bugs into the main branch. It's easier to identify and fix issues within the confined context of a single feature.
+- **Timely Feature Integration**: Small, incremental pull requests allow for quicker reviews and faster integration of features into the feature branch and make it easier to merge down into main as the code was already previously reviewed. This timeliness ensures that features are merged and ready for deployment sooner, improving the responsiveness to changes.
+- **Code Testing, Coverage and Quality**: To keep a good code quality is imperative that any new code or feature introduced to the codebase is properly tested and validated. Any new feature or code should be covered by unit tests and integration tests. The code should also be validated by our CI/CD pipeline and follow our code quality standards and guidelines.
+- **Examples**: Any new feature or code should be accompanied by examples that demonstrate how to use the new feature or code. This is important to ensure that the new feature or code is properly documented and that the community can easily understand and use it.
+- **Signing**: Any connector that will eventually become a package needs to have the package and the assembly signing enabled (Set to Publish = Publish) in the `SK-dotnet.sln` file.
   ```
   {Project GUID}.Publish|Any CPU.ActiveCfg = Publish|Any CPU
   {Project GUID}.Publish|Any CPU.Build.0 = Publish|Any CPU
   ```
 
-### 社区功能分支策略
+### Community Feature Branch Strategy
 
-一旦我们确定贡献者愿意将/创建功能问题作为潜在的连接器实现，我们将为该功能创建一个新分支。
+As soon we identify that contributors are willing to take/create a Feature Issue as a potential connector implementation, we will create a new branch for that feature.
 
-一旦我们同意采用新的连接器，我们将与贡献者合作，以确保实施进展并在需要时得到支持。
+Once we have agreed to take a new connector we will work with the contributors to make sure the implementation progresses and is supported if needed.
 
-然后，贡献者将成为负责者之一，在我们的监督和审查流程下，通过小型拉取请求将大部分更改逐步添加到功能分支。
+The contributor(s) will then be one of the responsibles to incrementally add the majority of changes through small Pull Requests to the feature branch under our supervision and review process.
 
-此策略涉及在存储库中为每个新的重要功能（如连接器）创建一个单独的分支。这种隔离意味着在受控环境中进行更改，而不会影响主分支。
+This strategy involves creating a separate branch in the repository for each new big feature, like connectors. This isolation means that changes are made in a controlled environment without affecting the main branch.
 
-我们还可能在需要时参与功能分支的开发和更改，PR 的更改和完整或合著将被跟踪并适当地引用到发行说明中。
+We may also engage in the development and changes to the feature branch when needed, the changes and full or co-authorship on the PRs will be tracked and properly referred into the Release Notes.
 
-#### 优点和缺点
+#### Pros and Cons
 
-- 很好，因为它允许一次专注于一个功能。
-- 很好，因为它促进了更小的增量拉取请求 （PR），从而简化了审查流程。
-- 很好，因为它降低了将重大 bug 合并到 main 分支的风险。
-- 很好，因为它使将功能集成到 main 分支的过程更容易、更快速。
-- 如果管理不当，可能会很糟糕，因为如果不定期与 main 分支同步，它可能会导致分支过时。
+- Good, because it allows for focused development on one feature at a time.
+- Good, because it promotes smaller, incremental Pull Requests (PRs), simplifying review processes.
+- Good, because it reduces the risk of major bugs being merged into the main branch.
+- Good, because it makes the process of integrating features into the main branch easier and faster.
+- Bad, potentially, if not managed properly, as it can lead to outdated branches if not regularly synchronized with the main branch.
 
-## 本地部署平台 / 离线
+## Local Deployment Platforms / Offline
 
-### LM 工作室
+### LM Studio
 
-LM Studio 具有本地部署选项，可用于在本地部署模型。此选项适用于 Windows、Linux 和 MacOS。
+LM Studio has a local deployment option, which can be used to deploy models locally. This option is available for Windows, Linux, and MacOS.
 
-优点：
+Pros:
 
-- API 与 OpenAI API 非常相似
-- 已支持许多模型
-- 易于使用
-- 易于部署
-- GPU 支持
+- API is very similar to OpenAI API
+- Many models are already supported
+- Easy to use
+- Easy to deploy
+- GPU support
 
-缺点：
+Cons:
 
-- 可能需要许可证才能在工作环境中使用
+- May require a license to use in a work environment
 
-### 奥拉马
+### Ollama
 
-Ollama 有一个本地部署选项，可用于在本地部署模型。此选项目前仅适用于 Linux 和 MacOS。
+Ollama has a local deployment option, which can be used to deploy models locally. This option is available for Linux and MacOS only for now.
 
-优点：
+Pros:
 
-- 易于使用
-- 易于部署
-- 支持 Docker 部署
-- GPU 支持
+- Easy to use
+- Easy to deploy
+- Supports Docker deployment
+- GPU support
 
-缺点：
+Cons:
 
-- API 与 OpenAI API 不同（需要专用连接器）
-- 不支持 Windows
+- API is not similar to OpenAI API (Needs a dedicated connector)
+- Dont have Windows support
 
-### 比较
+### Comparison
 
-| 特征               | 奥拉马                                              | LM 工作室                                                                               |
+| Feature               | Ollama                                              | LM Studio                                                                               |
 | --------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| 本地法学硕士             | 是的                                                 | 是的                                                                                     |
-| OpenAI API 相似性 | 是的                                                 | 是的                                                                                     |
-| Windows 支持       | 不                                                  | 是的                                                                                     |
-| Linux 支持         | 是的                                                 | 是的                                                                                     |
-| MacOS 支持         | 是的                                                 | 是的                                                                                     |
-| 型号数量      | [61](https://ollama.com/search) +任何 GGUF 转换 | [25](https://github.com/lmstudio-ai/model-catalog/tree/main/models) +任何 GGUF 转换 |
+| Local LLM             | Yes                                                 | Yes                                                                                     |
+| OpenAI API Similarity | Yes                                                 | Yes                                                                                     |
+| Windows Support       | No                                                  | Yes                                                                                     |
+| Linux Support         | Yes                                                 | Yes                                                                                     |
+| MacOS Support         | Yes                                                 | Yes                                                                                     |
+| Number of Models      | [61](https://ollama.com/search) +Any GGUF converted | [25](https://github.com/lmstudio-ai/model-catalog/tree/main/models) +Any GGUF Converted |
 
-| 模型支持   | 奥拉马 | LM 工作室 |
+| Model Support   | Ollama | LM Studio |
 | --------------- | ------ | --------- |
-| Phi-2 支持   | 是的    | 是的       |
-| Llama-2 支持 | 是的    | 是的       |
-| Mistral 支持 | 是的    | 是的       |
+| Phi-2 Support   | Yes    | Yes       |
+| Llama-2 Support | Yes    | Yes       |
+| Mistral Support | Yes    | Yes       |
 
-## 连接器/型号优先级
+## Connector/Model Priorities
 
-目前，我们正在寻找以下型号的社区支持
+Currently we are looking for community support on the following models
 
-以下支持可以通过以下方式实现：使用现有连接器之一针对此模型之一创建一个实际示例，或者提供支持托管以下模型之一的部署平台的新连接器：
+The support on the below can be either achieved creating a practical example using one of the existing Connectors against one of this models or providing a new Connector that supports a deployment platform that hosts one of the models below:
 
-| 型号名称 | 本地支持 | 部署                             | 连接                                             |
+| Model Name | Local Support | Deployment                             | Connectors                                             |
 | ---------- | ------------- | -------------------------------------- | ------------------------------------------------------ |
-| GPT-4      | 不            | OpenAI、Azure                          | Azure+OpenAI                                           |
-| Phi-2 （英文）      | 是的           | Azure， Hugging Face， LM Studio， Ollama | OpenAI， HuggingFace， LM Studio\*\*\*， Ollama\*\*       |
-| 双子座     | 不            | 谷歌 AI 平台                     | GoogleAI\*\*                                           |
-| 骆驼-2    | 是的           | Azure、LM Studio、HuggingFace、Ollama  | HuggingFace， Azure+OpenAI， LM Studio\*\*\*， Ollama\*\* |
-| 米斯特拉尔    | 是的           | Azure、LM Studio、HuggingFace、Ollama  | HuggingFace， Azure+OpenAI， LM Studio\*\*\*， Ollama\*\* |
-| 克劳德     | 不            | 人类学， 亚马逊基岩              | Anthropic**、亚马逊**                                  |
-| 巨人      | 不            | 亚马逊基岩版                         | 亚马逊河\*\*                                             |
+| Gpt-4      | No            | OpenAI, Azure                          | Azure+OpenAI                                           |
+| Phi-2      | Yes           | Azure, Hugging Face, LM Studio, Ollama | OpenAI, HuggingFace, LM Studio\*\*\*, Ollama\*\*       |
+| Gemini     | No            | Google AI Platform                     | GoogleAI\*\*                                           |
+| Llama-2    | Yes           | Azure, LM Studio, HuggingFace, Ollama  | HuggingFace, Azure+OpenAI, LM Studio\*\*\*, Ollama\*\* |
+| Mistral    | Yes           | Azure, LM Studio, HuggingFace, Ollama  | HuggingFace, Azure+OpenAI, LM Studio\*\*\*, Ollama\*\* |
+| Claude     | No            | Anthropic, Amazon Bedrock              | Anthropic**, Amazon**                                  |
+| Titan      | No            | Amazon Bedrock                         | Amazon\*\*                                             |
 
-_\*\* 连接器尚未提供_
+_\*\* Connectors not yet available_
 
-_可能不需要，因为可以使用 OpenAI 连接器_
+_\*\*\* May not be needed as an OpenAI Connector can be used_
 
-连接器可能不是按型号需要，而是按部署平台需要。
-例如，使用 OpenAI 或 HuggingFace 连接器，您可以调用 Phi-2 模型。
+Connectors may be needed not per Model basis but rather per deployment platform.
+For example, using OpenAI or HuggingFace connector you may be able to call a Phi-2 Model.
 
-## 预期要实施的连接器
+## Expected Connectors to be implemented
 
-任何连接器尚不支持以下部署平台，我们强烈建议社区参与并支持这些平台：
+The following deployment platforms are not yet supported by any Connectors and we strongly encourage the community to engage and support on those:
 
-目前，优先级是有序的，但不一定需要按顺序实现，一个
+Currently the priorities are ordered but not necessarily needs to be implemented sequentially, an
 
-| 部署平台 | 本地模型支持 |
+| Deployment Platform | Local Model Support |
 | ------------------- | ------------------- |
-| 奥拉马              | 是的                 |
-| 谷歌人工智能            | 不                  |
-| 人           | 不                  |
-| 亚马逊河              | 不                  |
+| Ollama              | Yes                 |
+| GoogleAI            | No                  |
+| Anthropic           | No                  |
+| Amazon              | No                  |
 
-## 决策结果
+## Decision Outcome
 
-选择的选项：“Feature Branch Strategy”，因为它允许单独开发单个功能，最大限度地减少与主分支的冲突，并促进更轻松的代码审查。
+Chosen option: "Feature Branch Strategy", because it allows individual features to be developed in isolation, minimizing conflicts with the main branch and facilitating easier code reviews.
 
-## Fequent 常见问题
+## Fequent Asked Questions
 
-### 对于遵循旧的分叉贡献方式，现在必须切换到 microsoft/semantic-kernel 中的分支的计划，是否有迁移策略？
+### Is there a migration strategy for initiatives that followed the old contribution way with forks, and now have to switch to branches in microsoft/semantic-kernel?
 
-您正常进行 fork 和 PR targeting `main`，一旦我们确定您对 main 的贡献 PR 是一个重要且理想的功能（看看我们在此 ADR 中按预期描述的那些），我们将创建一个专用的功能分支 （） ），`feature-yourfeature`您可以在其中重新定位我们的 fork PR 以定位它。
-所有进一步的增量更改和贡献都将照常进行，但 `main` 您将以分支为目标 `feature-*` 。
+You proceed normally with the fork and PR targeting `main`, as soon we identify that your contribution PR to main is a big and desirable feature (Look at the ones we described as expected in this ADR) we will create a dedicated feature branch (`feature-yourfeature`) where you can retarget our forks PR to target it.
+All further incremental changes and contributions will follow as normal, but instead of `main` you will be targeting the `feature-*` branch.
 
-### 您希望如何解决 “up to date with main branch” 问题？
+### How do you want to solve the "up to date with main branch" problem?
 
-当我们都同意当前功能实现已完成并准备好合并时，就会发生这种情况 `main`。
+This will happen when we all agreed that the current feature implementation is complete and ready to merge in `main`.
 
-功能完成后，将从 main 的合并推送到功能分支中。
-这通常会触发需要排序的冲突。
-这通常是针对功能分支的最后一个 PR，紧随其后的是来自 `feature` 分支的另一个 PR，目标 `main` 冲突最小（如果有）。
-合并到 main 可能很快（因为所有中间功能 PR 之前都已达成一致和批准）
+As soon the feature is finished, a merge from main will be pushed into the feature branch.
+This will normally trigger the conflicts that need to be sorted.
+That normally will be the last PR targeting the feature branch which will be followed right away by another PR from the `feature` branch targeting `main` with minimal conflicts if any.
+The merging to main might be fast (as all the intermediate feature PRs were all agreed and approved before)
 
-### 将 main 分支合并到 feature branch before finish 功能
+### Merging main branch to feature branch before finish feature
 
-将 main 分支合并到功能分支只能使用以下命令完成：
+The merging of the main branch into the feature branch should only be done with the command:
 
-`git checkout <feature branch> && git merge main` 不带 --squash
+`git checkout <feature branch> && git merge main` without --squash
 
-PR 永远不应该从 main 合并到功能分支，这会导致 main 合并历史与 PR 历史（因为 PR 是用 --squash 合并的），因此会在后续的 main 合并中产生奇怪的冲突，也使得分析功能分支的历史变得困难。
+Merge from the main should never be done by PR to feature branch, it will cause merging history of main merge with history of PR (because PR are merged with --squash), and as a consequence it will generate strange conflicts on subsequent merges of main and also make it difficult to analyze history of feature branch.

@@ -52,19 +52,21 @@ export function getSortedDocsData() {
     // Use title from sidebar.md if available
     const title = titleMap.get(id) || matterResult.data.title || id.replace(/-/g, ' ');
 
+    // Extract number from the beginning of the id
+    const match = id.match(/^(\d+)/);
+    const number = match ? parseInt(match[1], 10) : Infinity;
+
     return {
       id,
       title,
+      number,
       ...(matterResult.data as { date?: string }),
     };
   });
 
-  // Sort docs by date or id if date is not available
+  // Sort docs by number (ADR number)
   return allDocsData.sort((a, b) => {
-    if (a.date && b.date) {
-      return a.date < b.date ? 1 : -1;
-    }
-    return a.id < b.id ? -1 : 1;
+    return a.number - b.number;
   });
 }
 

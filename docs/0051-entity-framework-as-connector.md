@@ -1,112 +1,119 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+contact: dmytrostruk
+date: 2024-08-20
+deciders: sergeymenshykh, markwallace, rbarreto, westey-m
+---
 
-# 实体框架作为矢量存储连接器
+# Entity Framework as Vector Store Connector
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-此 ADR 包含有关将实体框架作为矢量存储连接器添加到语义内核代码库的调查结果。 
+This ADR contains investigation results about adding Entity Framework as Vector Store connector to the Semantic Kernel codebase. 
 
-实体框架是一种现代对象关系映射器，允许使用 .NET （C#） 跨各种数据库构建干净、可移植的高级数据访问层，包括 SQL 数据库（本地和 Azure）、SQLite、MySQL、PostgreSQL、Azure Cosmos DB 等。它支持 LINQ 查询、更改跟踪、更新和架构迁移。 
+Entity Framework is a modern object-relation mapper that allows to build a clean, portable, and high-level data access layer with .NET (C#) across a variety of databases, including SQL Database (on-premises and Azure), SQLite, MySQL, PostgreSQL, Azure Cosmos DB and more. It supports LINQ queries, change tracking, updates and schema migrations. 
 
-Entity Framework for Semantic Kernel 的巨大优势之一是支持多个数据库。理论上，一个 Entity Framework 连接器可以同时作为多个数据库的中心，这应该会简化与这些数据库集成的开发和维护。
+One of the huge benefits of Entity Framework for Semantic Kernel is the support of multiple databases. In theory, one Entity Framework connector can work as a hub to multiple databases at the same time, which should simplify the development and maintenance of integration with these databases.
 
-但是，存在一些限制，不允许 Entity Framework 适应更新的 Vector Store 设计。
+However, there are some limitations, which won't allow Entity Framework to fit in updated Vector Store design.
 
-### 集合创建
+### Collection Creation
 
-在新的 Vector Store 设计中，interface `IVectorStoreRecordCollection<TKey, TRecord>` 包含对数据库集合进行作的方法：
+In new Vector Store design, interface `IVectorStoreRecordCollection<TKey, TRecord>` contains methods to manipulate with database collections:
 - `CollectionExistsAsync`
 - `CreateCollectionAsync`
 - `CreateCollectionIfNotExistsAsync`
 - `DeleteCollectionAsync`
 
-在实体框架中，不建议在生产场景中使用编程方法创建集合（也称为架构/表）。推荐的方法是使用迁移（在代码优先方法的情况下），或使用逆向工程（也称为基架/数据库优先方法）。建议仅将编程架构创建用于测试/本地方案。此外，不同数据库的集合创建过程也不同。例如，MongoDB EF Core 提供程序不支持架构迁移或数据库优先/模型优先方法。相反，如果集合尚不存在，则在首次插入文档时会自动创建集合。这带来了 from interface 等方法的复杂性 `CreateCollectionAsync` `IVectorStoreRecordCollection<TKey, TRecord>` ，因为 EF 中没有适用于大多数数据库的集合管理抽象。对于此类情况，建议的方法是依赖自动创建或为每个数据库单独处理集合创建。例如，在 MongoDB 中，建议直接使用 MongoDB C# 驱动程序。
+In Entity Framework, collection (also known as schema/table) creation using programmatic approach is not recommended in production scenarios. The recommended approach is to use Migrations (in case of code-first approach), or to use Reverse Engineering (also known as scaffolding/database-first approach). Programmatic schema creation is recommended only for testing/local scenarios. Also, collection creation process differs for different databases. For example, MongoDB EF Core provider doesn't support schema migrations or database-first/model-first approaches. Instead, the collection is created automatically when a document is inserted for the first time, if collection doesn't already exist. This brings the complexity around methods such as `CreateCollectionAsync` from `IVectorStoreRecordCollection<TKey, TRecord>` interface, since there is no abstraction around collection management in EF that will work for most databases. For such cases, the recommended approach is to rely on automatic creation or handle collection creation individually for each database. As an example, in MongoDB it's recommended to use MongoDB C# Driver directly.
 
-来源：
+Sources:
 - https://learn.microsoft.com/en-us/ef/core/managing-schemas/
 - https://learn.microsoft.com/en-us/ef/core/managing-schemas/ensure-created
 - https://learn.microsoft.com/en-us/ef/core/managing-schemas/migrations/applying?tabs=dotnet-core-cli#apply-migrations-at-runtime
 - https://github.com/mongodb/mongo-efcore-provider?tab=readme-ov-file#not-supported--out-of-scope-features
 
-### 密钥管理
+### Key Management
 
-无法定义一组有效的键类型，因为并非所有数据库都支持所有类型作为键。在这种情况下，可以只支持键的标准类型，例如 `string`，然后应执行转换以满足特定数据库的键限制。这消除了统一连接器实施的优势，因为应该为每个数据库单独处理密钥管理。
+It won't be possible to define one set of valid key types, since not all databases support all types as keys. In such case, it will be possible to support only standard type for keys such as `string`, and then the conversion should be performed to satisfy key restrictions for specific database. This removes the advantage of unified connector implementation, since key management should be handled for each database individually.
 
-来源：
+Sources:
 - https://learn.microsoft.com/en-us/ef/core/modeling/keys?tabs=data-annotations
 
-### 病媒管理
+### Vector Management
 
-`ReadOnlyMemory<T>` 类型，目前在大多数 SK 连接器中用于保存嵌入向量，但在 Entity Framework 中不受现成支持。尝试使用此类型时，会出现以下错误：
+`ReadOnlyMemory<T>` type, which is used in most SK connectors today to hold embeddings is not supported in Entity Framework out-of-the-box. When trying to use this type, the following error occurs:
 
 ```
 The property '{Property Name}' could not be mapped because it is of type 'ReadOnlyMemory<float>?', which is not a supported primitive type or a valid entity type. Either explicitly map this property, or ignore it using the '[NotMapped]' attribute or by using 'EntityTypeBuilder.Ignore' in 'OnModelCreating'.
 ```
 
-但是，可以使用 `byte[]` type 或 create explicit mapping 来支持 `ReadOnlyMemory<T>`.它已经在 package 中实现 `pgvector` ，但尚不清楚它是否适用于不同的数据库。
+However, it's possible to use `byte[]` type or create explicit mapping to support `ReadOnlyMemory<T>`. It's already implemented in `pgvector` package, but it's not clear whether it will work with different databases.
 
-来源： 
+Sources: 
 - https://github.com/pgvector/pgvector-dotnet/blob/master/README.md#entity-framework-core
 - https://github.com/pgvector/pgvector-dotnet/blob/master/src/Pgvector/Vector.cs
 - https://github.com/pgvector/pgvector-dotnet/blob/master/src/Pgvector.EntityFrameworkCore/VectorTypeMapping.cs
 
-### 测试
+### Testing
 
-使用 SQLite 数据库创建 Entity Framework 连接器并编写测试并不意味着此集成适用于其他 EF 支持的数据库。每个数据库都实现自己的实体框架功能集，因此为了确保实体框架连接器涵盖特定数据库的主要用例，应单独使用每个数据库添加单元/集成测试。 
+Create Entity Framework connector and write the tests using SQLite database doesn't mean that this integration will work for other EF-supported databases. Each database implements its own set of Entity Framework features, so in order to ensure that Entity Framework connector covers main use-cases with specific database, unit/integration tests should be added using each database separately. 
 
-来源：
+Sources:
 - https://github.com/mongodb/mongo-efcore-provider?tab=readme-ov-file#supported-features
 
-### 兼容性
+### Compatibility
 
-无法使用最新的 Entity Framework Core 包并针对 .NET Standard 进行开发。支持 .NET Standard 的 EF Core 的最新版本是 5.0 版（最新的 EF Core 版本是 8.0）。这意味着实体框架连接器只能面向 .NET 8.0（这与目前其他可用的 SK 连接器不同，后者同时面向 net8.0 和 netstandard2.0）。
+It's not possible to use latest Entity Framework Core package and develop it for .NET Standard. Last version of EF Core which supports .NET Standard was version 5.0 (latest EF Core version is 8.0). Which means that Entity Framework connector can target .NET 8.0 only (which is different from other available SK connectors today, which target both net8.0 and netstandard2.0).
 
-另一种方法是使用 Entity Framework 6，它可以同时面向 net8.0 和 netstandard2.0，但此版本的 Entity Framework 不再积极开发。Entity Framework Core 提供不会在 EF6 中实现的新功能。
+Another way would be to use Entity Framework 6, which can target both net8.0 and netstandard2.0, but this version of Entity Framework is no longer being actively developed. Entity Framework Core offers new features that won't be implemented in EF6.
 
-来源： 
+Sources: 
 - https://learn.microsoft.com/en-us/ef/core/miscellaneous/platforms
 - https://learn.microsoft.com/en-us/ef/efcore-and-ef6/
 
-### 当前 SK 连接器的存在
+### Existence of current SK connectors
 
-考虑到 Semantic Kernel 已经与数据库进行了一些集成，这些数据库也是 Entity Framework 支持的，因此有多种选择如何继续：
-- 同时支持 Entity Framework 和 DB 连接器（例如 `Microsoft.SemanticKernel.Connectors.EntityFramework` 和 `Microsoft.SemanticKernel.Connectors.MongoDB`）- 在这种情况下，两个连接器应产生完全相同的结果，因此需要额外的工作（例如实施相同的单元/集成测试集）来确保此状态。此外，对 logic 的任何修改都应在两个 connector 中应用。 
-- 仅支持一个实体框架连接器（例如 `Microsoft.SemanticKernel.Connectors.EntityFramework`） - 在这种情况下，应删除现有 DB 连接器，这可能是对现有客户的重大更改。还需要执行额外的工作，以确保 Entity Framework 涵盖与以前的 DB 连接器完全相同的功能集。
-- 仅支持一个 DB 连接器（例如 `Microsoft.SemanticKernel.Connectors.MongoDB`） - 在这种情况下，如果此类连接器已存在 - 则不需要其他工作。如果此类连接器不存在且添加它很重要，则需要执行其他工作才能实现该 DB 连接器。
+Taking into account that Semantic Kernel already has some integration with databases, which are also supported Entity Framework, there are multiple options how to proceed:
+- Support both Entity Framework and DB connector (e.g. `Microsoft.SemanticKernel.Connectors.EntityFramework` and `Microsoft.SemanticKernel.Connectors.MongoDB`) - in this case both connectors should produce exactly the same outcome, so additional work will be required (such as implementing the same set of unit/integration tests) to ensure this state. Also, any modifications to the logic should be applied in both connectors. 
+- Support just one Entity Framework connector (e.g. `Microsoft.SemanticKernel.Connectors.EntityFramework`) - in this case, existing DB connector should be removed, which may be a breaking change to existing customers. An additional work will be required to ensure that Entity Framework covers exactly the same set of features as previous DB connector.
+- Support just one DB connector (e.g. `Microsoft.SemanticKernel.Connectors.MongoDB`) - in this case, if such connector already exists - no additional work is required. If such connector doesn't exist and it's important to add it - additional work is required to implement that DB connector.
 
 
-支持 Entity Framework 和 Semantic Kernel 数据库的表 （仅适用于支持向量搜索的数据库） ：
+Table with Entity Framework and Semantic Kernel database support (only for databases which support vector search):
 
-|数据库引擎|维护者 / 供应商|在 EF 中受支持|在 SK 中受支持|更新至 SK memory v2 设计
+|Database Engine|Maintainer / Vendor|Supported in EF|Supported in SK|Updated to SK memory v2 design
 |-|-|-|-|-|
-|Azure Cosmos|Microsoft|是的|是的|是的|
-|Azure SQL 和 SQL Server|Microsoft|是的|是的|不|
-|SQLite|Microsoft|是的|是的|不|
-|PostgreSQL 数据库|Npgsql 开发团队|是的|是的|不|
-|MongoDB 数据库|MongoDB 数据库|是的|是的|不|
-|MySQL （MySQL的|神谕|是的|不|不|
-|Oracle 数据库|神谕|是的|不|不|
-|Google Cloud Spanner|Cloud Spanner 生态系统|是的|不|不|
+|Azure Cosmos|Microsoft|Yes|Yes|Yes|
+|Azure SQL and SQL Server|Microsoft|Yes|Yes|No|
+|SQLite|Microsoft|Yes|Yes|No|
+|PostgreSQL|Npgsql Development Team|Yes|Yes|No|
+|MongoDB|MongoDB|Yes|Yes|No|
+|MySQL|Oracle|Yes|No|No|
+|Oracle DB|Oracle|Yes|No|No|
+|Google Cloud Spanner|Cloud Spanner Ecosystem|Yes|No|No|
 
-**注意**：
-一个数据库引擎可以有多个实体框架集成，这些集成可以由不同的供应商维护（例如，有 2 个 MySQL EF NuGet 包 - 一个由 Oracle 维护，另一个由 Pomelo Foundation Project 维护）。
+**Note**:
+One database engine can have multiple Entity Framework integrations, which can be maintained by different vendors (e.g. there are 2 MySQL EF NuGet packages - one is maintained by Oracle and another one is maintained by Pomelo Foundation Project).
 
-Vector DB 连接器，它们在 Semantic Kernel 中额外支持：
-- Azure AI 搜索
-- 色度
-- 米尔沃斯
-- 松果
+Vector DB connectors which are additionally supported in Semantic Kernel:
+- Azure AI Search
+- Chroma
+- Milvus
+- Pinecone
 - Qdrant
-- 雷迪斯
-- 维维亚特
+- Redis
+- Weaviate
 
-来源：
+Sources:
 - https://learn.microsoft.com/en-us/ef/core/providers/?tabs=dotnet-core-cli#current-providers
 
-## 考虑的选项
+## Considered Options
 
-- 添加新 `Microsoft.SemanticKernel.Connectors.EntityFramework` 连接器。
-- 不要添加 `Microsoft.SemanticKernel.Connectors.EntityFramework` 连接器，但需要时为单个数据库添加新的连接器。
+- Add new `Microsoft.SemanticKernel.Connectors.EntityFramework` connector.
+- Do not add `Microsoft.SemanticKernel.Connectors.EntityFramework` connector, but add a new connector for individual database when needed.
 
-## 决策结果
+## Decision Outcome
 
-根据上述调查，决定不添加 Entity Framework 连接器，而是在需要时为单个数据库添加新连接器。做出此决定的原因是，实体框架提供程序并不统一支持集合管理作，并且需要特定于数据库的代码进行键处理和对象映射。这些因素将使使用 Entity Framework 连接器变得不可靠，并且不会抽象出基础数据库。此外，Entity Framework 支持但 Semantic Kernel 没有内存连接器的向量数据库的数量非常少。
+Based on the above investigation, the decision is not to add Entity Framework connector, but to add a new connector for individual database when needed. The reason for this decision is that Entity Framework providers do not uniformly support collection management operations and will require database specific code for key handling and object mapping. These factors will make use of an Entity Framework connector unreliable and it will not abstract away the underlying database. Additionally the number of vector databases that Entity Framework supports that Semantic Kernel does not have a memory connector for is very small.

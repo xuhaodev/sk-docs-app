@@ -1,9 +1,16 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: dmytrostruk
+date: 2023-01-23
+deciders: sergeymenshykh, markwallace, rbarreto, stephentoub, dmytrostruk
+---
 
-# 内核过滤器
+# Kernel Filters
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-当前在函数执行期间拦截某些事件的方式使用 Kernel Events 和事件处理程序按预期工作。例：
+Current way of intercepting some event during function execution works as expected using Kernel Events and event handlers. Example:
 
 ```csharp
 ILogger logger = loggerFactory.CreateLogger("MyLogger");
@@ -33,29 +40,29 @@ kernel.FunctionInvoked += MyInvokedHandler;
 var result = await kernel.InvokePromptAsync("How many days until Christmas? Explain your thinking.")
 ```
 
-这种方法存在几个问题：
+There are a couple of problems with this approach:
 
-1. 事件处理程序不支持依赖项注入。很难访问在 application 中注册的特定服务，除非在特定服务可用的同一范围内定义处理程序。此方法在解决方案中可以定义处理程序的位置提供了一些限制。（例如，如果开发人员想要使用 `ILoggerFactory` 在 handler 中，应在 instance 可用时定义处理程序 `ILoggerFactory` ）。
-2. 目前尚不清楚处理程序应该在应用程序运行时的哪个特定时间段附加到内核。此外，目前尚不清楚开发人员是否需要在某个时候分离它。
-3. 对于以前不处理事件的 .NET 开发人员来说，可能不熟悉 .NET 中的事件机制和事件处理程序。
+1. Event handlers does not support dependency injection. It's hard to get access to specific service, which is registered in application, unless the handler is defined in the same scope where specific service is available. This approach provides some limitations in what place in solution the handler could be defined. (e.g. If developer wants to use `ILoggerFactory` in handler, the handler should be defined in place where `ILoggerFactory` instance is available).
+2. It's not clear in what specific period of application runtime the handler should be attached to kernel. Also, it's not clear if developer needs to detach it at some point.
+3. Mechanism of events and event handlers in .NET may not be familiar to .NET developers who didn't work with events previously.
 
 <!-- This is an optional element. Feel free to remove. -->
 
-## 决策驱动因素
+## Decision Drivers
 
-1. 应该支持处理程序的依赖注入，以便轻松访问应用程序中的已注册服务。
-2. 在解决方案中定义处理程序时，无论是 Startup.cs 文件还是单独的文件，都不应有任何限制。
-3. 应该有明确的方法来在应用程序运行时的特定点注册和删除处理程序。
-4. 在 Kernel 中接收和处理事件的机制在 .NET 生态系统中应该简单且常见。
-5. 新方法应支持与 Kernel Events 中可用的相同功能 - 取消函数执行、更改内核参数、在将其发送到 AI 之前更改渲染的提示等。
+1. Dependency injection for handlers should be supported to easily access registered services within application.
+2. There should not be any limitations where handlers are defined within solution, whether it's Startup.cs or separate file.
+3. There should be clear way of registering and removing handlers at specific point of application runtime.
+4. The mechanism of receiving and processing events in Kernel should be easy and common in .NET ecosystem.
+5. New approach should support the same functionality that is available in Kernel Events - cancel function execution, change kernel arguments, change rendered prompt before sending it to AI etc.
 
-## 决策结果
+## Decision Outcome
 
-引入 Kernel Filters - 在 Kernel 中接收事件的方法，其方式与 ASP.NET 中的作筛选器类似。
+Introduce Kernel Filters - the approach of receiving the events in Kernel in similar way as action filters in ASP.NET.
 
-Semantic Kernel 将使用两个新的抽象，开发人员必须以满足他们需求的方式实现这些抽象。
+Two new abstractions will be used across Semantic Kernel and developers will have to implement these abstractions in a way that will cover their needs.
 
-对于与函数相关的事件： `IFunctionFilter`
+For function-related events: `IFunctionFilter`
 
 ```csharp
 public interface IFunctionFilter
@@ -66,7 +73,7 @@ public interface IFunctionFilter
 }
 ```
 
-对于提示相关事件： `IPromptFilter`
+For prompt-related events: `IPromptFilter`
 
 ```csharp
 public interface IPromptFilter
@@ -77,9 +84,9 @@ public interface IPromptFilter
 }
 ```
 
-新方法将允许开发人员在单独的类中定义过滤器，并轻松注入所需的服务以正确处理内核事件：
+New approach will allow developers to define filters in separate classes and easily inject required services to process kernel event correctly:
 
-MyFunctionFilter.cs - 使用与上面介绍的事件处理程序相同的逻辑进行筛选：
+MyFunctionFilter.cs - filter with the same logic as event handler presented above:
 
 ```csharp
 public sealed class MyFunctionFilter : IFunctionFilter
@@ -108,7 +115,7 @@ public sealed class MyFunctionFilter : IFunctionFilter
 }
 ```
 
-一旦定义了新的过滤器，就很容易将其配置为使用依赖项注入（构建前）在内核中使用，或者在内核初始化后（构建后）添加过滤器：
+As soon as new filter is defined, it's easy to configure it to be used in Kernel using dependency injection (pre-construction) or add filter after Kernel initialization (post-construction):
 
 ```csharp
 IKernelBuilder kernelBuilder = Kernel.CreateBuilder();
@@ -127,7 +134,7 @@ Kernel kernel = kernelBuilder.Build();
 var result = await kernel.InvokePromptAsync("How many days until Christmas? Explain your thinking.");
 ```
 
-还可以配置多个过滤器，这些过滤器将按注册顺序触发：
+It's also possible to configure multiple filters which will be triggered in order of registration:
 
 ```csharp
 kernelBuilder.Services.AddSingleton<IFunctionFilter, Filter1>();
@@ -135,7 +142,7 @@ kernelBuilder.Services.AddSingleton<IFunctionFilter, Filter2>();
 kernelBuilder.Services.AddSingleton<IFunctionFilter, Filter3>();
 ```
 
-如果需要，可以在运行时更改 filter 的执行顺序或删除特定的 filter：
+And it's possible to change the order of filter execution in runtime or remove specific filter if needed:
 
 ```csharp
 kernel.FunctionFilters.Insert(0, new InitialFilter());

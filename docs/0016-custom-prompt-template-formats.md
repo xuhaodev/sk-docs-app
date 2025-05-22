@@ -1,20 +1,28 @@
+---
+status: approved
+contact: markwallace-microsoft
+date: 2023-10-26
+deciders: matthewbolanos, markwallace-microsoft, SergeyMenshykh, RogerBarreto
+consulted: dmytrostruk
+informed:
+---
 
-# 自定义提示模板格式
+# Custom Prompt Template Formats
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-Semantic Kernel 目前支持自定义提示模板语言，该语言允许变量插值和函数执行。
-Semantic Kernel 允许集成自定义提示模板格式，例如，使用 [Handlebars](https://handlebarsjs.com/) 语法的提示模板。
+Semantic Kernel currently supports a custom prompt template language that allows for variable interpolation and function execution.
+Semantic Kernel allows for custom prompt template formats to be integrated e.g., prompt templates using [Handlebars](https://handlebarsjs.com/) syntax.
 
-此 ADR 的目的是描述语义内核如何支持自定义提示模板格式。
+The purpose of this ADR is to describe how a custom prompt template formats will be supported in the Semantic Kernel.
 
-### 当前设计
+### Current Design
 
-默认情况下，它使用 `Kernel` 支持 Semantic Kernel 特定模板格式的`BasicPromptTemplateEngine` 。 
+By default the `Kernel` uses the `BasicPromptTemplateEngine` which supports the Semantic Kernel specific template format.
 
-#### 代码模式
+#### Code Patterns
 
-下面是一个扩展示例，说明如何从使用内置 Semantic Kernel 格式的提示模板字符串创建语义函数：
+Below is an expanded example of how to create a semantic function from a prompt template string which uses the built-in Semantic Kernel format:
 
 ```csharp
 IKernel kernel = Kernel.Builder
@@ -35,41 +43,41 @@ var result = await kernel.RunAsync(kindOfDay);
 Console.WriteLine(result.GetValue<string>());
 ```
 
-我们有一个扩展方法来 `var kindOfDay = kernel.CreateSemanticFunction(promptTemplate);` 简化创建和注册语义函数的过程，但上面显示了扩展格式以突出显示对 `kernel.PromptTemplateEngine`.
-此外 `BasicPromptTemplateEngine` ，它是默认的提示模板引擎，如果包可用且未指定其他提示模板引擎，则将自动加载。
+We have an extension method `var kindOfDay = kernel.CreateSemanticFunction(promptTemplate);` to simplify the process to create and register a semantic function but the expanded format is shown above to highlight the dependency on `kernel.PromptTemplateEngine`.
+Also the `BasicPromptTemplateEngine` is the default prompt template engine and will be loaded automatically if the package is available and not other prompt template engine is specified.
 
-这方面的一些问题：
+Some issues with this:
 
-1. `Kernel` 仅支持单个 `IPromptTemplateEngine` ，因此我们不支持同时使用多个提示模板。
-1. `IPromptTemplateEngine` 是无状态的，并且必须为每个渲染执行模板的解析
-1. 我们的语义函数扩展方法中继了我们的 `IPromptTemplate` （i.e.， `PromptTemplate` ） 实现，它存储模板字符串并每次都使用 to `IPromptTemplateEngine` 渲染它。注意 的实现 `IPromptTemplate` 目前是有状态的，因为它们也存储参数。
+1. `Kernel` only supports a single `IPromptTemplateEngine` so we cannot support using multiple prompt templates at the same time.
+1. `IPromptTemplateEngine` is stateless and must perform a parse of the template for each render
+1. Our semantic function extension methods relay on our implementation of `IPromptTemplate` (i.e., `PromptTemplate`) which stores the template string and uses the `IPromptTemplateEngine` to render it every time. Note implementations of `IPromptTemplate` are currently stateful as they also store the parameters.
 
-#### 性能
+#### Performance
 
-它使用 `BasicPromptTemplateEngine` 来 `TemplateTokenizer` 解析模板，即提取块。
-然后它渲染模板，即插入变量并执行函数。这些作的一些示例计时：
+The `BasicPromptTemplateEngine` uses the `TemplateTokenizer` to parse the template i.e. extract the blocks.
+Then it renders the template i.e. inserts variables and executes functions. Some sample timings for these operations:
 
-| 操作        | 蜱   | 毫秒 |
+| Operation        | Ticks   | Milliseconds |
 | ---------------- | ------- | ------------ |
-| 提取块   | 1044427 | 103          |
-| 渲染变量 | 168     | 0            |
+| Extract blocks   | 1044427 | 103          |
+| Render variables | 168     | 0            |
 
-使用的示例模板是： `"{{variable1}} {{variable2}} {{variable3}} {{variable4}} {{variable5}}"`
+Sample template used was: `"{{variable1}} {{variable2}} {{variable3}} {{variable4}} {{variable5}}"`
 
-**注意：我们将使用示例实现来支持 f-string 模板格式。**
+**Note: We will use the sample implementation to support the f-string template format.**
 
-用于 `HandlebarsDotNet` 同一用例会导致以下计时：
+Using `HandlebarsDotNet` for the same use case results in the following timings:
 
-| 操作        | 蜱 | 毫秒 |
+| Operation        | Ticks | Milliseconds |
 | ---------------- | ----- | ------------ |
-| 编译模板 | 66277 | 6            |
-| 渲染变量 | 4173  | 0            |
+| Compile template | 66277 | 6            |
+| Render variables | 4173  | 0            |
 
-**通过将 extract blocks/compile 与 render variables作分开，只需编译一次模板就可以优化性能。**
+**By separating the extract blocks/compile from the render variables operation it will be possible to optimise performance by compiling templates just once.**
 
-#### 实现自定义提示模板引擎
+#### Implementing a Custom Prompt Template Engine
 
-提供了两个接口：
+There are two interfaces provided:
 
 ```csharp
 public interface IPromptTemplateEngine
@@ -85,7 +93,7 @@ public interface IPromptTemplate
 }
 ```
 
-Handlebars 提示模板引擎的原型实现可能如下所示：
+A prototype implementation of a handlebars prompt template engine could look something like this:
 
 ```csharp
 public class HandlebarsTemplateEngine : IPromptTemplateEngine
@@ -121,20 +129,20 @@ public class HandlebarsTemplateEngine : IPromptTemplateEngine
 }
 ```
 
-**注意：这只是一个原型实现，仅用于说明目的。**
+**Note: This is just a prototype implementation for illustration purposes only.**
 
-一些问题：
+Some issues:
 
-1. 该 `IPromptTemplate` 接口未使用，并导致混淆。
-1. 无法允许开发人员同时支持多种提示模板格式。
+1. The `IPromptTemplate` interface is not used and causes confusion.
+1. There is no way to allow developers to support multiple prompt template formats at the same time.
 
- `IPromptTemplate` 在 Semantic Kernel 核心包中提供了一个 的实现。
-该 `RenderAsync` 实现只是委托给 `IPromptTemplateEngine`.
- `Parameters` 该列表 get 填充了 中定义的参数 `PromptTemplateConfig` 和模板中定义的任何缺失变量。
+There is one implementation of `IPromptTemplate` provided in the Semantic Kernel core package.
+The `RenderAsync` implementation just delegates to the `IPromptTemplateEngine`.
+The `Parameters` list get's populated with the parameters defined in the `PromptTemplateConfig` and any missing variables defined in the template.
 
-#### 车把注意事项
+#### Handlebars Considerations
 
-Handlebars 不支持帮助程序的动态绑定。请考虑以下代码段：
+Handlebars does not support dynamic binding of helpers. Consider the following snippet:
 
 ```csharp
 HandlebarsHelper link_to = (writer, context, parameters) =>
@@ -158,31 +166,31 @@ var template = handlebars1.Compile(source);
 var result = template1(data);
 ```
 
-Handlebars 允许在编译模板之前或之后将帮助程序注册到 `Handlebars` 实例中。
-最好的办法是拥有 `Handlebars` 一个特定函数集合的共享实例，并且只注册一次帮助程序。
-对于 Kernel 函数集合可能已更改的用例，我们将被迫 `Handlebars` 在渲染时创建一个实例
-，然后注册帮助程序。这意味着我们无法利用编译模板提供的性能改进。
+Handlebars allows the helpers to be registered with the `Handlebars` instance either before or after a template is compiled.
+The optimum would be to have a shared `Handlebars` instance for a specific collection of functions and register the helpers just once.
+For use cases where the Kernel function collection may have been mutated we will be forced to create a `Handlebars` instance at render time
+and then register the helpers. This means we cannot take advantage of the performance improvement provided by compiling the template.
 
-## 决策驱动因素
+## Decision Drivers
 
-排名不分先后：
+In no particular order:
 
-- 支持创建没有实例的语义函数 `IKernel`。
-- 支持函数的后期绑定，即在呈现提示时解析函数。
-- 如果需要，支持允许仅解析（编译）一次提示模板以优化性能。
-- 支持在单个实例中使用多种提示模板格式 `Kernel` 。
-- 提供简单的抽象，允许第三方实现对自定义提示模板格式的支持。
+- Support creating a semantic function without a `IKernel`instance.
+- Support late binding of functions i.e., having functions resolved when the prompt is rendered.
+- Support allowing the prompt template to be parsed (compiled) just once to optimize performance if needed.
+- Support using multiple prompt template formats with a single `Kernel` instance.
+- Provide simple abstractions which allow third parties to implement support for custom prompt template formats.
 
-## 考虑的选项
+## Considered Options
 
-- 已过时 `IPromptTemplateEngine` ，请替换为 `IPromptTemplateFactory`。
+- Obsolete `IPromptTemplateEngine` and replace with `IPromptTemplateFactory`.
 -
 
-### 过时 `IPromptTemplateEngine` 并替换为 `IPromptTemplateFactory`
+### Obsolete `IPromptTemplateEngine` and replace with `IPromptTemplateFactory`
 
 <img src="./diagrams/prompt-template-factory.png" alt="ISKFunction class relationships"/>
 
-下面是一个扩展示例，说明如何从使用内置 Semantic Kernel 格式的提示模板字符串创建语义函数：
+Below is an expanded example of how to create a semantic function from a prompt template string which uses the built-in Semantic Kernel format:
 
 ```csharp
 // Semantic function can be created once
@@ -211,13 +219,13 @@ var result = await kernel.RunAsync(kindOfDay);
 Console.WriteLine(result.GetValue<string>());
 ```
 
-**笔记：**
+**Notes:**
 
-- `BasicPromptTemplateFactory` 将是默认实施，并将自动在 `KernelSemanticFunctionExtensions`中提供。开发人员还将能够提供自己的实现。
-- 工厂使用 new `PromptTemplateConfig.TemplateFormat` 创建相应的 `IPromptTemplate` 实例。
-- 我们应该将 remove `promptTemplateConfig` 作为 的参数。 `CreateSemanticFunction`该更改超出了本 ADR 的范围。
+- `BasicPromptTemplateFactory` will be the default implementation and will be automatically provided in `KernelSemanticFunctionExtensions`. Developers will also be able to provide their own implementation.
+- The factory uses the new `PromptTemplateConfig.TemplateFormat` to create the appropriate `IPromptTemplate` instance.
+- We should look to remove `promptTemplateConfig` as a parameter to `CreateSemanticFunction`. That change is outside of the scope of this ADR.
 
-和 `BasicPromptTemplateFactory` `BasicPromptTemplate` implementations 如下所示：
+The `BasicPromptTemplateFactory` and `BasicPromptTemplate` implementations look as follows:
 
 ```csharp
 public sealed class BasicPromptTemplateFactory : IPromptTemplateFactory
@@ -270,12 +278,12 @@ public sealed class BasicPromptTemplate : IPromptTemplate
 }
 ```
 
-**注意：**
+**Note:**
 
-- 对于每个提示模板，对 的调用 `ExtractBlocks` 被延迟调用一次
-- 不需要 `RenderAsync` 每次都提取块
+- The call to `ExtractBlocks` is called lazily once for each prompt template
+- The `RenderAsync` doesn't need to extract the blocks every time
 
-## 决策结果
+## Decision Outcome
 
-选择的选项：“Obsolete `IPromptTemplateEngine` and replace with `IPromptTemplateFactory`”，因为
-满足需求并为未来提供良好的灵活性。
+Chosen option: "Obsolete `IPromptTemplateEngine` and replace with `IPromptTemplateFactory`", because
+addresses the requirements and provides good flexibility for the future.

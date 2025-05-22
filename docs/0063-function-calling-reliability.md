@@ -1,61 +1,68 @@
+---
+status: proposed
+contact: sergeymenshykh
+date: 2025-01-21
+deciders: dmytrostruk, markwallace, rbarreto, sergeymenshykh, westey-m,
+consulted: stephentoub
+---
 
-# 函数调用可靠性
+# Function Calling Reliability
 
-## 上下文和问题陈述
-函数调用的一个关键方面决定了 SK 函数调用的可靠性，是 AI 模型能够使用公布函数的确切名称来调用函数。
+## Context and Problem Statement
+One key aspect of function calling, that determines the reliability of SK function calling, is the AI model's ability to call functions using the exact names with which they were advertised.
 
-AI 模型在调用函数名称时，通常会产生幻觉。在大多数情况下，
-函数名称中只有一个字符是幻觉的，函数名称的其余部分是正确的。此字符是 `-` 
-SK 在发布函数以唯一标识时，用作插件名称和函数名称之间的分隔符，以形成函数完全限定名称 （FQN）
-函数。例如，如果插件名称为 `foo` ，函数名称为 `bar`，则函数的 FQN 为 `foo-bar`。幻觉的名字
-到目前为止看到的是 `foo_bar`， `foo.bar`。
+More often than wanted, the AI model hallucinates function names when calling them. In majority of cases, 
+it's only one character in function name that is hallucinated, and the rest of the function name is correct. This character is the hyphen character `-` that 
+SK uses as a separator between plugin name and function name to form the function fully qualified name (FQN) when advertising the function to uniquely identify 
+functions across all plugins. For example, if the plugin name is `foo` and the function name is `bar`, the FQN of the function is `foo-bar`. The hallucinated names
+seen so far are `foo_bar`, `foo.bar`.
 
-### 问题 #1：下划线分隔符幻觉 - `foo_bar`
+### Issue #1: Underscore Separator Hallucination - `foo_bar`
 
-当 AI 模型幻觉下划线分隔符时`_`，SK 检测到此错误并返回消息_“错误：未定义的函数的函数调用请求”。_
-作为函数结果的一部分添加到模型中，以及原始函数调用。
-某些模型可以自动从此错误中恢复并使用正确的名称调用函数，而其他模型则不能。
+When the AI model hallucinates the underscore separator `_`, SK detects this error and returns the message _"Error: Function call request for a function that wasn't defined."_ 
+to the model as part of the function result, along with the original function call, in the subsequent request.
+Some models can automatically recover from this error and call the function using the correct name, while others cannot.
 
-### 问题 #2：点分隔符幻觉 - `foo.bar`
+### Issue #2: Dot Separator Hallucination - `foo.bar`
 
-此问题与问题 #1 类似，但在本例中，分隔符为 `.`.虽然 SK 检测到此错误并尝试在后续请求中将其返回给 AI 模型，
-请求失败，并显示异常：“_Invalid messages[3][0].tool_calls.function.name： string does not match pattern.预期字符串与模式 ^[a-zA-Z0-9_-]+$ 匹配。_
-失败的原因是 `.` 函数名称中不允许使用幻觉分隔符。从本质上讲，模型拒绝了它自己产生幻觉的函数名称。
+This issue is similar to the Issue #1, but in this case the separator is `.`. Although the SK detects this error and tries to return it to the AI model in the subsequent request, 
+the request fails with the exception: _"Invalid messages[3].tool_calls[0].function.name: string does not match pattern. Expected a string that matches the pattern ^[a-zA-Z0-9_-]+$."_ 
+The reason for this failure is that the hallucinated separator `.` is not permitted in the function name. Essentially, the model rejects the function name it hallucinated itself.
 
-### 问题 #3：自动恢复机制的可靠性  
+### Issue #3: Reliability of the Auto-Recovery Mechanism  
    
-当使用不同于其通告名称的名称调用函数时，找不到该函数，从而导致向 AI 模型返回错误消息，如上所述。
-此错误消息为 AI 模型提供了有关问题的提示，帮助它通过使用正确的名称调用函数来自动恢复。
-但是，自动恢复机制无法在不同模型之间可靠地运行。
-例如，它与模型一起工作， `gpt-4o-mini(2024-07-18)` 但对 `gpt-4(0613)` and `gpt-4o(2024-08-06)` 1 失败。
-当 AI 模型无法恢复时，它只会返回错误消息的变体：“ _很抱歉，但由于系统错误，我现在无法提供答案。请稍后再试。_   
+When a function is called using a name different from its advertised name, the function cannot be found, resulting in an error message being returned to the AI model, as described above.
+This error message provides the AI model with a hint about the issue, helping it to auto-recover by calling the function using the correct name. 
+However, the auto-recovery mechanism does not operate reliably across different models. 
+For instance, it works with the `gpt-4o-mini(2024-07-18)` model but fails with the `gpt-4(0613)` and `gpt-4o(2024-08-06)` ones. 
+When the AI model is unable to recover, it simply returns a variation of the error message: _"I'm sorry, but I can't provide the answer right now due to a system error. Please try again later."_   
 
-## 决策驱动因素
+## Decision Drivers
 
-- 尽量减少函数名称幻觉的发生。
-- 增强自动恢复机制的可靠性。
+- Minimize the occurrence of function name hallucinations.
+- Enhance the reliability of the auto-recovery mechanism.
 
-## 考虑的选项
-某些选项不是互斥的，可以组合使用。
+## Considered Options
+Some of the options are not mutually exclusive and can be combined.
 
-### 选项 1：仅对函数 FQN 使用函数名称
+### Option 1: Use Only Function Name for Function FQN
 
-此选项建议仅使用函数名称作为函数的 FQN。例如，插件中函数的 FQN `bar` `foo` 就是 `bar`。
-通过仅使用函数名称，我们消除了对分隔符的需求 `-`，这通常是幻觉。
+This option proposes using only the function name as function's FQN. For example, the FQN for the function `bar` from the plugin `foo` would simply be `bar`.
+By using only the function name, we eliminate the need for the separator `-`, which is often hallucinated.
 
-优点：
-- 通过消除幻觉的来源来减少或消除函数名称幻觉（问题 #1 和 #2）。
-- 减少函数 FQN 中插件名称消耗的令牌数。
+Pros:
+- Reduces or eliminates function name hallucinations by removing the source of hallucination (Issues #1 and #2).
+- Decreases the number of tokens consumed by the plugin name in the function FQN.
 
-缺点：
-- 函数名称在所有插件中可能不唯一。例如，如果两个插件有一个同名的函数，两个插件都会提供给 AI 模型，SK 会调用遇到的第一个函数。
-    - [来自 ADR 审查会议] 如果找到重复项，则可以将插件名称动态添加到重复项或所有公布的函数中。
-- 缺少插件名称可能会导致函数名称的上下文不足。例如，与插件相比，该函数 `GetData` 在插件的上下文中具有不同 `Weather` 的含义`Stocks`。
-    - [来自 ADR 审查会议] 插件名称/上下文可以由插件开发人员添加到函数名称或描述中，也可以由 SK 自动添加到函数描述中。
-- 它无法处理幻觉函数名称。例如，如果 AI 模型产生幻觉，则函数 FQN `b0r` 而不是 `bar`。
+Cons:
+- Function names may not be unique across all plugins. For instance, if two plugins have a function with the same name, both will be provided to the AI model, and SK will invoke the first function it encounters.
+    - [From the ADR review meeting] If duplicates are found, the plugin name can be dynamically added to the duplicates or to all advertised functions.
+- The lack of the plugin name may result in insufficient context for function names. For example, the function `GetData` has different meanings in the context of the `Weather` plugin compared to the `Stocks` plugin.
+    - [From the ADR review meeting] The plugin name/context can be added to function names or descriptions by the plugin developer or automatically to the function descriptions by SK.
+- It cannot address hallucinated function names. For instance, if the AI model hallucinates the function FQN `b0r` instead of `bar`.
 
 
-可能的实现方式：
+Possible implementations:
 ```csharp
 // Either at the operation level
 FunctionChoiceBehaviorOptions options = new new()
@@ -82,22 +89,22 @@ kernel.ImportPluginFromType<Bar>(pluginName);
 ```
 
 
-### 选项 2：自定义分隔符
+### Option 2: Custom Separator
 
-此选项建议将分隔符或字符序列设置为可配置。开发人员可以指定一个不太可能出错的分隔符
-由 AI 模型生成。例如，他们可以选择 `_` 或 `a1b` 作为分隔符。
+This option proposes making the separator character, or a sequence of characters, configurable. Developers can specify a separator that is less likely to be mistakenly 
+generated by the AI model. For example, they may choose `_` or `a1b` as the separator.
 
-此解决方案可能会减少函数名称幻觉的发生（问题 #1 和 #2）。
+This solution may reduce the occurrences of function name hallucinations (Issues #1 and #2).
 
-优点：
-- 通过将分隔符更改为不太可能出现幻觉的角色来减少函数名称幻觉。
+Pros:
+- Reduces function name hallucinations by changing the separator to a less likely hallucinated character.
 
-缺点：
-- 它不适用于在插件名称中使用分隔符的情况。例如，下划线符号可以是 `my_plugin` 插件名称的一部分，也可以用作分隔符，从而生成 `my_plugin_myfunction` FQN。
-    - [来自 ADR 审查会议] SK 可以在公布插件名称和函数名称之前动态删除插件名称和函数名称中出现的任何分隔符。
-- 它无法处理幻觉函数名称。例如，如果 AI 模型生成函数 FQN as `MyPlugin_my_func` 而不是 `MyPlugin_my_function`。
+Cons:
+- It won't work for cases when the separator is used in plugin name. For example the underscore symbol can be part of the `my_plugin` plugin name and also used as a separator, resulting in `my_plugin_myfunction` FQN.
+    - [From the ADR review meeting] SK can dynamically remove any occurrences of the separator in plugin names and function names before advertising them.
+- It can't address hallucinated function names. For instance, if the AI model generates the function FQN as `MyPlugin_my_func` instead of `MyPlugin_my_function`.
 
-可能的实现方式：
+Possible implementations:
 ```csharp
 // Either at the operation level
 FunctionChoiceBehaviorOptions options = new new()
@@ -114,21 +121,21 @@ IKernelBuilder builder = Kernel.CreateBuilder();
 builder.AddOpenAIChatCompletion("<model-id>", "<api-key>", functionNamePolicy: FunctionNamePolicy.Custom("_"));
 ```
 
-### 选项 3：无分隔符  
+### Option 3: No Separator  
    
-此选项建议在插件名称和函数名称之间不使用任何分隔符。相反，它们将直接连接。
-例如，插件中函数的 FQN `bar` `foo` 将为 `foobar`.
+This option proposes not using any separator between the plugin name and the function name. Instead, they will be concatenated directly.
+For example, the FQN for the function `bar` from the plugin `foo` would be `foobar`.
 
-优点：
-- 通过消除幻觉的来源来减少功能名称幻觉（问题 #1 和 #2）。
+Pros:
+- Reduces function name hallucinations by eliminating the source of hallucination (Issues #1 and #2).
 
-缺点：
-- 需要不同的函数查找启发式方法。
+Cons:
+- Requires a different function lookup heuristic.
 
-### 选项 4：自定义 FQN 解析器
+### Option 4: Custom FQN Parser
 
-此选项提供了一个自定义的外部 FQN 解析器，可以将函数 FQN 拆分为插件名称和函数名称。解析器将接受 AI 模型调用的函数 FQN
-并返回插件名称和函数名称。为此，解析器将尝试使用各种分隔符解析 FQN：
+This option proposes a custom, external FQN parser that can split function FQN into plugin name and function name. The parser will accepts the function FQN called by the AI model 
+and returns both the plugin name and function name. To achieve this, the parser will attempt to parse the FQN using various separator characters:
 ```csharp
 static (string? PluginName, string FunctionName) ParseFunctionFqn(ParseFunctionFqnContext context)
 {
@@ -168,15 +175,15 @@ static (string? PluginName, string FunctionName) ParseFunctionFqn(ParseFunctionF
 }
 ```
 
-[来自 ADR 审查会议] 或者，解析器可以返回函数本身。这需要进一步调查。
-此 [PR](https://github.com/microsoft/semantic-kernel/pull/10206) 可以提供有关分析程序的使用方式和位置的更多见解。
+[From the ADR review meeting] Alternatively, the parser can return the function itself. This needs to be investigated further.
+This [PR](https://github.com/microsoft/semantic-kernel/pull/10206) can provide more insights into how and where the parser is used.
 
-优点：
-- 它将通过应用特定于 AI 模型的自定义启发式方法来解析函数 FQN，从而减轻但不会减少或完全消除函数分隔符幻觉。
-- 它可以在 SK AI 连接器中轻松实现。
+Pros:
+- It will mitigate but not reduce or completely eliminate function separator hallucinations by applying a custom heuristic specific to the AI model to parse the function FQN.
+- It can be easily implemented in SK AI connectors.
 
 
-可能的实现方式：
+Possible implementations:
 ```csharp
 // Either at the operation level
 static (string? PluginName, string FunctionName) ParseFunctionFqn(ParseFunctionFqnContext context)
@@ -198,24 +205,24 @@ IKernelBuilder builder = Kernel.CreateBuilder();
 builder.AddOpenAIChatCompletion("<model-id>", "<api-key>", functionNamePolicy: FunctionNamePolicy.Custom("_", ParseFunctionFqn));
 ```
 
-### 选项 5：改进的自动恢复机制
+### Option 5: Improved Auto-Recovery Mechanism
 
-目前，当调用未公布的函数时，SK 会返回错误消息：“_错误：未定义的函数的函数调用请求”。_
-在这三个 AI 模型中`gpt-4(0613)`， `gpt-4o-mini(2024-07-18)` `gpt-4o(2024-08-06)` 只有 `gpt-4o-mini` 和  才能自动从此错误中恢复，并使用正确的名称成功调用函数。
-其他两个模型无法恢复，而是返回类似于“_对不起，但由于系统错误，我现在无法提供答案”的最终消息。_
+Currently, when a function that was not advertised is called, SK returns the error message: _"Error: Function call request for a function that wasn't defined."_
+Among the three AI models `gpt-4(0613)`, `gpt-4o-mini(2024-07-18)`, and `gpt-4o(2024-08-06)` only `gpt-4o-mini` can automatically recover from this error and successfully call the function using the correct name. 
+The other two models fail to recover and instead return a final message similar to: _"I'm sorry, but I can't provide the answer right now due to a system error."_
 
-但是，通过将函数名称添加到错误消息中 - “错误：未定义的函数的函数调用请求 **foo.bar** 。”以及
-“你可以调用工具。如果工具调用失败，请自行更正。系统消息添加到聊天记录中，所有三个模型都可以从错误中自动恢复并使用正确的名称调用函数。
+However, by adding function name to the error message - "Error: Function call request for **foo.bar** function that wasn't defined." and 
+the "You can call tools. If a tool call failed, correct yourself." system message to chat history, all three models can auto-recover from the error and call the function using the correct name.
 
-考虑到所有这些，我们可以在错误消息中添加函数名称，并提供添加系统消息的建议以改进自动恢复机制。
+Taking all this into account, we can add function name into the error message and provide recommendations to add the system message to improve the auto-recovery mechanism.
 
-优点：
-- 更多模型可以从错误中自动恢复。
+Pros:
+- More models can auto-recover from the error.
 
-缺点：
-- 自动恢复机制可能不适用于所有 AI 模型。
+Cons:
+- The auto-recovery mechanism may not work for all AI models.
 
-可能的实现方式：
+Possible implementation:
 ```csharp
 // The caller code
  var chatHistory = new ChatHistory();
@@ -232,16 +239,16 @@ if (!checkIfFunctionAdvertised(functionCall))
 }
 ```
  
-### 选项 6：从函数名称中删除不允许的字符
+### Option 6: Remove Disallowed Characters from the Function Name
    
-此选项建议通过在将错误消息返回给 AI 模型时从函数 FQN 中删除不允许的字符来解决问题 2。
-此更改将防止对 AI 模型的请求失败，并显示异常：“_Invalid messages[3][0].tool_calls.function.name： string does not match pattern.预期字符串与模式 `^[a-zA-Z0-9_-]+$`“_.
+This option proposes addressing Issue 2 by removing disallowed characters from the function FQN when returning the error message to the AI model.
+This change will prevent the request to the AI model from failing with the exception: _"Invalid messages[3].tool_calls[0].function.name: string does not match pattern. Expected a string that matches the pattern `^[a-zA-Z0-9_-]+$`"_.
    
-优点：
-- 它将消除阻止 AI 模型从错误中自动恢复的问题 2。
+Pros:
+- It will eliminate Issue 2 preventing AI model from auto-recovering from the error.
    
 
-可能的实现方式：
+Possible implementation:
 ```csharp
 // In AI connectors
 
@@ -253,6 +260,6 @@ fqn = Regex.Replace(fqn, "[^a-zA-Z0-9_-]", "_");
 toolCalls.Add(ChatToolCall.CreateFunctionToolCall(callRequest.Id, fqn, BinaryData.FromString(argument ?? string.Empty)));
 ```
 
-## 决策结果
-我们决定从不需要更改公共 API 表面的选项开始 - 选项 5 和 6，然后根据需要稍后继续执行其他选项。
-在评估了两个应用选项的影响之后。
+## Decision Outcome
+It was decided to start with the options that don't require changes to the public API surface - Options 5 and 6 and proceed with others later if needed, 
+after evaluating the impact of the two applied options.

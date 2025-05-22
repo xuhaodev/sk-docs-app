@@ -1,80 +1,89 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: bentho
+date: September 20, 2024
+deciders: bentho, markwallace, estenori, crickman, eavanvalkenburg, evchaki
+consulted: bentho, markwallace, estenori, crickman, eavanvalkenburg, evchaki, mabolan
+informed: SK-3P-FTE
+---
 
-# 使用 Semantic Kernel 执行业务流程
+# Business Process Execution with Semantic Kernel
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-我们从许多客户那里听说，他们需要企业级解决方案来自动化 AI 集成的业务流程。
-概括地说，业务流程的结构是：
+We have heard from many customers about the need for an enterprise grade solution for automating AI-integrated business processes.
+At a high level, the structure of a business process is:
 
-- 从外部事件开始
-- 包含结构化活动或任务的集合
-- 这些任务的定义序列，用于生成可增加价值的服务或产品
-- 服务于业务目标
+- Starts with external event
+- Contains a collection of structured activities or tasks
+- A defined sequence of these tasks that produces a service or product that adds value
+- Serves a business goal
 
-用技术术语来说，过程是可以表示为图形的东西，其中图形中的节点表示工作单元，节点之间的边表示可能携带也可能不携带数据的因果激活。有许多基于图形的工作流引擎示例，这些引擎适用于处理传统的企业流程。示例包括GitHub Actions & Workflows，Argo Workflows，Dapr Workflows等等。但是，与 AI 集成的额外要求增加了这些框架可能无法充分支持的新要求。这些功能包括支持图中的循环、动态创建的节点和边缘、支持 AI 驱动场景的节点和边缘级元数据，以及与 AI 编排的简化集成，这些都是这些不完全支持的功能。
+In technical terms, a process is something that can be represented as a graph where nodes in the graph represent units of work and edges between nodes represent causal activations that may or may not also carry data. There are many examples of graph based workflow engines that are suitable for handling traditional enterprise processes. Examples include GitHub Actions & Workflows, Argo Workflows, Dapr Workflows, and many more. However, the additional requirements for integration with AI adds new requirements that may not be adequately supported by these frameworks. Features such as support for cycles in the graph, dynamically created nodes and edges, node and edge level metadata to support AI driven scenarios, and streamlined integration with AI orchestration are examples of things that are not fully supported by any of these.
 
-## 决策驱动因素
+## Decision Drivers
 
-- 客户应该能够利用他们在 Semantic Kernel 的所有支持语言中的现有投资。
+- Customers should be able to leverage their existing investments in all supported languages of Semantic Kernel.
 - ```
 
   ```
 
-- 客户应该能够利用他们在基础设施方面的现有投资。
-- 客户应该能够与他们的业务流程对等方协作，以构建可组合的流程。
-- 客户应该能够使用 AI 来增强和简化其业务流程中的步骤。
-- 客户应该能够以定义和可重复的方式控制工艺流程。
-- 客户应该能够轻松建模可能需要周期和动态边缘的典型 AI 驱动场景。
-- 流程应该能够支持短期瞬态业务流程以及长期业务流程。
-- 进程应该能够在本地运行、部署为单个进程或部署到分布式服务。
-- 进程应该能够在本地运行和调试，而无需额外的软件或基础设施。
-- 进程应该是有状态的，并且能够从暂停状态或可恢复错误中恢复。
-- 受监管客户应该能够端到端地审计当前正在运行或已完成的流程。
+- Customers should be able to leverage their existing investments in infrastructure.
+- Customers should be able to collaborate with their business process peers to build up composable processes.
+- Customers should be able to use AI to enhance and streamline the steps within their business processes.
+- Customers should be able to control the process flow in a defined and repeatable way.
+- Customers should be able to easily model typical AI driven scenarios that may require cycles and dynamic edges.
+- Processes should be able to support short lived transient business processes as well as long lived business processes.
+- Processes should be able to be run locally, deployed as a single process or or deployed to a distributed service.
+- Processes should be able to run and debug locally without additional software or infrastructure.
+- Processes should be stateful and able resume from a paused state or a recoverable error.
+- Regulated Customers should be able to audit currently running or completed processes end to end.
 
-## 考虑的选项
+## Considered Options
 
-### 选项 #1：
+### Options #1:
 
-**_在现有工作流框架的基础上构建现有示例_**：
-此选项已通过 Dapr Workflows、Argo、Durable Tasks 等框架进行探索。在可以支持上面列出的技术要求的子集或这些选项中，主要关注的是使用它们所需的开销量。其中许多框架需要大量代码和基础设施才能启动和运行，并且需要特殊的仿真器在本地运行，这是不可取的。需要注意的是，此选项与其他选项并不互斥，即使我们也选择采用不同的路线，我们也可以选择构建显示 SK 与其他工作流引擎集成的示例。
+**_Build existing samples on top of existing workflow frameworks_**:
+This option was explored with frameworks such as Dapr Workflows, Argo, Durable Tasks, and others. Among the subset or these options that can support the technical requirements listed above, the main concern is the amount of overhead required to work with them. Many of these frameworks require a lot of code and infrastructure to get up and running and require special emulators to run locally which is undesirable. It's important to call out that this option is not mutually exclusive with the others, we may choose to build samples showing SK integrating with other workflow engines even if we choose to also go a different route.
 
-### 选项 #2：
+### Options #2:
 
-**_在现有工作流框架中构建 SK Process 库_**：
-在探索的所有框架中，少数几个似乎最接近满足上面列出的技术要求的框架是基于 [Durable Tasks](https://github.com/Azure/durabletask) 的。这包括 Dapr 工作流、Azure Durable Functions 或 Durable Tasks Framework 本身等内容。尝试在这些框架上构建工作解决方案会导致基本方案的界面尴尬，因为 Durable Tasks 的底层结构是无状态的，只有中央业务流程协调程序是有状态的。虽然许多 AI 驱动的工作流程很可能可以在这种类型的系统中建模，但从可用性的角度来看，我们的探索并没有产生我们满意的东西。
+**_Build SK Process library within an existing workflow framework_**:
+Of all the frameworks explored, the few that seem closest to meeting the technical requirements listed above are based on [Durable Tasks](https://github.com/Azure/durabletask). This includes things like Dapr Workflows, Azure Durable Functions, or the Durable Tasks Framework itself. Attempts to build a working solution on these frameworks resulted an awkward interface for basic scenarios due to the underlying structure of Durable Tasks where nodes are stateless and only the central orchestrator is stateful. While it is likely that many AI driven workflows could be modeled in this type of system, our exploration did not produce something we were happy with from a usability perspective.
 
-### 选项 #3：
+### Options #3:
 
-**_使用自定义构建工作流引擎构建 SK Process 库_**：
-构建自定义工作流引擎可能会提供最干净的集成，但需要大量资源和时间，而我们没有。分布式工作流引擎本身就是产品。
+**_Build SK Process library with a custom build workflow engine_**:
+Building a custom workflow engine might provide the cleanest integration but would require extensive resources and time that we don't have. Distributed workflow engines are products in and of themselves.
 
-### 选项 #4：
+### Options #4:
 
-**_使用现有工作流框架的连接器构建与平台无关的 SK Process 库_**：
-这是选定的选项。
+**_Build platform agnostic SK Process library with connectors for existing workflow frameworks_**:
+This is the chosen option.
 
-## 决策结果
+## Decision Outcome
 
-**_所选选项 - #4_**：使用现有工作流框架的连接器构建与平台无关的 SK Process 库。
-这是满足所有技术和场景驱动要求的唯一选择。此选项应该允许将简单且良好集成的接口集成到 Semantic Kernel 中，并能够支持许多现有的分布式运行时，这将使我们的客户能够灵活地使用其现有的基础设施和专业知识。
+**_Chosen option - #4_**: Build platform agnostic SK Process library with connectors for existing workflow frameworks.
+This was the only option that was ale to meet all the technical and scenario driven requirements. This option should allow for a simple and well-integrated interface into Semantic Kernel as well as the ability to support many existing distributed runtimes that will give our customers the flexibility to use their existing infrastructure and expertise.
 
-### Process 库的组件
+### Components of the Process library
 
-拟议的 Process 架构基于图形执行模型，其中节点（我们称为 Steps）通过调用用户定义的 Kernel Functions 来执行工作。图形中的边缘是从事件驱动的角度定义的，并携带有关事件的元数据以及包含 Kernel Function 调用输出的数据有效负载。
+The proposed architecture of a Process is based on a graph execution model where nodes, which we call Steps, perform work by invoking user defined Kernel Functions. Edges in the graph are defined from an event driven perspective and carry metadata about the event as well as a data payload containing the output of the Kernel Function invocation.
 
-从头开始，流程的组成部分是：
+Starting from the ground up, the components of a processes are:
 
-1.  **_KernelFunctions_**：我们的客户已经知道和使用的相同 KernelFunctions。这里没什么新鲜事。
-1.  **_步骤_**：步骤将一个或多个 KernelFunctions 组合到一个具有可选用户定义状态的对象中。一个步骤表示流程中的一个工作单元。步骤通过发出事件，使其工作的输出对流程中的其他步骤可见。这种基于事件的结构允许创建步骤，而无需知道它们在哪个流程中使用，从而允许它们在多个流程中重复使用。
-1.  **_流程_**：流程将多个步骤组合在一起，并定义输出从步骤到步骤的流程方式。该进程提供了一些方法，允许开发人员通过指定应接收事件的步骤和关联的 KernelFunctions 来定义步骤发出的事件的路由。
+1.  **_KernelFunctions_**: The same KernelFunctions that our customers already know and use. Nothing new here.
+1.  **_Steps_**: Steps group one ore more KernelFunctions together into an object with optional user defined state. A step represents one unit of work within a process. Steps make the output of their work visible to other steps in the process by emitting events. This event based structure allows steps to be created without needing to know which process they are used in, allowing them to be reusable across multiple processes.
+1.  **_Process_**: A process groups multiple Steps together and defines the way that outputs flow from step to step. The process provides methods that allow the developer to define the routing of events that are emitted by steps by specifying the steps and associated KernelFunctions that should receive the event.
 
-![基本流程图](./diagrams/process/process_diagram_basic.png)
+![Basic Process diagram](./diagrams/process/process_diagram_basic.png)
 
-让我们看看创建简单流程所需的代码。
+Let's look at the code required to create a simple process.
 
-#### 第 1 步 - 定义步骤：
+#### Step1 - Define the Steps:
 
-需要执行从 abstract 类型继承`KernelStepBase`的步骤，该类型允许选择性地实现激活和停用生命周期方法。
+Steps are required to inherit from the abstract `KernelStepBase` type which allows for optional implementation of activation and deactivation lifecycle methods.
 
 ```csharp
 // Define UserInputStep with no state
@@ -94,9 +103,9 @@ public class UserInputStep : KernelStepBase
 
 ```
 
- `UserInputStep` 上面显示的是具有一个 KernelFunction 且没有状态管理的步骤的最小实现。此步骤中的代码不会显式发出任何事件，但是，执行 将自动 `PrintUserMessage` 发出一个事件，指示执行成功并带有关联的结果，或执行失败并带有关联的错误。
+The `UserInputStep` shown above is the minimum implementation of a step with one KernelFunction and no state management. The code in this step does not explicitly emit any events, however, execution of the `PrintUserMessage` will automatically emit an event indicating either the success of the execution with an associated result, or the failure of the execution with an associated error.
 
-让我们创建第二个步骤来获取用户输入并从 LLM 获取响应。此步骤将是有状态的，以便它可以维护 `ChatHistory`.首先定义用于跟踪状态的类：
+Let's create a second step to take the user input and get a response from an LLM. This step will be stateful so that it can maintain an instance of `ChatHistory`. First define the class to use for tracking state:
 
 ```csharp
 public class ChatBotState
@@ -106,7 +115,7 @@ public class ChatBotState
 
 ```
 
-接下来定义步骤：
+Next define the step:
 
 ```csharp
 // Define ChatBotResponseStep with state of type ChatBotState
@@ -145,17 +154,17 @@ public class ChatBotResponseStep : KernelStepBase<ChatBotState>
 
 ```
 
-这 `ChatBotResponseStep` 比 `UserInputStep` 和 显示以下功能更现实：
+The `ChatBotResponseStep` is a bit more realistic than `UserInputStep` and show the following features:
 
-**_状态管理_**：首先要注意的是，状态对象是由 Process 自动创建的，并注入到方法中 `ActivateAsync` 。Process 将在成功执行该步骤的任何 KernelFunctions 后立即自动保留 state 对象。进程使用 JSON 序列化来持久保存和解除冻结状态对象，因此我们要求这些类型具有默认构造函数，并且仅包含 JSON 可序列化的对象。
+**_State management_**: The first thing to notice is that the state object is automatically created by the Process and injected into the `ActivateAsync` method. The Process will automatically persist the state object immediately after successful execution of any of the step's KernelFunctions. Processes use JSON serialization to persist and rehydrate state objects so we require that these types have a default constructor and only contain objects that are JSON serializable.
 
-**_步骤上下文_**： `GetChatResponse` KernelFunction 具有 `KernelStepContext` 由 Process 自动提供的 type 参数。此对象提供允许步骤显式发出事件的功能，例如 `ChatBotEvents.AssistantResponseGenerated` 在这种情况下。步骤上下文还可以为高级方案提供功能，例如使用持久计时器和动态地向流程添加新步骤。
+**_Step Context_**: The `GetChatResponse` KernelFunction has an argument of type `KernelStepContext` which is automatically provided by the Process. This object provides functionality that allow the step to explicitly emit events such as `ChatBotEvents.AssistantResponseGenerated` in this case. The step context can also provide functionality for advances scenarios such as utilizing durable timers and dynamically adding new steps to the process.
 
-**_云事件_**：步骤和流程中的事件使用 [Cloud Events](https://github.com/cloudevents/spec)。Cloud Events 提供了一个开源的行业标准规范，用于以通用格式描述事件数据，从而提供跨服务、平台和系统的互作性。这将允许 Processes 向外部系统发送/接收事件，而无需自定义连接器或映射中间件。
+**_Cloud Events_**: Events in Steps and Processes make use of [Cloud Events](https://github.com/cloudevents/spec). Cloud Events provide an open source and industry standard specification for describing event data in common formats to provide interoperability across services, platforms and systems. This will allow Processes to emit/receive events to/from external systems without requiring custom connectors or mapping middleware.
 
-#### 第 2 步 - 定义流程：
+#### Step2 - Define the Process:
 
-现在我们已经定义了我们的步骤，我们可以继续定义我们的流程。首先要做的是将步骤添加到流程中...
+Now that we have our steps defined, we can move on to defining our process. The first thing to do is to add the steps to the process...
 
 ```csharp
 
@@ -166,7 +175,7 @@ var responseStep = process.AddStepFromType<ChatBotResponseStep>();
 
 ```
 
-上面创建的两个步骤已添加到我们的新流程中 `ChatBot` ，并且 `UserInputStep` 已声明为入口点。这意味着该进程收到的任何事件都将被转发到此步骤。现在，我们需要通过描述步骤中的事件触发了哪些作来定义流程的流程。
+The two steps steps created above have been added to our new `ChatBot` process and the `UserInputStep` has been declared as the entry point. This means that any events received by the process will be forwarded to this step. Now we need to define the flow of our process by describing which actions are triggered by events from our steps.
 
 ```csharp
 
@@ -177,15 +186,15 @@ userInputStep
 
 ```
 
-在上面的代码中， `userInputStep.OnFunctionResult(nameof(UserInputStep.GetUserInput))` 选择进程在引用 `GetUserInput` 的步骤实例中成功执行 KernelFunction `userInputStep` 时由进程发出的事件。然后，它返回一个构建器类型对象，该对象根据上下文提供作。在这种情况下，该 `SendOutputTo(responseStep, nameof(ChatBotResponseStep.GetChatResponse), "userMessage")`作用于将事件数据转发到 `userMessage` 引用的步骤实例上的 KernelFunction `GetChatResponse` 参数`responseStep`。
+In the code above, `userInputStep.OnFunctionResult(nameof(UserInputStep.GetUserInput))` selects the event that is emitted by the process on successful execution of the `GetUserInput` KernelFunction in the step instance referenced by `userInputStep`. It then returns a builder type object that provides actions based on the context. In this case the `SendOutputTo(responseStep, nameof(ChatBotResponseStep.GetChatResponse), "userMessage")` action is used to forward the event data to the `userMessage` parameter of the `GetChatResponse` KernelFunction on the step instance referenced by `responseStep`.
 
-这里的一个关键要点是，可以选择给定步骤发出的事件，并将其转发到另一个步骤中**_特定 KernelFunction 的特定参数_**。发送到 KernelFunctions 参数的事件数据将排队，直到函数的所有必需参数都收到输入，此时将调用该函数。
+One of the key takeaways here is that events emitted by a given step can be selected and forwarded to **_a specific parameter of a specific KernelFunction_** within another step. Event data sent to parameters of KernelFunctions are queued until all of the required parameters of the function have received input, at which point the function will be invoked.
 
-#### 第 3 步 - 从进程获取输出：
+#### Step 3 - Get output from the Process:
 
-现在我们已经定义了我们的流程，我们想检查它产生的最终结果。在许多情况下，该过程的结果将被写入数据库、队列或其他一些内部系统，这就是所需的全部内容。但是，在某些情况下，例如，由于同步 REST 调用而在服务器中运行的进程，需要从已完成的进程中提取结果，以便将其返回给调用方。在这些情况下，可以在要由特定事件触发的进程上注册处理程序函数。
+Now that we've defined our process, we would like to inspect the final result that it produces. In many cases the result of the process will be written to a database or queue or some other internal system and that's all that's needed. In some cases however, such as in the case of a process running in a server as the result of a synchronous REST call, there is a need to extract the result from the finished process so that it can be returned to the caller. In these cases handler functions can be registered on the process to be triggered by a specific event.
 
-让我们连接上面的过程，以便在步骤完成时运行处理程序函数 `ChatBotResponseStep` 。
+Let's wire up the process above to run a handler function when the `ChatBotResponseStep` step completes.
 
 ```csharp
 
@@ -197,11 +206,11 @@ process.OnEvent(ChatBotEvents.AssistantResponseGenerated).Run((CloudEvent e) =>
 
 ```
 
-需要注意的关键是，进程内发出的事件 `ChatBotResponseStep` 也是从进程本身发出的，这允许我们为其注册一个处理程序。进程中的所有事件都将从进程中冒出来，到达父进程，父进程可能是运行该进程的程序，也可能是另一个进程。此模式允许嵌套流程，其中现有流程可用作另一个流程中的步骤。
+A key thing to notice is that the event emitted by the `ChatBotResponseStep` within the processes was also be emitted from the processes itself which allows us to register a handler for it. All events within a process will bubble up out of the process to the parent which may be the program running the process or may be another process. This pattern allows for nested processes where an existing process can be used as a step in another process.
 
-#### 步骤 4 - 流程对象模型：
+#### Step 4 - Process object model:
 
- `KernelProcess` 我们创建的实例只不过是一个描述底层图的对象模型。它包含一个步骤集合，而这些步骤又包含一组边缘。此对象模型设计为可序列化为人类可读格式（如 Json/Yaml），因为允许将流程定义与运行流程的系统分离。
+The instance of `KernelProcess` that we've created is nothing more than an object model that describes the underlying graph. It contains a collection of steps that in turn contain a collection of edges. This object model is designed to be serializable in human readable formats such as Json/Yaml as allows the process definition to be decoupled from the system in which the process runs.
 
 ```json
 {
@@ -268,45 +277,45 @@ process.OnEvent(ChatBotEvents.AssistantResponseGenerated).Run((CloudEvent e) =>
 }
 ```
 
-#### 第 5 步 - 运行进程：
+#### Step 5 - Run the Process:
 
-运行进程需要使用指向受支持的运行时的“连接器”。作为核心包的一部分，我们将包括一个进程内运行时，它能够在开发机器或服务器中本地运行进程。此运行时最初将使用基于内存或文件的持久性，并允许轻松进行开发和调试。
+Running a Process requires using a "connector" to a supported runtime. As part of the core packages we will include an in-process runtime that is capable of of running a process locally on a dev machine or in a server. This runtime will initially use memory or file based persistence and will allow for easy development and debugging.
 
-此外，我们还将支持基于 [Orleans](https://learn.microsoft.com/en-us/dotnet/orleans/overview) 和 [Dapr Actor 的](https://docs.dapr.io/developing-applications/building-blocks/actors/actors-overview/)运行时，这将使客户能够轻松地将流程部署为分布式且高度可扩展的基于云的系统。
+Additionally we will provide support for [Orleans](https://learn.microsoft.com/en-us/dotnet/orleans/overview) and [Dapr Actor](https://docs.dapr.io/developing-applications/building-blocks/actors/actors-overview/) based runtimes which will allow customers to easily deploy processes as a distributed and highly scalable cloud based system.
 
-### 包
+### Packages
 
-将为 Processes 创建以下包：
+The following packages will be created for Processes:
 
 - **_Microsoft.SemanticKernel.Process.Abstractions_**
 
-  包含所有其他包使用的公共接口和 DTO。
+  Contains common interfaces and DTOs used by all other packages.
 
 - **_Microsoft.SemanticKernel.Process.Core_**
 
-  包含用于定义步骤和流程的核心功能。
+  Contains core functionality for defining Steps and Processes.
 
 - **_Microsoft.SemanticKernel.Process.Server_**
 
-  包含进程内运行时。
+  Contains the in-process runtime.
 
 - **_Microsoft.SemanticKernel.Process_**
 
-  包含 Microsoft.SemanticKernel.Process.Abstractions、Microsoft.SemanticKernel.Process.Core 和 Microsoft.SemanticKernel.Process.Server
+  Contains Microsoft.SemanticKernel.Process.Abstractions, Microsoft.SemanticKernel.Process.Core, and Microsoft.SemanticKernel.Process.Server
 
 - **_Microsoft.SemanticKernel.Process.Orleans_**
 
-  包含基于 Orleans 的运行时。
+  Contains the Orleans based runtime.
 
 - **_Microsoft.SemanticKernel.Process.Dapr_**
 
-  包含基于 Dapr 的运行时。
+  Contains the Dapr based runtime.
 
-## 更多信息
+## More Information
 
-### 进程运行时架构：
+### Process runtime architecture:
 
-在验证建议的解决方案时，创建了两个运行时，一个用于本地/服务器方案，另一个用于使用 Orleans 的分布式执行组件方案。这两个实现都基于 [Pregel 算法](https://kowshik.github.io/JPregel/pregel_paper.pdf) 进行大规模图形处理。此算法经过充分测试，非常适合单机场景以及分布式系统。有关 Pregel 算法工作原理的更多信息，请访问以下链接。
+In validation of the proposed solution, two runtimes were created, one for the local/server scenario and one for the distributed actor scenario using Orleans. Both of these implementation were based on the [Pregel Algorithm](https://kowshik.github.io/JPregel/pregel_paper.pdf) for large-scale graph processing. This algorithm is well tested and well suited for single machine scenarios as well as distributed systems. More information on how the Pregel algorithm works can be found in the following links.
 
 <!-- [Pregel - The Morning Paper](https://blog.acolyer.org/2015/05/26/pregel-a-system-for-large-scale-graph-processing/) -->
 <!-- [Pregel - Distributed Algorithms and Optimization](https://web.stanford.edu/~rezab/classes/cme323/S15/notes/lec8.pdf) -->

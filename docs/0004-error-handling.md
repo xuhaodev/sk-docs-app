@@ -1,37 +1,46 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: SergeyMenshykh
+date: 2023-06-23
+deciders: shawncal
+consulted: stephentoub
+informed:
+---
 
-# 错误处理改进
+# Error handling improvements
 
-## 免責聲明
+## Disclaimer
 
-此 ADR 描述了改进 SK 错误处理方面的问题及其解决方案。它不涉及日志记录、弹性或可观测性方面。
+This ADR describes problems and their solutions for improving the error handling aspect of SK. It does not address logging, resiliency, or observability aspects.
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-目前，SK 中的错误处理有几个方面可以得到增强，以简化 SK 代码和 SK 客户端代码，同时确保一致性和可维护性：
+Currently, there are several aspects of error handling in SK that can be enhanced to simplify SK code and SK client code, while also ensuring consistency and maintainability:
 
-- **异常传播**。SK 有一些公共方法，如 Kernel.RunAsync 和 SKFunction.InvokeAsync，它们以非标准方式处理异常。它们不是引发异常，而是捕获异常并将其存储在 SKContext 中。这与 .NET 中的标准错误处理方法不同，后者期望方法在履行合同时成功执行，或者在违反合同时引发异常。因此，在使用 SK SDK 的 .NET 版本时，如果不分析 SKContext 实例的特定属性，就很难确定方法执行成功还是失败。这可能会导致使用 .NET SK SDK 的开发人员感到沮丧。
+- **Exception propagation**. SK has a few public methods, like Kernel.RunAsync and SKFunction.InvokeAsync, that handle exceptions in a non-standard way. Instead of throwing exceptions, they catch and store them within the SKContext. This deviates from the standard error handling approach in .NET, which expects a method to either execute successfully if its contract is fulfilled or throw an exception if the contract is violated. Consequently, when working with the .NET version of the SK SDK, it becomes challenging to determine whether a method executed successfully or failed without analyzing specific properties of the SKContext instance. This can lead to a frustrating experience for developers using the .NET SK SDK.
 
-- **异常使用不当**。某些 SK 组件使用自定义 SK 异常而不是标准 .NET 异常来指示无效参数、配置问题等。这偏离了 .NET 中错误处理的标准方法，可能会让 SK 客户端代码开发人员感到沮丧。
+- **Improper exception usage**. Some SK components use custom SK exceptions instead of standard .NET exceptions to indicate invalid arguments, configuration issues, and so on. This deviates from the standard approach for error handling in .NET and may frustrate SK client code developers.
 
-- **异常层次结构**。一半的自定义 SK 异常派生自 SKException，而另一半直接派生自 Exception。异常层次结构中的这种不一致不会形成一个有凝聚力的异常模型。
+- **Exception hierarchy**. Half of the custom SK exceptions are derived from SKException, while the other half are directly derived from Exception. This inconsistency in the exception hierarchy does not contribute to a cohesive exception model.
 
-- **不必要和详细的异常** 一些 SK 组件（如 Kernel 或 Planner）在其级别具有异常，即 PlanningException 或 KernelException，这些异常并不是真正必要的，可以很容易地被 SKException 及其一些衍生产品替换。SK 客户端可能会变得依赖它们，因此如果 SK 需要停止使用它们，则以后很难删除它们。此外，SK 的每个 SK 内存连接器都有一个异常类型 - PineconeMemoryException、QdrantMemoryException，该类型不添加任何附加信息，仅在名称上有所不同，同时具有相同的成员签名。这使得 SK 客户端代码无法以整合的方式处理它们。SK 客户端代码需要为每个组件实现包含一个 catch 块，而不是一个 catch 块。此外，每次添加或删除新的组件实现时，都需要更新 SK 客户端代码。
+- **Unnecessary and verbose exceptions** A few SK components, such as the Kernel or Planner, have exceptions at their level, namely PlanningException or KernelException, that are not truly necessary and can be easily replaced by SKException and a few of its derivatives. SK clients might become dependent on them, making it challenging to remove them later if SK needs to discontinue their usage. Additionally, SK has an exception type for each SK memory connector - PineconeMemoryException, QdrantMemoryException that does not add any additional information and only differs by name while having the same member signatures. This makes it impossible for SK client code to handle them in a consolidated manner. Instead of having a single catch block, SK client code needs to include a catch block for each component implementation. Moreover, SK client code needs to be updated every time a new component implementation is added or removed.
 
-- **缺少原始异常详细信息**。某些 SK 异常不会保留原始失败或异常详细信息，也不会通过其属性公开它们。此遗漏会阻止 SK 客户端代码理解问题并正确处理问题。
+- **Missing original exception details**. Certain SK exceptions do not preserve the original failure or exception details and do not expose them through their properties. This omission prevents SK client code from understanding the problem and handling it properly.
 
-## 决策驱动因素
+## Decision Drivers
 
-- 异常应传播到 SK 客户端代码，而不是存储在 SKContext 中。此调整将使 SK 错误处理与 .NET 方法保持一致。
-- SK 异常层次结构应遵循“少即是多”的原则进行设计。以后添加新的异常更容易，但删除它们可能很困难。
-- .NET 标准异常类型应优先于 SK 自定义异常类型，因为它们易于识别，不需要任何维护，可以涵盖常见错误场景，并提供有意义和标准化的错误消息。
-- 将异常传递给调用方时，不应将异常包装在 SK 异常中，除非它有助于为 SK 或 SK 客户端代码构建可作的逻辑。
+- Exceptions should be propagated to the SK client code instead of being stored in the SKContext. This adjustment will bring SK error handling in line with the .NET approach.
+- The SK exception hierarchy should be designed following the principle of "less is more." It is easier to add new exceptions later, but removing them can be challenging.
+- .NET standard exception types should be preferred over SK custom ones because they are easily recognizable, do not require any maintenance, can cover common error scenarios, and provide meaningful and standardized error messages.
+- Exceptions should not be wrapped in SK exceptions when passing them up to a caller, unless it helps in constructing actionable logic for either SK or SK client code.
 
-## 考虑的选项
+## Considered Options
 
-- 通过删除除 SKException 异常类型之外的所有自定义异常类型以及任何其他可作类型，简化现有的 SK 异常层次结构。使用 SKException 类型而不是已删除的类型，除非需要传达更多详细信息，在这种情况下，请创建派生的特定异常。
-- 修改 SK 代码以在未提供类参数值或类参数值无效时引发 .NET 标准异常，例如 ArgumentOutOfRangeException 或 ArgumentNullException，而不是引发自定义 SK 异常。分析 SK 异常使用情况，以识别和修复可以使用标准 .NET 异常的其他潜在领域。
-- 删除将未经处理的异常包装到 AIException 或任何其他仅用于包装目的的 SK 异常的代码。在大多数情况下，此代码不会为对其执行作提供有用的信息，除了通用且无信息量的“Something went wrong”消息。
-- 确定原始异常未保留为重新引发的 SK 异常的内部异常的所有情况，并解决这些情况。
-- 创建一个新的异常 HttpOperationException，其中包含 StatusCode 属性，并实现必要的逻辑来映射来自 HttpStatusCode、HttpRequestException 或 Azure.RequestFailedException 的异常。更新与 HTTP 堆栈交互的现有 SK 代码，以便在 HTTP 请求失败时引发 HttpOperationException，并将原始异常分配为其内部异常。
-- 修改当前存储 SK context 异常的所有 SK 组件，以改为重新抛出它们。
-- 通过修改 IsCriticalException 扩展方法以排除对 StackOverflowException 和 OutOfMemoryException 异常的处理，简化 SK 严重异常处理功能。这是因为前一个异常不会引发，因此不会执行调用代码，而后一个异常不一定会阻止恢复代码的执行。
+- Simplify existing SK exception hierarchy by removing all custom exceptions types except the SKException one and any other type that is actionable. Use SKException type instead of the removed ones unless more details need to be conveyed in which case create a derived specific exception.
+- Modify SK code to throw .NET standard exceptions, such as ArgumentOutOfRangeException or ArgumentNullException, when class argument values are not provided or are invalid, instead of throwing custom SK exceptions. Analyze SK exception usage to identify and fix other potential areas where standard .NET exceptions can be used instead.
+- Remove any code that wraps unhandled exceptions into AIException or any other SK exception solely for the purpose of wrapping. In most cases, this code does not provide useful information to action on it, apart from a generic and uninformative "Something went wrong" message.
+- Identify all cases where the original exception is not preserved as an inner exception of the rethrown SK exception, and address them.
+- Create a new exception HttpOperationException, which includes a StatusCode property, and implement the necessary logic to map the exception from HttpStatusCode, HttpRequestException, or Azure.RequestFailedException. Update existing SK code that interacts with the HTTP stack to throw HttpOperationException in case of a failed HTTP request and assign the original exception as its inner exception.
+- Modify all SK components that currently store exceptions to SK context to rethrow them instead.
+- Simplify the SK critical exception handling functionality by modifying the IsCriticalException extension method to exclude handling of StackOverflowException and OutOfMemoryException exceptions. This is because the former exception is not thrown, so the calling code won't be executed, while the latter exception doesn't necessarily prevent the execution of recovery code.

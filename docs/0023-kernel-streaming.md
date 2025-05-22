@@ -1,46 +1,54 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+date: 2023-11-13
+deciders: rogerbarreto,markwallace-microsoft,SergeyMenshykh,dmytrostruk
+consulted:
+informed:
+---
 
-# 用于 Kernel 和 Functions 的流式处理功能 - 第 1 阶段
+# Streaming Capability for Kernel and Functions usage - Phase 1
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-在 co-pilot 实现中，从 LLM（大型语言模型）M 简化消息输出是很常见的，目前在使用 ISKFunctions.InvokeAsync 或 Kernel.RunAsync 方法时无法做到这一点，这迫使用户绕过内核和函数，以直接使用 `ITextCompletion` 和服务 `IChatCompletion` 作为当前支持流式处理的唯一接口。
+It is quite common in co-pilot implementations to have a streamlined output of messages from the LLM (large language models)M and currently that is not possible while using ISKFunctions.InvokeAsync or Kernel.RunAsync methods, which enforces users to work around the Kernel and Functions to use `ITextCompletion` and `IChatCompletion` services directly as the only interfaces that currently support streaming.
 
-目前，并非所有提供商都支持流式处理功能，作为我们设计的一部分，我们尝试确保服务具有适当的抽象，不仅支持文本流式处理，而且对其他类型的数据（如图像、音频、视频等）开放。
+Currently streaming is a capability that not all providers do support and this as part of our design we try to ensure the services will have the proper abstractions to support streaming not only of text but be open to other types of data like images, audio, video, etc.
 
-当 sk 开发人员尝试获取流数据时，需要清楚这一点。
+Needs to be clear for the sk developer when he is attempting to get streaming data.
 
-## 决策驱动因素
+## Decision Drivers
 
-1. sk 开发人员应该能够使用 Kernel.RunAsync 或 ISKFunctions.InvokeAsync 方法从内核和函数获取流数据
+1. The sk developer should be able to get streaming data from the Kernel and Functions using Kernel.RunAsync or ISKFunctions.InvokeAsync methods
 
-2. sk 开发人员应该能够以通用方式获取数据，因此 Kernel 和 Functions 能够流式传输任何类型的数据，而不限于文本。
+2. The sk developer should be able to get the data in a generic way, so the Kernel and Functions can be able to stream data of any type, not limited to text.
 
-3. sk 开发人员在从不支持流式处理的模型中使用流式处理时，仍应能够使用它，并且只有一个流式处理更新表示整个数据。
+3. The sk developer when using streaming from a model that does not support streaming should still be able to use it with only one streaming update representing the whole data.
 
-## 超出范围
+## Out of Scope
 
-- 在此阶段，将不支持使用计划进行流式传输。尝试这样做将引发异常。
-- 内核流式处理将不支持多个函数 （pipeline）。
-- 此阶段将不支持输入流式处理。
-- 不支持流式传输功能的 Post Hook Skipping、Repeat 和 Cancelling。
+- Streaming with plans will not be supported in this phase. Attempting to do so will throw an exception.
+- Kernel streaming will not support multiple functions (pipeline).
+- Input streaming will not be supported in this phase.
+- Post Hook Skipping, Repeat and Cancelling of streaming functions are not supported.
 
-## 考虑的选项
+## Considered Options
 
-### 选项 1 - 专用流式处理接口
+### Option 1 - Dedicated Streaming Interfaces
 
-使用专用的流接口，允许 sk 开发人员以通用方式获取流数据，包括字符串、字节数组，并允许 Kernel 和 Functions 实现能够流式传输任何类型的数据，而不限于文本。
+Using dedicated streaming interfaces that allow the sk developer to get the streaming data in a generic way, including string, byte array directly from the connector as well as allowing the Kernel and Functions implementations to be able to stream data of any type, not limited to text.
 
-这种方法还公开了内核和函数中的专用接口以使用流式处理，使 sk 开发人员清楚地知道以 IAsyncEnumerable 格式返回的数据类型是什么。
+This approach also exposes dedicated interfaces in the kernel and functions to use streaming making it clear to the sk developer what is the type of data being returned in IAsyncEnumerable format.
 
-`ITextCompletion` 并且 `IChatCompletion` 将具有新的 API 来直接获取 `byte[]` 和 `string` 流式传输数据以及专用 `StreamingContent` 返回。
+`ITextCompletion` and `IChatCompletion` will have new APIs to get `byte[]` and `string` streaming data directly as well as the specialized `StreamingContent` return.
 
-sk 开发人员将能够为 指定泛型类型， `Kernel.RunStreamingAsync<T>()` 并 `ISKFunction.InvokeStreamingAsync<T>` 获取流数据。如果未指定类型，则 Kernel 和 Functions 会将数据作为 StreamingContent 返回。
+The sk developer will be able to specify a generic type to the `Kernel.RunStreamingAsync<T>()` and `ISKFunction.InvokeStreamingAsync<T>` to get the streaming data. If the type is not specified, the Kernel and Functions will return the data as StreamingContent.
 
-如果未指定类型或无法强制转换字符串表示形式，则会引发异常。
+If the type is not specified or if the string representation cannot be cast, an exception will be thrown.
 
-如果指定的类型是 `StreamingContent` 连接器支持的其他 any 类型，则不会引发错误。
+If the type specified is `StreamingContent` or another any type supported by the connector no error will be thrown.
 
-## 用户体验目标
+## User Experience Goal
 
 ```csharp
 //(providing the type at as generic parameter)
@@ -60,7 +68,7 @@ await foreach(StreamingContent update in kernel.RunStreamingAsync(function, vari
 }
 ```
 
-抽象类，连接器将负责提供其专用类型，`StreamingContent`该类型将包含数据以及与流结果相关的任何元数据。
+Abstraction class for any stream content, connectors will be responsible to provide the specialized type of `StreamingContent` which will contain the data as well as any metadata related to the streaming result.
 
 ```csharp
 
@@ -94,7 +102,7 @@ public abstract class StreamingContent
 }
 ```
 
-StreamingChatContent 的专用化示例
+Specialization example of a StreamingChatContent
 
 ```csharp
 //
@@ -120,7 +128,7 @@ public class StreamingChatContent : StreamingContent
 }
 ```
 
-`IChatCompletion` 接口 `ITextCompletion` 将具有新的 API 来获取通用的流式处理内容数据。
+`IChatCompletion` and `ITextCompletion` interfaces will have new APIs to get a generic streaming content data.
 
 ```csharp
 interface ITextCompletion + IChatCompletion
@@ -143,14 +151,14 @@ interface ISKFunction
 }
 ```
 
-## 提示/语义函数行为
+## Prompt/Semantic Functions Behavior
 
-当使用流式处理 API 调用提示函数时，它们将尝试使用 Connectors 流式处理实现。
-连接器将负责提供专用类型的 `StreamingContent` ，即使底层后端 API 不支持流式处理，输出也将是一个包含整个数据的 streamingcontent。
+When Prompt Functions are invoked using the Streaming API, they will attempt to use the Connectors streaming implementation.
+The connector will be responsible to provide the specialized type of `StreamingContent` and even if the underlying backend API don't support streaming the output will be one streamingcontent with the whole data.
 
-## 方法/本机函数行为
+## Method/Native Functions Behavior
 
-方法函数将自动支持 `StreamingContent` `StreamingMethodContent` 在迭代器中返回的对象作为包装。
+Method Functions will support `StreamingContent` automatically with as a `StreamingMethodContent` wrapping the object returned in the iterator.
 
 ```csharp
 public sealed class StreamingMethodContent : StreamingContent
@@ -190,34 +198,34 @@ public sealed class StreamingMethodContent : StreamingContent
 }
 ```
 
-如果 MethodFunction 返回 `IAsyncEnumerable` each，则可枚举结果将自动包装， `StreamingMethodContent` 以保持流行为和整体抽象的一致性。
+If a MethodFunction is returning an `IAsyncEnumerable` each enumerable result will be automatically wrapped in the `StreamingMethodContent` keeping the streaming behavior and the overall abstraction consistent.
 
-当 MethodFunction 不是 时 `IAsyncEnumerable`，完整结果将包装在 a `StreamingMethodContent` 中，并将作为单个项目返回。
+When a MethodFunction is not an `IAsyncEnumerable`, the complete result will be wrapped in a `StreamingMethodContent` and will be returned as a single item.
 
-## 优点
+## Pros
 
-1. 所有 User Experience Goal 部分选项都将可用。
-2. Kernel 和 Functions 实现将能够流式传输任何类型的数据，不仅限于文本
-3. sk 开发人员将能够从该方法中提供它期望的流式处理内容类型 `GetStreamingContentAsync<T>` 。
-4. Sk 开发人员将能够从具有相同结果类型的 Kernel、Functions 和 Connectors 获取流。
+1. All the User Experience Goal section options will be possible.
+2. Kernel and Functions implementations will be able to stream data of any type, not limited to text
+3. The sk developer will be able to provide the streaming content type it expects from the `GetStreamingContentAsync<T>` method.
+4. Sk developer will be able to get streaming from the Kernel, Functions and Connectors with the same result type.
 
-## 缺点
+## Cons
 
-1. 如果 sk 开发人员想要使用专用类型的 ， `StreamingContent` 他将需要知道正在使用什么连接器，以使用正确的 **StreamingContent 扩展方法** 或直接提供键入 `<T>`.
-2. 连接器将承担更大的责任来支持正确的特殊类型的 `StreamingContent`.
+1. If the sk developer wants to use the specialized type of `StreamingContent` he will need to know what the connector is being used to use the correct **StreamingContent extension method** or to provide directly type in `<T>`.
+2. Connectors will have greater responsibility to support the correct special types of `StreamingContent`.
 
-### 选项 2 - 专用流式处理接口（返回类）
+### Option 2 - Dedicated Streaming Interfaces (Returning a Class)
 
-与选项 1 相比的所有更改，但略有不同：
+All changes from option 1 with the small difference below:
 
-- Kernel 和 SKFunction 流式处理 API 接口将返回 `StreamingFunctionResult<T>` ，该接口还实现了 `IAsyncEnumerable<T>`
-- 连接器流式处理 API 接口将返回 `StreamingConnectorContent<T>` ，该接口也实现 `IAsyncEnumerable<T>`
+- The Kernel and SKFunction streaming APIs interfaces will return `StreamingFunctionResult<T>` which also implements `IAsyncEnumerable<T>`
+- Connectors streaming APIs interfaces will return `StreamingConnectorContent<T>` which also implements `IAsyncEnumerable<T>`
 
- `StreamingConnectorContent` 连接器需要该类，作为传递与请求相关的任何信息的一种方式，而不是函数可用于填充 `StreamingFunctionResult` 元数据的块。
+The `StreamingConnectorContent` class is needed for connectors as one way to pass any information relative to the request and not the chunk that can be used by the functions to fill `StreamingFunctionResult` metadata.
 
-## 用户体验目标
+## User Experience Goal
 
-选项 2 最大好处：
+Option 2 Biggest benefit:
 
 ```csharp
 // When the caller needs to know more about the streaming he can get the result reference before starting the streaming.
@@ -228,7 +236,7 @@ var streamingResult = await kernel.RunStreamingAsync(function);
 await foreach(StreamingContent chunk content in await streamingResult)
 ```
 
-使用其他作将非常相似（只需要额外的 `await` 作来获取迭代器）
+Using the other operations will be quite similar (only needing an extra `await` to get the iterator)
 
 ```csharp
 // Getting a Raw Streaming data from Kernel
@@ -247,7 +255,7 @@ await foreach(StreamingContent update in await kernel.RunStreamingAsync(function
 
 ```
 
-StreamingConnectorResult 是一个类，它可以存储有关使用流之前的结果的信息，以及流在连接器级别使用的任何基础对象（碎玻璃）。
+StreamingConnectorResult is a class that can store information regarding the result before the stream is consumed as well as any underlying object (breaking glass) that the stream consumes at the connector level.
 
 ```csharp
 
@@ -272,7 +280,7 @@ interface ITextCompletion + IChatCompletion
 }
 ```
 
-StreamingFunctionResult 是一个类，它可以存储有关使用流之前的结果的信息，以及流从 Kernel 和 SKFunctions 使用的任何基础对象 （碎玻璃） 的信息。
+StreamingFunctionResult is a class that can store information regarding the result before the stream is consumed as well as any underlying object (breaking glass) that the stream consumes from Kernel and SKFunctions.
 
 ```csharp
 public sealed class StreamingFunctionResult<T> : IAsyncEnumerable<T>
@@ -318,25 +326,25 @@ static class KernelExtensions
 }
 ```
 
-## 优点
+## Pros
 
-1. 选项 1 的所有优势 +
-2. 使用 StreamingFunctionResults 可以让 sk 开发人员在使用流之前了解有关结果的更多详细信息，例如：
-   - 底层 API 提供的任何元数据，
+1. All benefits from Option 1 +
+2. Having StreamingFunctionResults allow sk developer to know more details about the result before consuming the stream, like:
+   - Any metadata provided by the underlying API,
    - SKContext
-   - 函数名称和详细信息
-3. 使用 Streaming 的体验与选项 1 非常相似（需要额外的 await 才能获得结果）
-4. API 的行为类似于非流式处理 API（返回结果表示以获取值）
+   - Function Name and Details
+3. Experience using the Streaming is quite similar (need an extra await to get the result) to option 1
+4. APIs behave similarly to the non-streaming API (returning a result representation to get the value)
 
-## 缺点
+## Cons
 
-1. 选项 1 的所有缺点 +
-2. 增加了复杂性，因为 IAsyncEnumerable 不能直接在方法结果中传递，这要求在实现 IAsyncEnumerator 的 Results 内部调整委托方法。
-3. 增加了复杂性，其中需要在 Results 中实现 IDisposable 以释放响应对象，并且调用方需要处理结果的处置。
-4. 一旦调用方获得一个`StreamingFunctionResult`网络连接，该网络连接将保持打开状态，直到调用方实现使用它（枚举 `IAsyncEnumerable`）。
+1. All cons from Option 1 +
+2. Added complexity as the IAsyncEnumerable cannot be passed directly in the method result demanding a delegate approach to be adapted inside of the Results that implements the IAsyncEnumerator.
+3. Added complexity where IDisposable is needed to be implemented in the Results to dispose the response object and the caller would need to handle the disposal of the result.
+4. As soon the caller gets a `StreamingFunctionResult` a network connection will be kept open until the caller implementation consume it (Enumerate over the `IAsyncEnumerable`).
 
-## 决策结果
+## Decision Outcome
 
-选项 1 被选为最佳选项，因为选项 2 的小好处并不能证明缺点中描述的复杂性是合理的。
+Option 1 was chosen as the best option as small benefit of the Option 2 don't justify the complexity involved described in the Cons.
 
-还决定可以将与连接器后端响应相关的元数据添加到 `StreamingContent.Metadata` 属性中。这将允许 sk 开发人员获取元数据，即使没有 `StreamingConnectorResult` 或 `StreamingFunctionResult`。
+Was also decided that the Metadata related to a connector backend response can be added to the `StreamingContent.Metadata` property. This will allow the sk developer to get the metadata even without a `StreamingConnectorResult` or `StreamingFunctionResult`.

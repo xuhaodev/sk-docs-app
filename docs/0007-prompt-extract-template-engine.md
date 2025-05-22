@@ -1,24 +1,33 @@
-# 从 Semantic Kernel 核心中提取 Prompt Template Engine
+---
+# These are optional elements. Feel free to remove any of them.
+status: accepted
+contact: markwallace-microsoft
+date: 2023-08-25
+deciders: shawncal
+consulted: 
+informed: 
+---
+# Extract the Prompt Template Engine from Semantic Kernel core
 
-## 上下文和问题陈述
+## Context and Problem Statement
 
-Semantic Kernel 包括一个默认的提示模板引擎，用于渲染 Semantic Kernel 提示，即 `skprompt.txt` 文件。提示模板在发送到 AI 之前进行渲染，以允许动态生成提示，例如，包括输入参数或本机或语义函数执行的结果。
-为了降低 Semantic Kernel 的复杂性和 API 表面，将提取提示模板引擎并将其添加到它自己的包中。
+The Semantic Kernel includes a default prompt template engine which is used to render Semantic Kernel prompts i.e., `skprompt.txt` files. The prompt template is rendered before being send to the AI to allow the prompt to be generated dynamically e.g., include input parameters or the result of a native or semantic function execution.
+To reduce the complexity and API surface of the Semantic Kernel the prompt template engine is going to be extracted and added to it's own package.
 
-长期目标是实现以下方案：
+The long term goal is to enable the following scenarios:
 
-1. 实现自定义模板引擎，例如，使用 Handlebars 模板。现在支持此功能，但我们希望简化要实现的 API。
-2. 支持使用零个或多个模板引擎。
+1. Implement a custom template engine e.g., using Handlebars templates. This is supported now but we want to simplify the API to be implemented.
+2. Support using zero or many template engines.
 
-## 决策驱动因素
+## Decision Drivers
 
-* 减少 API 表面和语义内核核心的复杂性。
-* 简化 `IPromptTemplateEngine` 界面，以便更轻松地实现自定义模板引擎。
-* 在不破坏现有客户端的情况下进行更改。
+* Reduce API surface and complexity of the Semantic Kernel core.
+* Simplify the `IPromptTemplateEngine` interface to make it easier to implement a custom template engine.
+* Make the change without breaking existing clients.
 
-## 决策结果
+## Decision Outcome
 
-* 创建名为 的新程序包 `Microsoft.SemanticKernel.TemplateEngine`。
-* 维护所有提示模板引擎代码的现有命名空间。
-* 简化 `IPromptTemplateEngine` 接口，仅要求实现 `RenderAsync`.
-* 动态加载现有组件（`PromptTemplateEngine`如果 `Microsoft.SemanticKernel.TemplateEngine` 程序集可用）。
+* Create a new package called `Microsoft.SemanticKernel.TemplateEngine`.
+* Maintain the existing namespace for all prompt template engine code.
+* Simplify the `IPromptTemplateEngine` interface to just require implementation of `RenderAsync`.
+* Dynamically load the existing `PromptTemplateEngine` if the `Microsoft.SemanticKernel.TemplateEngine` assembly is available.

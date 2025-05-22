@@ -1,59 +1,65 @@
+---
+# These are optional elements. Feel free to remove any of them.
+status: proposed
+contact: crickman, mabolan, semenshi
+date: 2024-01-16
+---
 
-# 文件服务
+# File Services
 
-## 上下文和问题陈述
-OpenAI 提供了文件服务，用于上传文件用于*辅助检索*或*模型微调*： `https://api.openai.com/v1/files`
+## Context and Problem Statement
+OpenAI provides a file service for uploading files to be used for *assistant retrieval* or *model fine-tuning*: `https://api.openai.com/v1/files`
 
-其他提供商也可能提供某种类型的文件服务，例如 Gemini。
+Other providers may also offer some type of file-service, such as Gemini.
 
-> 注意： *Azure Open AI* 目前不支持 OpenAI 文件服务 API。
+> Note: *Azure Open AI* does not currently support the OpenAI file service API.
 
-## 考虑的选项
+## Considered Options
 
-1. 添加 OpenAI 文件服务支持 `Microsoft.SemanticKernel.Experimental.Agents`
-2. 添加文件服务抽象并实现对 OpenAI 的支持
-3. 添加 OpenAI 文件服务支持，无需抽象
+1. Add OpenAI file service support to `Microsoft.SemanticKernel.Experimental.Agents`
+2. Add a file service abstraction and implement support for OpenAI
+3. Add OpenAI file service support without abstraction
 
-## 决策结果
+## Decision Outcome
 
-> 选项 3. **添加 OpenAI 文件服务支持，无需抽象**
-> 使用 label 将代码标记为实验代码： `SKEXP0010`
+> Option 3. **Add OpenAI file service support without abstraction**
+> Mark code as experimental using label: `SKEXP0010`
 
-定义通用文件服务接口为除 OpenAI 之外的其他供应商提供了一个扩展点**。
+Defining a generalized file service interface provides an extensibility point for other vendors, in addition to *OpenAI*.
 
-## 选项的优缺点
+## Pros and Cons of the Options
 
-### 选项 1.添加 OpenAI 文件服务支持 `Microsoft.SemanticKernel.Experimental.Agents`
-**优点：**
-1. 对现有 AI 连接器没有影响。
+### Option 1. Add OpenAI file service support to `Microsoft.SemanticKernel.Experimental.Agents`
+**Pro:**
+1. No impact to existing AI connectors.
 
-**缺点：**
-1. 不能通过 AI 连接器重复使用。
-1. 没有常见的抽象。
-1. 用于 OpenAI 助手以外的用途的非自然依赖项绑定。
+**Con:**
+1. No reuse via AI connectors.
+1. No common abstraction.
+1. Unnatural dependency binding for uses other than with OpenAI assistants.
 
-### 选项 2.添加文件服务抽象并实现对 OpenAI 的支持
-**优点：**
-1. 定义文件服务交互的通用接口。
-1. 允许对供应商特定的服务进行专业化。
+### Option 2. Add a file service abstraction and implement support for OpenAI
+**Pro:**
+1. Defines a common interface for file service interactions.
+1. Allows for specialization for vendor specific services.
 
-**缺点：**
-1. 其他系统可能与现有假设不同。
-
-
-### 选项 3.添加 OpenAI 文件服务支持，无需抽象
-**优点：**
-1. 提供对 OpenAI file-service 的支持。
-
-**缺点：**
-1. 来自其他供应商的文件服务产品按具体情况提供支持，没有通用性。
+**Con:**
+1. Other systems may diverge from existing assumptions.
 
 
-## 更多信息
+### Option 3. Add OpenAI file service support without abstraction
+**Pro:**
+1. Provides support for OpenAI file-service.
 
-### BinaryContent 的签名
+**Con:**
+1. File service offerings from other vendors supported case-by-case without commonality.
 
-> 注意： `BinaryContent` object 能够提供任一 `BinaryData` 或 `Stream` 任何调用的构造函数。
+
+## More Information
+
+### Signature of BinaryContent
+
+> Note: `BinaryContent` object able to provide either `BinaryData` or `Stream` regardless of which constructor is invoked.
 
 #### `Microsoft.SemanticKernel.Abstractions`
 
@@ -82,7 +88,7 @@ public sealed class BinaryContent : KernelContent
     public Task<Stream> GetStreamAsync();
 }
 ```
-### 选项 3 的签名：
+### Signatures for Option 3:
 
 #### `Microsoft.SemanticKernel.Connectors.OpenAI`
 ```csharp
