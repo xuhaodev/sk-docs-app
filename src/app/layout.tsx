@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { getSortedDocsData } from '@/lib/docs';
 import ResizableSidebar from '@/components/ResizableSidebar';
+import ChatBubble from '@/components/ChatBubble';
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -28,6 +29,7 @@ export default function RootLayout({
             {children}
           </div>
         </main>
+        <ChatBubble chatbotUrl="https://haxunlweb.azurewebsites.net/" />
       </body>
     </html>
   );

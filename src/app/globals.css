@@ -61,3 +61,35 @@ body {
 aside, main {
   transition: width 0.05s ease-out, margin-left 0.05s ease-out;
 }
+
+/* 聊天组件响应式调整 */
+@media (max-width: 640px) {
+  #chat-bubble-container {
+    bottom: 1rem;
+    right: 1rem;
+  }
+}
+
+/* 聊天泡泡动画 */
+@keyframes pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+  }
+  70% {
+    box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0);
+  }
+}
+
+#chat-bubble-container button {
+  animation: pulse 2s infinite;
+}
+
+/* 暗色模式下的聊天泡泡动画 */
+@media (prefers-color-scheme: dark) {
+  #chat-bubble-container button {
+    animation: pulse 2s infinite;
+  }
+}
