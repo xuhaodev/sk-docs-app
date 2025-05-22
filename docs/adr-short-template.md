@@ -1,27 +1,26 @@
+# {Short name for the solved problem and solution}
 
-# {已解决问题和解决方案的简称}
+## Context and Problem Statement
 
-## 上下文和问题陈述
-
-{描述上下文和问题陈述，例如，使用两到三个句子以自由形式或以说明性故事的形式。
-您可能希望以问题的形式阐明问题，并添加指向协作板或问题管理系统的链接。
+{Describe the context and problem statement, e.g., in free form using two to three sentences or in the form of an illustrative story.
+You may want to articulate the problem in the form of a question and add links to collaboration boards or issue management systems.
 
 <!-- This is an optional element. Feel free to remove. -->
 
-## 决策驱动因素
+## Decision Drivers
 
-- {决策驱动因素 1，例如，一种力量，面临关注，...}
-- {决策驱动因素 2，例如，一股力量，面临关注，...}
+- {Decision driver 1, e.g., a force, facing concern, ...}
+- {Decision driver 2, e.g., a force, facing concern, ...}
 - … <!-- numbers of drivers can vary -->
 
-## 考虑的选项
+## Considered Options
 
-- {选项 1 的标题}
-- {选项 2 的标题}
-- {选项 3 的标题}
+- {Title of option 1}
+- {Title of option 2}
+- {Title of option 3}
 - … <!-- numbers of options can vary -->
 
-## 决策结果
+## Decision Outcome
 
-选择的选项：“{option 1} 的标题”，因为
-例如，只有选项，它满足 K.O. 标准 决策驱动 | 它解决力 {force} | ... | 效果最好（见下文）}。
+Chosen option: "{Title of option 1}", because
+e.g., the only option that meets the K.O. criterion decision driver | it resolves force {force} | ... | it is the best (see below).

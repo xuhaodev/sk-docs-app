@@ -1,77 +1,76 @@
+# {Short name for the solved problem and solution}
 
-# {已解决问题和解决方案的简称}
+## Context and Problem Statement
 
-## 上下文和问题陈述
-
-{描述上下文和问题陈述，例如，使用两到三个句子以自由形式或以说明性故事的形式。
-您可能希望以问题的形式阐明问题，并添加指向协作板或问题管理系统的链接。
+{Describe the context and problem statement, e.g., in free form using two to three sentences or in the form of an illustrative story.
+You may want to articulate the problem in the form of a question and add links to collaboration boards or issue management systems.
 
 <!-- This is an optional element. Feel free to remove. -->
 
-## 决策驱动因素
+## Decision Drivers
 
-- {决策驱动因素 1，例如，一种力量，面临关注，...}
-- {决策驱动因素 2，例如，一股力量，面临关注，...}
+- {Decision driver 1, e.g., a force, facing concern, ...}
+- {Decision driver 2, e.g., a force, facing concern, ...}
 - … <!-- numbers of drivers can vary -->
 
-## 考虑的选项
+## Considered Options
 
-- {选项 1 的标题}
-- {选项 2 的标题}
-- {选项 3 的标题}
+- {Title of option 1}
+- {Title of option 2}
+- {Title of option 3}
 - … <!-- numbers of options can vary -->
 
-## 决策结果
+## Decision Outcome
 
-选择的选项：“{option 1} 的标题”，因为
-例如，只有选项，它满足 K.O. 标准 决策驱动 | 它解决力 {force} | ... | 效果最好（见下文）}。
+Chosen option: "{Title of option 1}", because
+e.g., the only option that meets the K.O. criterion decision driver | it resolves force {force} | ... | it is the best (see below).
 
 <!-- This is an optional element. Feel free to remove. -->
 
-### 后果
+### Consequences
 
-- 好，因为 {积极的结果，例如，一个或多个所需品质的改善，...}
-- 坏的，因为 {负面后果，例如，损害一个或多个期望的品质，...}
+- Good, because {positive outcome, e.g., improvement of one or more desired qualities, ...}
+- Bad, because {negative consequence, e.g., compromising one or more desired qualities, ...}
 - … <!-- numbers of consequences can vary -->
 
 <!-- This is an optional element. Feel free to remove. -->
 
-## 验证
+## Validation
 
-{描述如何验证 ADR 的实施/合规性。例如，通过审查或 ArchUnit 测试}
-
-<!-- This is an optional element. Feel free to remove. -->
-
-## 选项的优缺点
-
-### {选项 1 的标题}
+{Describe how the implementation/compliance of the ADR is validated. E.g. by a review or an ArchUnit test}
 
 <!-- This is an optional element. Feel free to remove. -->
 
-{示例 | 描述 | 指向更多信息的指针 | ...}
+## Pros and Cons of the Options
 
-- 很好，因为 {argument a}
-- 很好，因为 {argument b}<!-- use "neutral" if the given argument weights neither for good nor bad -->
-- 中立，因为 {argument c}
-- 糟糕，因为 {argument d}
+### {Title of option 1}
+
+<!-- This is an optional element. Feel free to remove. -->
+
+{Example | Description | Pointer to more information | ...}
+
+- Good, because {argument a}
+- Good, because {argument b}<!-- use "neutral" if the given argument weights neither for good nor bad -->
+- Neutral, because {argument c}
+- Bad, because {argument d}
 - … <!-- numbers of pros and cons can vary -->
 
-### {其他选项的标题}
+### {Title of other options}
 
-{示例 | 描述 | 指向更多信息的指针 | ...}
+{Example | Description | Pointer to more information | ...}
 
-- 很好，因为 {argument a}
-- 很好，因为 {argument b}
-- 中立，因为 {argument c}
-- 糟糕，因为 {argument d}
+- Good, because {argument a}
+- Good, because {argument b}
+- Neutral, because {argument c}
+- Bad, because {argument d}
 - …
 
 <!-- This is an optional element. Feel free to remove. -->
 
-## 更多信息
+## More Information
 
-{您可能希望在此处为决策结果提供额外的证据/置信度，和/或
-记录关于决策的团队协议和/或
-定义何时、何时以及如何实现该决策，以及是否/何时应重新审视该决策和/或
-如何验证决策。
-此处也可能显示指向其他决策和资源的链接。
+{You might want to provide additional evidence/confidence for the decision outcome here and/or
+document the team agreement on the decision and/or
+define when and how the decision should be realized and if/when it should be re-visited and/or
+how the decision is validated.
+Links to other decisions and resources might appear here as well.}
