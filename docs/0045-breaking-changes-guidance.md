@@ -1,32 +1,36 @@
+# Breaking Changes Guidance
 
-# 重大更改指南
+## Context and Problem Statement
 
-## 上下文和问题陈述
+We must avoid breaking changes in .Net due to the well-known [diamond dependency problem](https://learn.microsoft.com/en-us/dotnet/standard/library-guidance/dependencies#diamond-dependencies), where breaking changes between different versions of the same package can cause runtime errors and exceptions.
 
-我们必须避免在 .Net 中发生重大更改，因为存在众所周知的 [菱形依赖项问题](https://learn.microsoft.com/en-us/dotnet/standard/library-guidance/dependencies#diamond-dependencies) ，即同一包的不同版本之间的重大更改会导致运行时出现错误和异常。
+## Decision Drivers
 
-## 决策驱动因素
+Breaking changes are only allowed in the following cases:
 
-仅在以下情况下允许中断性变更：
+- Updates to experimental features, i.e., where we've learned something new and need to modify the design of an experimental feature.
+- When one of our dependencies introduces an unavoidable breaking change.
 
-- 对实验性功能的更新，即我们学到了一些新东西，需要修改实验性功能的设计。
-- 当我们的依赖项之一引入了不可避免的中断性变更时。
+All breaking changes must be clearly documented, absolutely in the release notes, and potentially via migration guides and blog posts.
 
-所有重大更改都必须清楚地记录在内，绝对在发行说明中，也可能通过迁移指南 博客文章。
+- Include a detailed description of breaking changes in PR descriptions so that they can be included in the release notes.
+- Update the Learn site migration guide documentation, and publish that document to align with the release that includes the breaking changes.
 
-- 在 PR 描述中包含重大更改的详细描述，以便将其包含在发行说明中。
-- 更新 Learn 站点迁移指南文档，并发布此文档，以便与包含重大更改的版本保持一致。
+When introducing public types, careful thought and review should be done to ensure the API is correct, follows all guidance, and honors .NET Design Guidelines.
 
-在所有其他情况下，我们必须避免中断更改。在某些情况下，我们需要移动以适应对我们的依赖项之一的更改或引入新功能，例如
+For example, a public type should:
+- Not expose fields
+- Expose properties
+- Have virtual methods as needed
+- Be inheritable OR sealed
+- Follow .NET naming conventions
+- Be async if needed
+- Use standard .NET abstractions if possible
+- Avoid using SK abstractions unless required
+- Have adequate test coverage
+- Have code coverage as required for methods and properties
+- Annotated with the expected lifetime (experimental or stable)
 
-- 当我们发现安全问题或严重错误（例如数据丢失）时。
-- 我们的一个依赖项引入了一个重大的突破性变化，例如引入了新的 OpenAI SDK。
-- 当我们在当前实现中发现严重限制时，例如，当 AI 服务引入新功能时。
+## Decision Outcome
 
-在这些情况下，我们将计划过时 API，并提供到新首选模式的记录迁移路径。
-这方面的一个例子是切换到新的 OpenAI .Net SDK。
-在此过渡期间，将支持新旧 API 以允许客户迁移。
-
-## 决策结果
-
-所选选项：由于众所周知的菱形依赖项问题，我们必须避免在 .Net 中中断更改。
+Selected option: We must avoid breaking changes in .Net due to the well-known diamond dependency problem.
