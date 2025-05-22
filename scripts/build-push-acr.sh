@@ -3,7 +3,7 @@
 # ACR配置
 ACR_NAME="haxureg"
 IMAGE_NAME="sk-docs-app"
-TAG="latest"
+TAG="v2"
 
 # 登录到ACR
 az acr login --name $ACR_NAME

@@ -1,6 +1,5 @@
 FROM node:20-alpine AS builder
 
-# 设置淘宝npm镜像源和环境变量
 ENV NEXT_TELEMETRY_DISABLED=1
 
 WORKDIR /app
