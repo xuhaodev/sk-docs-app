@@ -1,11 +1,8 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
 import "./globals.css";
 import { getSortedDocsData } from '@/lib/docs';
 import ResizableSidebar from '@/components/ResizableSidebar';
 import ChatBubble from '@/components/ChatBubble';
-
-const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "SK Docs",
@@ -20,7 +17,7 @@ export default function RootLayout({
   const allDocsData = getSortedDocsData();
 
   return (
-    <html lang="en" className={`h-full ${inter.className}`}>
+    <html lang="en" className="h-full">
       <body className="flex min-h-full bg-[var(--background)]">
         <ResizableSidebar docs={allDocsData} />
         <main className="flex-1 p-8"
