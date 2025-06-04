@@ -26,7 +26,7 @@ export default function RootLayout({
             {children}
           </div>
         </main>
-        <ChatBubble chatbotUrl="https://haxunlweb.azurewebsites.net/" />
+        <ChatBubble chatbotUrl="https://haxunlweb2.azurewebsites.net/" />
       </body>
     </html>
   );
